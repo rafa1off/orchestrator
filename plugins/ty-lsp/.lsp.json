@@ -1,0 +1,13 @@
+{
+  "servers": {
+    "ty": {
+      "command": "ty",
+      "args": [
+        "server"
+      ],
+      "extensionToLanguage": {
+        ".py": "python"
+      }
+    }
+  }
+}

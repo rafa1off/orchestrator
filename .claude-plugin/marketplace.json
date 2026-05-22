@@ -1,0 +1,34 @@
+{
+  "name": "orchestrator-plugins",
+  "description": "Orchestrator ecosystem plugins",
+  "owner": {
+    "name": "Rafael Giuriatto",
+    "email": "rafael.giuriatto@resolva.ai"
+  },
+  "metadata": {
+    "pluginRoot": "./plugins"
+  },
+  "plugins": [
+    {
+      "name": "orchestrator-core",
+      "source": "./plugins/orchestrator-core",
+      "version": "1.0.0",
+      "description": "Multi-agent orchestrator: 6 agents (reader, researcher, checker, reviewer, tester, documenter), orchestrator routing skill, stack-agnostic dev-tools MCP server, and SessionStart hook. writer.md and thinker.md are installed separately at project level via setup-orchestrator (permissionMode constraint).",
+      "strict": true
+    },
+    {
+      "name": "ty-lsp",
+      "source": "./plugins/ty-lsp",
+      "version": "1.0.0",
+      "description": "Python LSP via Astral ty — go-to-definition, find-references, document-symbol on Python files. Requires: uv tool install ty",
+      "strict": true
+    },
+    {
+      "name": "vtsls-lsp",
+      "source": "./plugins/vtsls-lsp",
+      "version": "1.0.0",
+      "description": "TypeScript/JavaScript LSP via vtsls — go-to-definition, find-references, document-symbol on .ts/.tsx/.js files. Requires: npm install -g @vtsls/language-server",
+      "strict": true
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "dev-tools": {
+      "type": "stdio",
+      "command": "uv",
+      "args": [
+        "run",
+        "${CLAUDE_PLUGIN_ROOT}/mcp-server-py/server.py"
+      ],
+      "env": {
+        "CLAUDE_PROJECT_DIR": "${CLAUDE_PROJECT_DIR}"
+      }
+    }
+  }
+}

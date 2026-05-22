@@ -1,0 +1,5 @@
+{
+  "name": "orchestrator-core",
+  "version": "1.0.0",
+  "description": "Multi-agent orchestrator: 6 agents (reader, researcher, checker, reviewer, tester, documenter), orchestrator routing skill, stack-agnostic dev-tools MCP server, and SessionStart hook. writer.md and thinker.md must be installed at project level via setup-orchestrator (permissionMode constraint)."
+}

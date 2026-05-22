@@ -1,0 +1,12 @@
+{
+  "SessionStart": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "rm -f ${CLAUDE_PROJECT_DIR}/.claude/pipeline/checker-findings.json ${CLAUDE_PROJECT_DIR}/.claude/pipeline/reviewer-findings.json"
+        }
+      ]
+    }
+  ]
+}
