@@ -63,6 +63,16 @@ claude plugin install ty-lsp@orchestrator
 claude plugin install vtsls-lsp@orchestrator
 ```
 
+#### Other language servers
+
+For Go, Rust, Java, and other languages, check the official Claude Code plugin marketplace:
+
+```bash
+/plugin marketplace browse
+```
+
+Official LSP plugins (gopls, rust-analyzer, etc.) are maintained there and install without any additional configuration.
+
 ### 3. Activate in your project
 
 Add one line to your project's `CLAUDE.md`:
@@ -161,18 +171,6 @@ Python LSP via [Astral ty](https://github.com/astral-sh/ty). Provides go-to-defi
 TypeScript and JavaScript LSP via [vtsls](https://github.com/yioneko/vtsls). Provides go-to-definition, find-references, hover, and document-symbol on `.ts`, `.tsx`, `.js`, and `.jsx` files.
 
 **Prerequisite:** `npm install -g @vtsls/language-server`
-
----
-
-## Other language servers
-
-For Go, Rust, Java, and other languages, check the official Claude Code plugin marketplace:
-
-```bash
-/plugin marketplace browse
-```
-
-Official LSP plugins (gopls, rust-analyzer, etc.) are maintained there and install without any additional configuration.
 
 ---
 
