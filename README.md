@@ -12,6 +12,21 @@ A private Claude Code plugin marketplace for the orchestrator multi-agent develo
 
 ---
 
+## Requirements
+
+### MCP dev-tools server (`orchestrator-core`)
+
+The dev-tools MCP server is a Python process launched automatically when the plugin is active. It requires either:
+
+| Runtime | Minimum version | Notes |
+|---|---|---|
+| [`uv`](https://github.com/astral-sh/uv) | any recent | Preferred — server runs via `uv run`; dependencies resolved automatically from the bundled `pyproject.toml` |
+| Python | 3.11+ | Fallback — server runs via `python`; install dependencies manually: `pip install fastmcp` |
+
+If `uv` is present it is used automatically. If only `python` is available, the server falls back to the plain-Python command set — no extra configuration needed.
+
+---
+
 ## Installation
 
 ### 1. Add this marketplace to Claude Code
