@@ -1,13 +1,11 @@
 {
   "servers": {
-    "ty": {
-      "command": "ty",
-      "args": [
-        "server"
-      ],
-      "extensionToLanguage": {
-        ".py": "python"
-      }
+    "command": "ty",
+    "args": [
+      "server"
+    ],
+    "extensionToLanguage": {
+      ".py": "python"
     }
   }
 }
