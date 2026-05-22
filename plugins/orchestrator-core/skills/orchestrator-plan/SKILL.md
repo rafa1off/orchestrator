@@ -1,0 +1,131 @@
+---
+name: orchestrator-plan
+description: Write an orchestrator-native implementation plan for a multi-step task, mapping each step to specific agents and respecting the 5 invariants. Saves to .claude/plans/.
+when_to_use: Use before any multi-step development task that requires more than trivial changes. Produces a plan ready for orchestrator-execute.
+---
+
+# Orchestrator Plan
+
+**Announce at start:** "Using orchestrator-plan to write the implementation plan."
+
+---
+
+## Step 1 — Enter Plan Mode
+
+Check whether plan mode is already active by inspecting your system context: if the plan mode read-only enforcement preamble and ExitPlanMode protocol footer are already present (session was started with `--permission-mode plan`, `/plan` prefix, or Shift+Tab before the prompt), **skip this step** — the plan file path is already specified and calling `EnterPlanMode` again is unnecessary.
+
+Otherwise, call `EnterPlanMode`. The session is now read-only — file edits are blocked until the plan is approved.
+
+---
+
+## Step 2 — Research
+
+Run reader and researcher **in parallel** to gather context. Skip researcher if the task is purely internal (no external library APIs, no prior decisions in `docs/`).
+
+```
+Agent(reader,     "Map the relevant modules for: [task]. Return files, interfaces, entry points, conventions.")
+Agent(researcher, "Find external patterns or prior decisions in docs/ relevant to: [task].")  // omit if not needed
+```
+
+---
+
+## Step 3 — Decide
+
+Run thinker with the gathered context to decide which agents apply and why.
+
+```
+Agent(thinker, """
+Task: [description]
+
+Reader output:
+[paste reader result]
+
+Researcher output (if run):
+[paste researcher result or "not run"]
+
+Produce an agent map for this task. For each of the 8 agents, state whether it is needed and why or why not:
+
+- reader      — needed / not needed: [reason]
+- researcher  — needed / not needed: [reason]
+- thinker     — needed / not needed: [reason]
+- writer      — needed / not needed: [reason, list files]
+- checker+reviewer — needed / not needed: [reason, after which writer phase]
+- tester      — needed / not needed: [reason, what new logic needs tests]
+- documenter  — needed / not needed: [reason, what public surface changes]
+
+Then list the ordered stages with dependencies.
+""")
+```
+
+---
+
+## Step 4 — Write the Plan
+
+Write the plan to **the file path specified in the plan mode system message** — that is the path ExitPlanMode will read. Do not write to `.claude/plans/` here; Write is blocked in plan mode.
+
+Use this content format:
+
+```markdown
+# [Feature Name] — Orchestrator Plan
+
+> **For execution:** Use `orchestrator-execute` to run this plan. It enforces the 5 invariants automatically.
+
+**Goal:** [one sentence]
+**Date:** YYYY-MM-DD
+
+---
+
+## Context
+
+[2-3 sentences summarizing what reader and researcher found — enough for execute to skip re-reading]
+
+## Files
+
+| Action | Path | Purpose |
+|--------|------|---------|
+| Create | `path/to/file.py` | ... |
+| Modify | `path/to/existing.py` | ... |
+
+## Agent Map
+
+Agents marked ✗ are explicitly excluded from this plan.
+
+| Agent | Included | Reason |
+|-------|----------|--------|
+| reader | ✓ | Map [module] before writing |
+| researcher | ✗ | No external APIs or prior decisions involved |
+| thinker | ✗ | No architectural decision point |
+| writer | ✓ | Implement [feature] in [files] |
+| checker+reviewer | ✓ | After write phase |
+| tester | ✓ | New logic in [file] needs tests |
+| documenter | ✗ | No public API changes |
+
+## Stages
+
+- [ ] **Stage 1 — reader:** [specific instruction — what to map]
+- [ ] **Stage 2 — writer:** [specific instruction — what to implement, exact files]
+- [ ] **Stage 3a — checker:** Scoped to [files from Stage 2]
+- [ ] **Stage 3b — reviewer:** Scoped to [files from Stage 2]
+  - If findings → writer fixes → re-verify (max 2 rounds)
+- [ ] **Stage 4 — tester:** [what logic to test, which files to cover]
+
+## Risks
+
+- [risk or unknown 1]
+- [risk or unknown 2]
+```
+
+---
+
+## Step 5 — Present for Approval
+
+Call `ExitPlanMode`. Claude Code reads the plan file from Step 4 and presents it to the user. The user chooses to approve (and picks a permission mode) or keep planning.
+
+---
+
+## Step 6 — Archive and Execute
+
+After the user approves (plan mode is now exited, Write is unblocked):
+
+1. Write the plan to `.claude/plans/YYYY-MM-DD-<feature-name>.md`. The system plan file from Step 4 is session-scoped and will not survive a new session — this archive is what makes deferred or repeated execution possible, and what gets committed to git as a decision record.
+2. Call `Skill("/orchestrator-core:orchestrator-execute")` to begin implementation.
