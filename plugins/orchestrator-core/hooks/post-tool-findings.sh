@@ -3,6 +3,8 @@
 # so the orchestrator receives results automatically without a manual cat step.
 set -euo pipefail
 
+command -v jq >/dev/null 2>&1 || exit 0
+
 INPUT=$(cat)
 SOURCE=$(echo "$INPUT" | jq -r '.tool_input.source // empty' 2>/dev/null)
 [ -z "$SOURCE" ] && exit 0
