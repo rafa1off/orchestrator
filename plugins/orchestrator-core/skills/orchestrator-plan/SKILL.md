@@ -100,14 +100,31 @@ Agents marked ✗ are explicitly excluded from this plan.
 | tester | ✓ | New logic in [file] needs tests |
 | documenter | ✗ | No public API changes |
 
+## Tasks
+
+List every individual work item. Each becomes one entry in the Claude Code task list during execution.
+
+1. [work description] — `file1.py`
+2. [work description] — `file2.py`
+3. [work description] — `file3.py`
+
 ## Stages
 
+Stages describe how agents execute the tasks above. Each verify checkpoint is one atomic gate — checker and reviewer always run together.
+
 - [ ] **Stage 1 — reader:** [specific instruction — what to map]
-- [ ] **Stage 2 — writer:** [specific instruction — what to implement, exact files]
-- [ ] **Stage 3a — checker:** Scoped to [files from Stage 2]
-- [ ] **Stage 3b — reviewer:** Scoped to [files from Stage 2]
+- [ ] **Stage 2 — writer:**
+  - task 1: [description] — `file1.py`
+  - task 2: [description] — `file2.py` *(parallel with task 1 — disjoint files)*
+- [ ] **Stage 3 — verify:** checker + reviewer scoped to `file1.py`, `file2.py`
   - If findings → writer fixes → re-verify (max 2 rounds)
-- [ ] **Stage 4 — tester:** [what logic to test, which files to cover]
+- [ ] **Stage 4 — writer:**
+  - task 3: [description] — `file3.py`
+- [ ] **Stage 5 — verify:** checker + reviewer scoped to `file3.py`
+  - If findings → writer fixes → re-verify (max 2 rounds)
+- [ ] **Stage 6 — tester:** [what logic to test, which files to cover]
+
+> When a writer stage lists multiple tasks with disjoint files, mark them `*(parallel)*`. Tasks sharing a file must be serialized — omit the parallel marker.
 
 ## Risks
 

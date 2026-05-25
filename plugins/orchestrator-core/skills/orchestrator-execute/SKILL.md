@@ -23,35 +23,39 @@ when_to_use: Use after orchestrator-plan has produced a plan document. Handles T
 
 ## Step 2 — Create Tasks
 
-Read the plan's Stages list. Create one task per stage using the **exact stage description from the plan**:
+Read the plan's Tasks and Stages sections. Tasks reflect **what is being done** — not which agent does it.
 
+**For each work item** (reader, researcher, thinker, individual writer task, tester, documenter):
 ```
-TaskCreate("Stage N — [agent]: [exact description from plan]")
+TaskCreate("[work description]")
 ```
+Strip any "Stage N — [agent]:" prefix. Use only the work description.
 
-For `Stage Na — checker` and `Stage Nb — reviewer` entries, create **two separate tasks** — one for each:
+Example: `"Stage 2 — writer: add rate limiting to api.py"` → `TaskCreate("add rate limiting to api.py")`
 
+**For each verify checkpoint** (checker + reviewer pair), create **one** task:
 ```
-TaskCreate("Stage Na — checker: [exact scope from plan]")
-TaskCreate("Stage Nb — reviewer: [exact scope from plan]")
+TaskCreate("verify [scope] — checker + reviewer")
 ```
+Checker and reviewer always run as an atomic pair — they share one task, not two.
 
-If the plan has 3+ stages, also create `.claude/pipeline/progress.md`:
+Example: `"Stage 3a — checker / 3b — reviewer: scoped to api.py"` → `TaskCreate("verify api.py — checker + reviewer")`
+
+**progress.md:** Create `.claude/pipeline/progress.md` only when the plan has 5+ stages or the work is explicitly expected to span multiple sessions. For normal plans, the task list alone is sufficient:
 
 ```markdown
 # Pipeline Progress — [task name from plan Goal]
 
 ## Status
-Step: Stage 1
+Step: [first stage]
 
 ## Completed
 (none yet)
 
 ## Pending
-- [ ] Stage 1 — [agent]: [exact description from plan]
-- [ ] Stage 2 — [agent]: [exact description from plan]
-- [ ] Stage 3a — checker: [exact scope from plan]
-- [ ] Stage 3b — reviewer: [exact scope from plan]
+- [ ] [work description — task 1]
+- [ ] [work description — task 2]
+- [ ] verify [step N scope] — checker + reviewer
 ...
 
 ## Key Decisions
@@ -85,7 +89,7 @@ Agent(reader, "[instruction from plan stage]")
 TaskUpdate(id, status="completed")
 ```
 
-Update `progress.md`: move stage to Completed with a one-line note on what was found.
+If progress.md exists: move stage to Completed with a one-line note on what was found.
 
 ---
 
@@ -114,7 +118,7 @@ TaskUpdate(id, status="completed")
 
 ### writer
 
-Serialize if file sets overlap with another active writer stage.
+**Single task (one file or one logical unit):**
 
 ```
 TaskUpdate(id, status="in_progress")
@@ -131,19 +135,38 @@ Agent(writer, """
 TaskUpdate(id, status="completed")
 ```
 
+**Multiple tasks with disjoint file sets (parallel):**
+
+When the plan marks tasks as parallel (disjoint files), dispatch all writers in the same message turn and update all their task IDs:
+
+```
+TaskUpdate(task1_id, status="in_progress")
+TaskUpdate(task2_id, status="in_progress")
+
+Agent(writer, "## Context\n[...]\n## Task\n[task 1]\n## Files to modify\n[file1]")
+Agent(writer, "## Context\n[...]\n## Task\n[task 2]\n## Files to modify\n[file2]")
+
+// after both complete:
+TaskUpdate(task1_id, status="completed")
+TaskUpdate(task2_id, status="completed")
+```
+
+**Multiple tasks sharing a file (serialize):**
+
+When tasks share a file, run writers sequentially — one per task, completing before starting the next.
+
 ---
 
 ### checker + reviewer
 
-Always dispatched together in the same message turn.
+Checker and reviewer share the single verify checkpoint task. Always dispatch both in the same message turn.
 
 ```bash
 rm -f .claude/pipeline/checker-findings.json .claude/pipeline/reviewer-findings.json
 ```
 
 ```
-TaskUpdate(checker_id, status="in_progress")
-TaskUpdate(reviewer_id, status="in_progress")
+TaskUpdate(verify_id, status="in_progress")
 
 Agent(checker,  "Run scoped checks. Modified files: [list from writer output]")
 Agent(reviewer, "[task context and summary of what writer changed]")
@@ -158,8 +181,7 @@ cat .claude/pipeline/reviewer-findings.json
 
 **If both PASS/APPROVED:**
 ```
-TaskUpdate(checker_id, status="completed")
-TaskUpdate(reviewer_id, status="completed")
+TaskUpdate(verify_id, status="completed")
 ```
 Continue to next stage.
 
