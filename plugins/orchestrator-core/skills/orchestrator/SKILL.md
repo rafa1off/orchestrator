@@ -25,6 +25,23 @@ The main Claude Code session acts as orchestrator. Agents are tools — call the
 
 ---
 
+## Agent Contracts
+
+Quick-reference for dispatching agents and reading their output. Canonical `## Input` / `## Output` definitions live in each agent's own file — this is the coordinator's read-only summary.
+
+| Agent | Invoke with | Returns |
+|-------|------------|---------|
+| reader | task + file paths | `Relevant Files / Interfaces / Conventions / Entry Points / Test Files` — or `## Cannot Proceed` |
+| researcher | task + research question | `Prior Decisions / API Reference / Approach / Caveats` |
+| thinker | context block (reader + researcher output) + question | `Analysis / Brainstorming / Q&A` — or `## Context Request` |
+| writer | `## Context` + `## Task` + `## Files to modify` (initial); `## Batch Fixes Required` (retry) | `## Modified Files` with exact paths |
+| checker | writer's `## Modified Files` list; optional `pipeline` path for team tracks | `## Check Results` table; writes `<pipeline>/checker-findings.json` |
+| reviewer | task context + `## Modified Files` list; optional `pipeline` path (reads diff itself via `git diff HEAD`) | `APPROVED` or `ISSUES` with `file:line`; writes `<pipeline>/reviewer-findings.json` |
+| tester | task + changed files + what to test | `## Test Results` with written files + pass/fail table |
+| documenter | changed surface description + modified files | `Updated:` list of changed doc files |
+
+---
+
 ## Core Invariants
 
 These rules hold regardless of task size, route, or mode. Never violate them.

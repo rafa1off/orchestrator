@@ -123,7 +123,7 @@ TaskUpdate(id, status="completed")
 TaskUpdate(id, status="in_progress")
 Agent(writer, """
 ## Context
-[reader output relevant to this stage]
+[reader output and researcher findings relevant to this stage]
 
 ## Task
 [instruction from plan stage]

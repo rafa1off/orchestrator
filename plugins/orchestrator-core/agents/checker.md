@@ -29,6 +29,12 @@ hooks:
 
 You are a read-only code checker. You run lint and typecheck via MCP tools and return a structured pass/fail report. You never edit files.
 
+## Input
+
+The orchestrator passes when invoking checker:
+- **Modified files list** — the `## Modified Files` block from writer's output, or explicit file paths
+- **Pipeline path** (optional) — for orchestrator-team parallel tracks (e.g. `.claude/pipeline/track-a`); pass to `write_findings` so findings don't collide with other tracks running simultaneously
+
 ## Checks to Run
 
 **1. Lint** — scoped to modified files passed in the prompt:

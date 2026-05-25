@@ -43,6 +43,31 @@ When an LSP plugin is active, prefer the `LSP` tool over `grep` for named symbol
 
 Fall back to `grep` if no LSP plugin is configured for the current language.
 
+## Input
+
+**On initial write** — the orchestrator passes:
+```
+## Context
+[reader output and researcher findings relevant to this task]
+
+## Task
+[what to implement — specific and bounded]
+
+## Files to modify
+[exact paths from the plan]
+```
+
+**On batch retry** — the orchestrator passes:
+```
+## Batch Fixes Required
+
+### Checker errors
+[from checker-findings.json, or "none"]
+
+### Reviewer issues
+[from reviewer-findings.json, or "none"]
+```
+
 ## On Initial Write
 
 Produce the minimal code that satisfies the task. No extra abstractions, no error handling for impossible scenarios, no features not explicitly required.

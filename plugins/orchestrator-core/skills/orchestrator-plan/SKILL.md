@@ -42,15 +42,7 @@ Reader output:
 Researcher output (if run):
 [paste researcher result or "not run"]
 
-Produce an agent map for this task. For each of the 8 agents, state whether it is needed and why or why not:
-
-- reader      — needed / not needed: [reason]
-- researcher  — needed / not needed: [reason]
-- thinker     — needed / not needed: [reason]
-- writer      — needed / not needed: [reason, list files]
-- checker+reviewer — needed / not needed: [reason, after which writer phase]
-- tester      — needed / not needed: [reason, what new logic needs tests]
-- documenter  — needed / not needed: [reason, what public surface changes]
+Produce an agent map for this task. List only the agents that are needed with a one-line reason each — omit agents that clearly don't apply. For writer stages, name the files. For tester, note what new logic needs tests. For documenter, note what public surface changes.
 
 Then list the ordered stages with dependencies.
 """)

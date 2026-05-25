@@ -89,6 +89,7 @@ Spawn a teammate to implement Track A. Context:
 - Files: src/module-a.py, tests/test_module_a.py
 - Goal: [goal]
 - Follow the standard orchestrator loop: read the files first, write changes, then run checker and reviewer. Write tests after reviewer approves.
+- When invoking checker and reviewer, pass pipeline: ".claude/pipeline/track-a" to isolate your findings from other tracks running in parallel.
 - Claim task "Track A" from the task list when starting.
 ```
 
@@ -110,7 +111,11 @@ After all teammates complete their tracks:
 1. Pull all changes into one view: `git diff HEAD`
 2. Run the full test suite: `uv run pytest` (or equivalent)
 3. If integration tests fail, fix conflicts directly or dispatch a single writer subagent for the integration file set
-4. Run checker + reviewer one final time on the integrated diff
+4. Clear stale track findings, then run a final integrated verify:
+   ```bash
+   rm -f .claude/pipeline/checker-findings.json .claude/pipeline/reviewer-findings.json
+   ```
+   Dispatch checker + reviewer on the full integrated diff (no `pipeline` path — use the default).
 
 ---
 
