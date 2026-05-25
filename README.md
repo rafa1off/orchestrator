@@ -6,7 +6,7 @@ A private Claude Code plugin marketplace for the orchestrator multi-agent develo
 
 | Plugin | Description | Requires |
 |---|---|---|
-| [`orchestrator-core`](#orchestrator-core) | 8 agents, 3 skills, stack-agnostic dev-tools MCP, SessionStart hook | `uv` |
+| [`orchestrator-core`](#orchestrator-core) | 8 agents, 4 skills, stack-agnostic dev-tools MCP, SessionStart + SubagentStop hooks | `uv` |
 | [`ty-lsp`](#ty-lsp) | Python LSP via Astral ty | `uv tool install ty` |
 | [`vtsls-lsp`](#vtsls-lsp) | TypeScript/JavaScript LSP via vtsls | `npm install -g @vtsls/language-server` |
 
@@ -91,16 +91,18 @@ A complete multi-agent development harness for Claude Code. The orchestrator ses
 
 ### Agents
 
-| Agent | Model | Role |
-|---|---|---|
-| `reader` | haiku | Maps code paths, returns structured context snapshots |
-| `researcher` | sonnet | Finds external patterns, library APIs, prior project decisions |
-| `writer` | sonnet | Produces minimal, focused code changes from a context block |
-| `thinker` | sonnet | Deep reasoning, tradeoff analysis, architectural decisions |
-| `checker` | haiku | Runs lint + typecheck, writes structured findings |
-| `reviewer` | sonnet | Reviews diffs against conventions, writes structured findings |
-| `tester` | sonnet | Identifies missing tests, writes them, runs the suite |
-| `documenter` | sonnet | Updates `docs/` and `CLAUDE.md` when public surfaces change |
+| Agent | Model | Permission | Role |
+|---|---|---|---|
+| `reader` | haiku | `plan` | Maps code paths, returns structured context snapshots |
+| `researcher` | sonnet | `plan` | Finds external patterns, library APIs, prior project decisions; persists findings to project memory |
+| `writer` | sonnet | session | Produces minimal, focused code changes from a context block |
+| `thinker` | sonnet | `plan` | Deep reasoning, tradeoff analysis, architectural decisions; persists decisions to project memory |
+| `checker` | haiku | `plan` | Runs lint + typecheck, writes structured findings; dispatched as background task |
+| `reviewer` | sonnet | `plan` | Reviews diffs against conventions, writes structured findings |
+| `tester` | sonnet | session | Identifies missing tests, writes them, runs the suite |
+| `documenter` | sonnet | session | Updates `docs/` and `CLAUDE.md` when public surfaces change |
+
+`plan` = read-only at harness level regardless of session mode. `session` = inherits the active session's permission mode.
 
 ### Skills
 
@@ -109,6 +111,7 @@ A complete multi-agent development harness for Claude Code. The orchestrator ses
 | `/orchestrator-core:orchestrator` | Load at every session start — the agent routing guide |
 | `/orchestrator-core:orchestrator-plan` | Before any multi-step task — writes a plan to `.claude/plans/` |
 | `/orchestrator-core:orchestrator-execute` | After plan approval — dispatches agents and enforces the 5 invariants |
+| `/orchestrator-core:orchestrator-team` | For tasks with 3+ independent write tracks — fans out to agent teammates running in parallel; requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` |
 
 ### Dev-tools MCP server
 

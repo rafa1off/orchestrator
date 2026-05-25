@@ -9,6 +9,26 @@
           }
         ]
       }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "checker",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "test -f \"${CLAUDE_PROJECT_DIR}/.claude/pipeline/checker-findings.json\" || echo \"[orchestrator] WARNING: checker stopped without writing findings to .claude/pipeline/checker-findings.json\""
+          }
+        ]
+      },
+      {
+        "matcher": "reviewer",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "test -f \"${CLAUDE_PROJECT_DIR}/.claude/pipeline/reviewer-findings.json\" || echo \"[orchestrator] WARNING: reviewer stopped without writing findings to .claude/pipeline/reviewer-findings.json\""
+          }
+        ]
+      }
     ]
   }
 }

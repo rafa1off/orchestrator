@@ -10,6 +10,8 @@ assistant: [checker runs checks and returns structured pass/fail with error deta
 </example>"
 model: haiku
 effort: low
+permissionMode: plan
+background: true
 tools:
   - Bash
   - mcp__dev-tools__lint

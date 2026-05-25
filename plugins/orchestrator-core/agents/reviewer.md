@@ -10,6 +10,7 @@ assistant: [reviewer returns APPROVED or issue list]
 </example>"
 model: sonnet
 effort: medium
+permissionMode: plan
 tools:
   - Read
   - LSP

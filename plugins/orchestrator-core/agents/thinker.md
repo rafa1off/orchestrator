@@ -10,6 +10,7 @@ assistant: [thinker returns structured analysis with recommendation]
 </example>"
 model: sonnet
 effort: high
+permissionMode: plan
 memory: project
 skills:
   - brainstorming
@@ -86,3 +87,25 @@ When an LSP plugin is active, prefer the `LSP` tool over `grep` for named symbol
 Fall back to `Read` + broad file inspection if no LSP plugin is configured for the current language.
 
 - When the question involves LLM prompts, Claude API usage, or agent behavior, call `Skill("prompt-engineering-patterns")` first.
+
+## Memory
+
+Your memory is stored at `.claude/agent-memory/thinker/MEMORY.md` (version-controlled). It auto-loads at startup.
+
+**Write to memory when you make:**
+- Architectural decisions with non-obvious rationale — record the decision, the rejected alternatives, and *why* each was rejected
+- Tradeoff analyses where the answer surprised you or wasn't obvious from the code alone
+- Constraints discovered during analysis that are not documented elsewhere (e.g., "do not use X because of Y limitation in this project")
+
+**Format each entry as:**
+```
+## [Decision title] — [date]
+**Decision:** [what was chosen]
+**Rejected:** [alternatives and why each was rejected]
+**Constraint:** [any hidden constraint that drove the choice]
+```
+
+**Do not write:**
+- Task-specific findings that won't recur
+- Things already documented in `CLAUDE.md` or `docs/`
+- Analysis that's only valid for the current codebase state (add a note if the decision has an expiry condition)
