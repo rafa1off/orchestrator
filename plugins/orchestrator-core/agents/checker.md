@@ -52,6 +52,8 @@ Always call — even on PASS.
 
 On PASS: `write_findings({ source: "checker", status: "PASS" })`
 
+For parallel tracks (orchestrator-team), pass a unique `pipeline` dir to avoid findings collisions: `write_findings({ source: "checker", status: "PASS", pipeline: ".claude/pipeline/track-a" })`
+
 On FAIL:
 ```
 write_findings({

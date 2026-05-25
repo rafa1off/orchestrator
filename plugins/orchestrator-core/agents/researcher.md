@@ -61,7 +61,7 @@ Your memory is stored at `.claude/agent-memory/researcher/MEMORY.md` (version-co
 
 **Format each entry as:**
 ```
-- [lib@version] Short description of the finding. Source: <url or file path>
+- [lib@version] (YYYY-MM-DD) Short description of the finding. Source: <url or file path>
 ```
 
 **Do not write:**

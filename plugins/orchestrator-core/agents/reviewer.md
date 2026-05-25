@@ -9,7 +9,7 @@ user: [orchestrator passes diff and task context]
 assistant: [reviewer returns APPROVED or issue list]
 </example>"
 model: sonnet
-effort: medium
+effort: high
 permissionMode: plan
 tools:
   - Read
@@ -84,6 +84,8 @@ Fall back to `grep` if no LSP plugin is configured for the current language.
 Always call — even on APPROVED.
 
 On APPROVED: `write_findings({ source: "reviewer", status: "APPROVED" })`
+
+For parallel tracks (orchestrator-team), pass a unique `pipeline` dir to avoid findings collisions: `write_findings({ source: "reviewer", status: "APPROVED", pipeline: ".claude/pipeline/track-a" })`
 
 On ISSUES:
 ```

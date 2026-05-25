@@ -25,7 +25,7 @@
             "command": "bash",
             "args": [
               "-c",
-              "test -f \"${CLAUDE_PROJECT_DIR}/.claude/pipeline/checker-findings.json\" || { echo '[orchestrator] BLOCKED: checker exited without writing findings. Re-invoke write_findings before stopping.' >&2; exit 2; }"
+              "FILE=\"${CLAUDE_PROJECT_DIR}/.claude/pipeline/checker-findings.json\"; { [ -f \"$FILE\" ] && { ! command -v jq >/dev/null 2>&1 || jq -e . \"$FILE\" >/dev/null 2>&1; }; } || { echo '[orchestrator] BLOCKED: checker exited without valid findings JSON. Re-invoke write_findings before stopping.' >&2; exit 2; }"
             ]
           }
         ]
@@ -38,7 +38,7 @@
             "command": "bash",
             "args": [
               "-c",
-              "test -f \"${CLAUDE_PROJECT_DIR}/.claude/pipeline/reviewer-findings.json\" || { echo '[orchestrator] BLOCKED: reviewer exited without writing findings. Re-invoke write_findings before stopping.' >&2; exit 2; }"
+              "FILE=\"${CLAUDE_PROJECT_DIR}/.claude/pipeline/reviewer-findings.json\"; { [ -f \"$FILE\" ] && { ! command -v jq >/dev/null 2>&1 || jq -e . \"$FILE\" >/dev/null 2>&1; }; } || { echo '[orchestrator] BLOCKED: reviewer exited without valid findings JSON. Re-invoke write_findings before stopping.' >&2; exit 2; }"
             ]
           }
         ]
@@ -64,7 +64,7 @@
             "command": "bash",
             "args": [
               "-c",
-              "P=\"${CLAUDE_PROJECT_DIR}/.claude/pipeline\"; { printf '# Pipeline Snapshot — %s\\n' \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"; for f in checker-findings.json reviewer-findings.json; do [ -f \"$P/$f\" ] && { printf '## %s\\n' \"$f\"; cat \"$P/$f\"; echo; }; done; } > \"$P/pre-compact-snapshot.md\" 2>/dev/null || true"
+              "P=\"${CLAUDE_PROJECT_DIR}/.claude/pipeline\"; { printf '# Pipeline Snapshot — %s\\n' \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"; for f in checker-findings.json reviewer-findings.json; do [ -f \"$P/$f\" ] && { printf '## %s\\n' \"$f\"; cat \"$P/$f\"; echo; }; done; [ -f \"$P/progress.md\" ] && { printf '## progress.md\\n'; cat \"$P/progress.md\"; echo; }; } > \"$P/pre-compact-snapshot.md\" 2>/dev/null || true"
             ]
           }
         ]

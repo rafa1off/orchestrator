@@ -1,7 +1,6 @@
 ---
 name: orchestrator-team
-description: Write an orchestrator-native implementation plan that fans out to agent teammates for large parallel tasks — three or more independent write tracks, competing hypotheses, or cross-module refactors. Saves a team plan to .claude/plans/. Use after orchestrator-plan has been insufficient due to task size.
-when_to_use: "Use when a task decomposes into 3+ independent write tracks that would block on each other as sequential subagents. Examples: parallel feature development across independent modules, competing implementation hypotheses to evaluate, large cross-module refactors with disjoint file sets."
+description: "Use for large tasks that decompose into 3 or more independent write tracks that would serialize unnecessarily as subagents — parallel feature development across disjoint modules, competing implementation hypotheses to evaluate, or large cross-module refactors with no shared files. Fans out to full Claude Code session teammates, each running the complete orchestrator loop on their own track, coordinated by the lead session. Requires CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1."
 ---
 
 # Orchestrator — Agent Teams Mode
@@ -117,26 +116,7 @@ After all teammates complete their tracks:
 
 ## Quality Gates with `TeammateIdle`
 
-Add a `TeammateIdle` hook to enforce that teammates only go idle after completing their verify loop:
-
-```json
-{
-  "hooks": {
-    "TeammateIdle": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "echo '[orchestrator-team] Teammate idle — check task list and transcript before dispatching integration step'"
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-Add this to `.claude/settings.json` for the current project (not the plugin hooks, which apply globally).
+The orchestrator-core plugin installs a blocking `TeammateIdle` hook globally. When a teammate goes idle with unread findings files present in `.claude/pipeline/`, the hook blocks with exit 2 — enforcing that the lead reads all findings before the teammate closes. No additional configuration is needed.
 
 ---
 

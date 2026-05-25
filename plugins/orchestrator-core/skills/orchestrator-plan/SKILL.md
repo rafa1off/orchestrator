@@ -1,7 +1,6 @@
 ---
 name: orchestrator-plan
-description: Write an orchestrator-native implementation plan for a multi-step task, mapping each step to specific agents and respecting the 5 invariants. Saves to .claude/plans/.
-when_to_use: Use before any multi-step development task that requires more than trivial changes. Produces a plan ready for orchestrator-execute.
+description: "Write an orchestrator-native implementation plan before starting any multi-step development task. Use this skill whenever a task touches multiple files, introduces new function signatures, adds dependencies, or requires coordinating reader → writer → verify stages. Maps each step to specific agents, respects the 5 invariants, and saves a decision-record plan to .claude/plans/ ready for orchestrator-execute. When in doubt whether a task needs a plan, use this skill — the overhead is low and the alignment benefit is high."
 ---
 
 # Orchestrator Plan

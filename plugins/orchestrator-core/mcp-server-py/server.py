@@ -69,7 +69,7 @@ def _detect_stack(project_dir: Path) -> StackConfig:
     ).exists():
         stack = StackConfig(
             name="typescript",
-            lint=["npx", "eslint", "--ext", ".ts,.tsx", "src/"],
+            lint=["npx", "eslint", "--ext", ".ts,.tsx", "."],
             typecheck=["npx", "tsc", "--noEmit"],
             test=["npx", "jest", "--testPathPattern"],
         )
@@ -139,8 +139,13 @@ def _detect_stack(project_dir: Path) -> StackConfig:
 
 
 def _run(cmd: list[str]) -> str:
-    result = subprocess.run(cmd, cwd=PROJECT_DIR, capture_output=True, text=True)
-    return (result.stdout + result.stderr).strip()
+    try:
+        result = subprocess.run(
+            cmd, cwd=PROJECT_DIR, capture_output=True, text=True, timeout=120
+        )
+        return (result.stdout + result.stderr).strip()
+    except subprocess.TimeoutExpired:
+        return f"Command timed out after 120s: {' '.join(cmd)}"
 
 
 STACK = _detect_stack(PROJECT_DIR)
@@ -173,11 +178,12 @@ def typecheck() -> str:
 
 
 @mcp.tool()
-def test(pattern: str) -> str:
-    """Run tests matching pattern. Appended as a path/package filter to the stack's test command."""
+def test(pattern: str = "") -> str:
+    """Run tests matching pattern. Appended as a path/package filter to the stack's test command. Omit to run the full suite."""
     if not STACK.test:
         return f"Stack '{STACK.name}' not detected — test skipped."
-    return _run([*STACK.test, pattern])
+    cmd = [*STACK.test, pattern] if pattern else STACK.test
+    return _run(cmd)
 
 
 @mcp.tool()

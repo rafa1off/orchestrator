@@ -1,7 +1,6 @@
 ---
 name: orchestrator-execute
-description: Execute an orchestrator-native plan from .claude/plans/, dispatching agents per the plan's agent map and enforcing the 5 invariants throughout.
-when_to_use: Use after orchestrator-plan has produced a plan document. Handles TaskCreate, agent dispatch, the verification loop, and the final summary.
+description: "Execute an orchestrator-native plan from .claude/plans/. Use this skill immediately after the user approves a plan produced by orchestrator-plan — it handles task creation, agent dispatch in the correct order, the checker + reviewer verification loop, and the final summary. Invoke whenever there is a plan file to execute and implementation should begin."
 ---
 
 # Orchestrator Execute

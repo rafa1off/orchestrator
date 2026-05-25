@@ -57,4 +57,10 @@ Checker errors first (compilation/type), then reviewer issues.
 
 ## Output
 
-State which files were modified and a one-line summary of what changed. Do not explain the code.
+```
+## Modified Files
+- `path/to/file.py` — one-line summary of what changed
+- `path/to/other.py` — one-line summary of what changed
+```
+
+Do not explain the code or implementation details. The file list is used by checker and reviewer to scope their runs — be exact with paths.

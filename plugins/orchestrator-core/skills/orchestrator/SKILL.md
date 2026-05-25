@@ -1,7 +1,6 @@
 ---
 name: orchestrator
-description: Agent dispatch guide for this codebase. Defines the agent catalog, core invariants, and flexible working loop for any development task.
-when_to_use: "Always load at session start before any development work — new features, bug fixes, refactors, documentation updates, or any code change of any size."
+description: "Agent dispatch guide and routing protocol for all development work in this codebase. Load this skill at the start of every session — before any code change, bug fix, refactor, or documentation update of any size. It defines the 8-agent catalog (reader, researcher, writer, thinker, checker, reviewer, tester, documenter), the 5 core invariants that govern every task, and the flexible working loop. Always load before writing any code."
 ---
 
 # Orchestrator
@@ -48,7 +47,7 @@ Understand → Write → Verify → (repeat until clean or escalate) → Test �
 
 The actual loop is flexible:
 
-- Call reader once upfront to map the module, then again mid-task if you discover an unfamiliar file path
+- Call reader once upfront to map the module, then again mid-task if you discover an unfamiliar file path. If reader returns a `## Cannot Proceed` block, run Explore first to discover file paths, then re-invoke reader with that list.
 - Call researcher only when the implementation requires library knowledge you don't have
 - Call thinker when you hit a decision point — architectural tradeoff, ambiguous requirement, unfamiliar pattern
 - Call writer to produce changes; dispatch checker + reviewer when the write phase for a task or plan step is complete
@@ -182,7 +181,7 @@ Tasks are session-scoped. Use `progress.md` for cross-session continuity.
 
 ## Progress Artifact
 
-For long tasks, maintain `.claude/pipeline/progress.md`. Create it when the task spans more than one session, involves 3+ agent calls, or the plan has more than 4 steps. Skip for everything else — the task list alone is sufficient.
+For long tasks, maintain `.claude/pipeline/progress.md`. Create it when the task spans more than one session or the plan has 5+ stages. Skip for everything else — the task list alone is sufficient.
 
 ```markdown
 # Pipeline Progress — [task name]

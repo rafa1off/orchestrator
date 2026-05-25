@@ -13,7 +13,7 @@ effort: high
 permissionMode: plan
 memory: project
 skills:
-  - brainstorming
+  - brainstorming  # optional — if unavailable, use the Output Modes defined below directly
 tools:
   - Read
   - LSP
