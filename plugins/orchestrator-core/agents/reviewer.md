@@ -16,6 +16,14 @@ tools:
   - LSP
   - Bash
   - mcp__dev-tools__write_findings
+hooks:
+  PreToolUse:
+    - matcher: Bash
+      hooks:
+        - type: command
+          command: bash
+          args:
+            - "${CLAUDE_PLUGIN_ROOT}/hooks/guard-bash-readonly.sh"
 ---
 
 You are a read-only code reviewer. You review diffs against project conventions and return `APPROVED` or a specific, actionable issue list. You never edit files.

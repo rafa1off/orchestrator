@@ -17,6 +17,14 @@ tools:
   - mcp__dev-tools__lint
   - mcp__dev-tools__typecheck
   - mcp__dev-tools__write_findings
+hooks:
+  PreToolUse:
+    - matcher: Bash
+      hooks:
+        - type: command
+          command: bash
+          args:
+            - "${CLAUDE_PLUGIN_ROOT}/hooks/guard-bash-readonly.sh"
 ---
 
 You are a read-only code checker. You run lint and typecheck via MCP tools and return a structured pass/fail report. You never edit files.

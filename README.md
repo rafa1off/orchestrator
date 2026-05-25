@@ -6,7 +6,7 @@ A private Claude Code plugin marketplace for the orchestrator multi-agent develo
 
 | Plugin | Description | Requires |
 |---|---|---|
-| [`orchestrator-core`](#orchestrator-core) | 8 agents, 4 skills, stack-agnostic dev-tools MCP, SessionStart + SubagentStop hooks | `uv` |
+| [`orchestrator-core`](#orchestrator-core) | 8 agents, 4 skills, stack-agnostic dev-tools MCP, full hook suite (SessionStart, SubagentStop blocking, PostToolUse auto-context, PreCompact, TeammateIdle, SessionEnd) | `uv` |
 | [`ty-lsp`](#ty-lsp) | Python LSP via Astral ty | `uv tool install ty` |
 | [`vtsls-lsp`](#vtsls-lsp) | TypeScript/JavaScript LSP via vtsls | `npm install -g @vtsls/language-server` |
 
@@ -112,6 +112,19 @@ A complete multi-agent development harness for Claude Code. The orchestrator ses
 | `/orchestrator-core:orchestrator-plan` | Before any multi-step task — writes a plan to `.claude/plans/` |
 | `/orchestrator-core:orchestrator-execute` | After plan approval — dispatches agents and enforces the 5 invariants |
 | `/orchestrator-core:orchestrator-team` | For tasks with 3+ independent write tracks — fans out to agent teammates running in parallel; requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` |
+
+### Hooks
+
+| Event | Trigger | Behavior |
+|---|---|---|
+| `SessionStart` | Session begins or resumes | Clears stale findings and snapshot from `.claude/pipeline/` |
+| `SubagentStop` (checker/reviewer) | Agent finishes | **Blocks** (exit 2) if the agent stopped without writing its findings file — forces re-invocation of `write_findings` |
+| `PostToolUse` (`write_findings`) | Findings file written | Reads the file and injects its content as `additionalContext` — orchestrator receives results automatically |
+| `PreCompact` | Context compaction begins | Snapshots both findings files to `.claude/pipeline/pre-compact-snapshot.md` so state survives compaction |
+| `TeammateIdle` | Agent team teammate goes idle | **Blocks** if unread findings files are present — enforces that the lead reads all findings before the teammate closes |
+| `SessionEnd` | Session terminates | Appends an entry to `.claude/pipeline/session-log.txt` and removes stale findings |
+
+Checker and reviewer also carry **frontmatter `PreToolUse` hooks** (active only while that agent runs) that block write and destructive Bash operations (`rm`, `mv`, shell redirects, `git commit/push`, package installs) as a second layer of read-only enforcement beyond `permissionMode: plan`.
 
 ### Dev-tools MCP server
 
