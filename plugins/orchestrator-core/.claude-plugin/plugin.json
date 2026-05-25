@@ -1,5 +1,5 @@
 {
   "name": "orchestrator-core",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "Multi-agent orchestrator: 8 agents (reader, researcher, writer, thinker, checker, reviewer, tester, documenter), orchestrator routing skill, stack-agnostic dev-tools MCP server, full hook suite (SessionStart, SubagentStop blocking, PostToolUse auto-context, PreCompact snapshot, TeammateIdle gate, SessionEnd audit), and orchestrator-team skill for large parallel tasks. Activate with: Skill(\"/orchestrator-core:orchestrator\") in CLAUDE.md."
 }
