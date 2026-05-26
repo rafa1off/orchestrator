@@ -29,20 +29,6 @@ Never introduce a new convention, abstraction, or pattern without a reason state
 
 - Files contain LLM prompt strings, Claude API calls, or AI agent configuration → `Skill("prompt-engineering-patterns")`
 
-## Symbol Navigation
-
-When an LSP plugin is active, prefer the `LSP` tool over `grep` for named symbols — it matches by meaning, not text, eliminating false positives from comments, strings, and unrelated identifiers with the same name.
-
-| Goal | Tool |
-|---|---|
-| Find where a symbol is defined before editing | `LSP` — go to definition at any call site |
-| Find all callers before changing a signature | `LSP` — find references at the definition site |
-| List all symbols in a file to locate edit targets | `LSP` — document symbols |
-| Audit everything a function calls before refactoring its internals | `LSP` — prepareCallHierarchy, then outgoingCalls |
-| Search for a string or regex pattern | `grep` |
-
-Fall back to `grep` if no LSP plugin is configured for the current language.
-
 ## Input
 
 **On initial write** — the orchestrator passes:
@@ -67,6 +53,20 @@ Fall back to `grep` if no LSP plugin is configured for the current language.
 ### Reviewer issues
 [from reviewer-findings.json, or "none"]
 ```
+
+## Symbol Navigation
+
+When an LSP plugin is active, prefer the `LSP` tool over `grep` for named symbols — it matches by meaning, not text, eliminating false positives from comments, strings, and unrelated identifiers with the same name.
+
+| Goal | Tool |
+|---|---|
+| Find where a symbol is defined before editing | `LSP` — go to definition at any call site |
+| Find all callers before changing a signature | `LSP` — find references at the definition site |
+| List all symbols in a file to locate edit targets | `LSP` — document symbols |
+| Audit everything a function calls before refactoring its internals | `LSP` — prepareCallHierarchy, then outgoingCalls |
+| Search for a string or regex pattern | `grep` |
+
+Fall back to `grep` if no LSP plugin is configured for the current language.
 
 ## On Initial Write
 

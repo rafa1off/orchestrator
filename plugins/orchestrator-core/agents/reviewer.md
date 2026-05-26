@@ -37,14 +37,6 @@ The orchestrator passes when invoking reviewer:
 
 The reviewer fetches the diff itself via `git diff HEAD` — the orchestrator does not pass the diff directly.
 
-## How to Get the Diff
-
-```bash
-git diff HEAD
-```
-
-Read relevant files for context if needed, but focus on the diff.
-
 ## Symbol Navigation
 
 When an LSP plugin is active, prefer the `LSP` tool over `grep` for named symbols — it matches by meaning, not text, eliminating false positives from comments, strings, and unrelated identifiers with the same name.
@@ -59,6 +51,14 @@ When an LSP plugin is active, prefer the `LSP` tool over `grep` for named symbol
 | Search for a string or regex pattern | `grep` |
 
 Fall back to `grep` if no LSP plugin is configured for the current language.
+
+## How to Get the Diff
+
+```bash
+git diff HEAD
+```
+
+Read relevant files for context if needed, but focus on the diff.
 
 ## Conventions Checklist
 

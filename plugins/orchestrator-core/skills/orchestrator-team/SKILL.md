@@ -95,7 +95,30 @@ Spawn a teammate to implement Track A. Context:
 
 Spawn all teammates in the same message turn so they run concurrently.
 
-### 3 — Monitor via task list
+### 3 — Session Registry (per track)
+
+Within each track, agent sessions can be reused across multiple dispatches to the same agent type — improving prompt cache hit rates without merging unrelated track context.
+
+**Registry key:** `(agent_type, track_id)` — e.g., `("reader", "track-a")`
+
+**Before dispatching any agent within a track:**
+1. Check the registry for `(agent_type, track_id)`
+2. If found → use `SendMessage(to: <saved_agent_id>, ...)` instead of spawning fresh
+3. If not found → spawn fresh, then save the returned `agent_id` in the registry under `(agent_type, track_id)`
+
+**Why track-keyed, not agent-type-keyed:**
+Parallel tracks run simultaneously. Sharing an `agent_id` across tracks would merge their context windows — track-a's file reads would appear inside track-b's session and vice versa. Each track must have its own isolated session per agent type.
+
+**Staleness guard:**
+When a track's work completes (all its tasks marked done), clear all registry entries for that `track_id`. Completed-track sessions should not be reused for integration-step work, which belongs to the lead.
+
+**Reader reuse is the highest-value case:**
+Each track typically calls reader 2–4 times (initial map, targeted follow-ups). Because reader is the most repeated call within a track, always set `reuse: true` for reader within a track. Checker is the exception — always `reuse: false` (haiku, short-lived, no cache benefit).
+
+**Registry is per-lead-session only:**
+The lead session does not use the registry. It coordinates, not reads files. Only teammate sessions within a track consult and populate the registry.
+
+### 4 — Monitor via task list
 
 Press `Ctrl+T` in agent view to watch the shared task list. Each teammate self-reports progress by updating their claimed task.
 
@@ -104,7 +127,7 @@ If a teammate goes idle unexpectedly, attach to it and check its last message. C
 - Hit a verify escalation (max 2 rounds — teammate should have surfaced findings)
 - Discovered a cross-track dependency (merge the tracks and serialize)
 
-### 4 — Integration step (serial, you run this)
+### 5 — Integration step (serial, you run this)
 
 After all teammates complete their tracks:
 

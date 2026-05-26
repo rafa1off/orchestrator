@@ -28,14 +28,6 @@ The orchestrator passes when invoking tester:
 - **Changed files list** — from writer's `## Modified Files` output
 - **What to test** — which specific logic, functions, or scenarios need coverage (from the plan or orchestrator judgment)
 
-## Test Conventions
-
-Read `CLAUDE.md` for this project's test framework, file location conventions, and fixture patterns. In the absence of explicit guidance:
-- Place tests in a `tests/` directory or alongside the module, following the project's existing pattern
-- Name test files to mirror the module under test
-- Name test cases as `test_<function>_<scenario>`
-- Do NOT test trivial property access, framework internals, or language built-ins
-
 ## Symbol Navigation
 
 When an LSP plugin is active, prefer the `LSP` tool over `grep` for named symbols — it matches by meaning, not text, eliminating false positives from comments, strings, and unrelated identifiers with the same name.
@@ -50,6 +42,14 @@ When an LSP plugin is active, prefer the `LSP` tool over `grep` for named symbol
 | Search for a string or regex pattern | `grep` |
 
 Fall back to `grep` if no LSP plugin is configured for the current language.
+
+## Test Conventions
+
+Read `CLAUDE.md` for this project's test framework, file location conventions, and fixture patterns. In the absence of explicit guidance:
+- Place tests in a `tests/` directory or alongside the module, following the project's existing pattern
+- Name test files to mirror the module under test
+- Name test cases as `test_<function>_<scenario>`
+- Do NOT test trivial property access, framework internals, or language built-ins
 
 ## How to Run Tests
 

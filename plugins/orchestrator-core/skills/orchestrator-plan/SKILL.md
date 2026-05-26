@@ -1,6 +1,6 @@
 ---
 name: orchestrator-plan
-description: "Write an orchestrator-native implementation plan before starting any multi-step development task. Use this skill whenever a task touches multiple files, introduces new function signatures, adds dependencies, or requires coordinating reader → writer → verify stages. Maps each step to specific agents, respects the 5 invariants, and saves a decision-record plan to .claude/plans/ ready for orchestrator-execute. When in doubt whether a task needs a plan, use this skill — the overhead is low and the alignment benefit is high."
+description: "Use this skill when the user wants to plan out a multi-step coding task before writing any code. Triggers on: \"plan this out\", \"write up a plan\", \"map out how we'd\", \"let's plan\", \"before we start\", or any request to design/outline an implementation spanning multiple files, schema changes, API additions, or refactors. Creates a structured orchestrator-native plan with agent assignments saved to .claude/plans/ for later execution. Use when the user is thinking ahead — not yet implementing, but scoping what needs to change and in what order."
 ---
 
 # Orchestrator Plan
@@ -45,6 +45,17 @@ Researcher output (if run):
 Produce an agent map for this task. List only the agents that are needed with a one-line reason each — omit agents that clearly don't apply. For writer stages, name the files. For tester, note what new logic needs tests. For documenter, note what public surface changes.
 
 Then list the ordered stages with dependencies.
+
+Also decide the execution mode:
+- If the task naturally decomposes into 3 or more write tracks with fully disjoint file sets (no file appears in more than one track), set mode: team and list each track with its files.
+- Otherwise set mode: execute.
+
+Output at the end of your response:
+mode: execute | team
+tracks (if mode: team):
+  - track-a: [files] — [description]
+  - track-b: [files] — [description]
+  ...
 """)
 ```
 
@@ -63,6 +74,7 @@ Use this content format:
 
 **Goal:** [one sentence]
 **Date:** YYYY-MM-DD
+**Mode:** execute
 
 ---
 
@@ -103,7 +115,9 @@ List every individual work item. Each becomes one entry in the Claude Code task 
 
 Stages describe how agents execute the tasks above. Each verify checkpoint is one atomic gate — checker and reviewer always run together.
 
-- [ ] **Stage 1 — reader:** [specific instruction — what to map]
+Each stage line may optionally carry `*(reuse: true)*` to signal that the executor should resume an existing agent session (warm cache) rather than spawn a fresh one. Default policy: reader stages always carry `*(reuse: true)*` (called by nearly every stage, highest cache ROI); checker always omits it (short-lived, no multi-turn benefit); all other agents carry it only when explicitly annotated. Omitting the marker is equivalent to `reuse: false` and is fully backwards compatible.
+
+- [ ] **Stage 1 — reader:** [specific instruction — what to map] *(reuse: true)*
 - [ ] **Stage 2 — writer:**
   - task 1: [description] — `file1.py`
   - task 2: [description] — `file2.py` *(parallel with task 1 — disjoint files)*
@@ -121,6 +135,12 @@ Stages describe how agents execute the tasks above. Each verify checkpoint is on
 
 - [risk or unknown 1]
 - [risk or unknown 2]
+
+## Tracks
+*(present only when Mode: team — omit for Mode: execute)*
+
+- track-a: `file1.py`, `file2.py` — [description of this track's scope]
+- track-b: `file3.py`, `file4.py` — [description]
 ```
 
 ---
@@ -136,4 +156,6 @@ Call `ExitPlanMode`. Claude Code reads the plan file from Step 4 and presents it
 After the user approves (plan mode is now exited, Write is unblocked):
 
 1. Write the plan to `.claude/plans/YYYY-MM-DD-<feature-name>.md`. The system plan file from Step 4 is session-scoped and will not survive a new session — this archive is what makes deferred or repeated execution possible, and what gets committed to git as a decision record.
-2. Call `Skill("/orchestrator-core:orchestrator-execute")` to begin implementation.
+2. Read the **Mode** field from the archived plan:
+   - `mode: execute` (or field absent) → Call `Skill("/orchestrator-core:orchestrator-execute")`
+   - `mode: team` → Call `Skill("/orchestrator-core:orchestrator-team")`

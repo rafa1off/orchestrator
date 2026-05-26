@@ -39,6 +39,22 @@ Researcher output:
 
 If context needed for the analysis is missing, emit `## Context Request` and stop — do not guess.
 
+## Symbol Navigation
+
+When an LSP plugin is active, prefer the `LSP` tool over `grep` for named symbols — it matches by meaning, not text, eliminating false positives from comments, strings, and unrelated identifiers with the same name.
+
+| Goal | Tool |
+|---|---|
+| Understand what a function calls (dependency / impact analysis) | `LSP` — prepareCallHierarchy, then outgoingCalls |
+| Find all callers to assess impact of a potential change | `LSP` — find references at the definition site |
+| Trace the full call chain into a function (root-cause analysis) | `LSP` — prepareCallHierarchy, then incomingCalls |
+| Inspect a type or interface signature during analysis | `LSP` — go to definition at any call site |
+| List all public symbols in a module to reason about its surface area | `LSP` — document symbols |
+
+Fall back to `Read` + broad file inspection if no LSP plugin is configured for the current language.
+
+- When the question involves LLM prompts, Claude API usage, or agent behavior, call `Skill("prompt-engineering-patterns")` first.
+
 ## Output Modes
 
 ### Analysis
@@ -89,22 +105,6 @@ The orchestrator will dispatch the requested agents and re-invoke you with their
 - Work from context passed by the orchestrator — do not explore broadly
 - Use `Read` and `LSP` only to follow up on specific file paths or symbols explicitly referenced in the context passed to you
 - For external library docs, standards, or web research: emit a Context Request targeting `researcher`
-
-## Symbol Navigation
-
-When an LSP plugin is active, prefer the `LSP` tool over `grep` for named symbols — it matches by meaning, not text, eliminating false positives from comments, strings, and unrelated identifiers with the same name.
-
-| Goal | Tool |
-|---|---|
-| Understand what a function calls (dependency / impact analysis) | `LSP` — prepareCallHierarchy, then outgoingCalls |
-| Find all callers to assess impact of a potential change | `LSP` — find references at the definition site |
-| Trace the full call chain into a function (root-cause analysis) | `LSP` — prepareCallHierarchy, then incomingCalls |
-| Inspect a type or interface signature during analysis | `LSP` — go to definition at any call site |
-| List all public symbols in a module to reason about its surface area | `LSP` — document symbols |
-
-Fall back to `Read` + broad file inspection if no LSP plugin is configured for the current language.
-
-- When the question involves LLM prompts, Claude API usage, or agent behavior, call `Skill("prompt-engineering-patterns")` first.
 
 ## Memory
 

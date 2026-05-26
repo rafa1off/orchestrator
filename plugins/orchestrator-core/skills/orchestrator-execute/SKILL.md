@@ -1,6 +1,6 @@
 ---
 name: orchestrator-execute
-description: "Execute an orchestrator-native plan from .claude/plans/. Use this skill immediately after the user approves a plan produced by orchestrator-plan — it handles task creation, agent dispatch in the correct order, the checker + reviewer verification loop, and the final summary. Invoke whenever there is a plan file to execute and implementation should begin."
+description: "Start implementation after a plan has been approved. Use when the user gives the green light to begin building — phrases like \"go ahead\", \"looks good\", \"proceed\", \"approved\", \"start implementing\", \"begin implementation\", or \"execute the plan\". Also use when the user explicitly names a plan file path (e.g. .claude/plans/foo.md) and says to run, execute, or implement it. This skill drives the full execution lifecycle: dispatching reader/writer/tester/documenter agents in order, running checker+reviewer verification, and producing a final summary. Skip this skill when the user is still planning, writing a spec, brainstorming, or asking to read/review a plan without building."
 ---
 
 # Orchestrator Execute
@@ -16,7 +16,10 @@ description: "Execute an orchestrator-native plan from .claude/plans/. Use this 
    - A writer stage has no preceding reader stage and context is missing
    - A stage depends on a prior stage that was marked ✗ but the dependency isn't met
    - File paths are missing or ambiguous
-3. If clean: proceed to Step 2
+3. Check for **Mode** field in the plan header:
+   - `mode: team` → call `Skill("/orchestrator-core:orchestrator-team")` passing the plan file path, then **stop** — do not proceed to Step 2.
+   - `mode: execute` or field absent → continue.
+4. If clean: proceed to Step 2
 
 ---
 
@@ -77,6 +80,38 @@ Work through stages in plan order. The 5 invariants are non-negotiable — they 
 3. **One writer per overlapping file set** — serialize writers that share files; parallel only when file sets are disjoint.
 4. **Max 2 verify rounds** — after 2 full checker+reviewer cycles with remaining findings, stop and surface to user.
 5. **Plan mode blocks writes** — if plan mode is active, only reader/researcher/thinker may run.
+
+---
+
+### Session Registry
+
+After every `Agent()` dispatch, save the returned `agent_id` in a working-memory map keyed by agent type. Before dispatching any agent, check the registry and the stage annotation to decide whether to reuse or spawn fresh.
+
+**Dispatch decision:**
+
+```
+if registry[agent_type] exists AND stage is marked *(reuse: true)*:
+    SendMessage(to: registry[agent_type], message: task_prompt)
+else:
+    agent_id = Agent(agent_type, task_prompt)
+    registry[agent_type] = agent_id
+```
+
+**Default reuse policy:**
+
+| Agent type | Default |
+|---|---|
+| reader | `reuse: true` — reader is called by nearly every stage; warm context pays off |
+| checker | `reuse: false` always — haiku, one-shot, no multi-turn benefit |
+| all others | follow the plan annotation; absent annotation = `false` |
+
+**Staleness guard:** when loading a plan file, compare its path to the last-loaded path stored in working memory. If the path differs (new task boundary), clear all registry entries before proceeding.
+
+```
+if last_plan_path != current_plan_path:
+    registry.clear()
+    last_plan_path = current_plan_path
+```
 
 ---
 

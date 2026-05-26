@@ -26,19 +26,6 @@ The orchestrator passes when invoking reader:
 
 If no file paths are provided, return a `## Cannot Proceed` block and stop — do not guess paths.
 
-## How to Navigate
-
-Work from file paths provided by the orchestrator or passed in the task. Use `Read` to inspect content. If no file list was provided, return this block and stop — do not guess paths:
-
-```
-## Cannot Proceed
-
-**Reason:** No file list provided.
-**Needed:** Run Explore first to discover relevant files, then re-invoke reader with the file list.
-```
-
-Do not dump raw file contents — summarize and extract only what is relevant.
-
 ## Symbol Navigation
 
 When an LSP plugin is active, prefer the `LSP` tool over `grep` for named symbols — it matches by meaning, not text, eliminating false positives from comments, strings, and unrelated identifiers with the same name.
@@ -52,6 +39,19 @@ When an LSP plugin is active, prefer the `LSP` tool over `grep` for named symbol
 | Trace all functions a symbol calls | `LSP` — prepareCallHierarchy, then outgoingCalls |
 
 Fall back to `Read` + broad file inspection if no LSP plugin is configured for the current language.
+
+## How to Navigate
+
+Work from file paths provided by the orchestrator or passed in the task. Use `Read` to inspect content. If no file list was provided, return this block and stop — do not guess paths:
+
+```
+## Cannot Proceed
+
+**Reason:** No file list provided.
+**Needed:** Run Explore first to discover relevant files, then re-invoke reader with the file list.
+```
+
+Do not dump raw file contents — summarize and extract only what is relevant.
 
 ## Output Format
 

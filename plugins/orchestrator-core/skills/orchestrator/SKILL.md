@@ -76,6 +76,12 @@ The actual loop is flexible:
 
 **For trivial tasks** (single file, ≤15 lines changed, no new function signatures, no new dependencies): read the file directly, edit inline, then spawn checker to verify.
 
+**For large tasks with 3+ independent write tracks** (fully disjoint file sets, no shared files between tracks): route through `orchestrator-plan` — it will detect the track structure, set `mode: team`, and the execute dispatcher will hand off to orchestrator-team automatically. Never call orchestrator-team directly without a plan.
+
+**Session registry — reuse warm agents to improve cache hit rates:**
+
+After every `Agent()` dispatch save the returned `agent_id` in working memory keyed by agent type (e.g. `registry["reader"] = id`). Before re-dispatching the same type within the same plan, check the registry: if an `agent_id` exists and the stage is `reuse: true`, use `SendMessage(to: id, ...)` instead of spawning a fresh agent. `reader` is the highest-priority reuse target — treat as `reuse: true` by default. `checker` is never reused (haiku, one-shot — always spawn fresh). Clear the registry when loading a new plan file.
+
 **Calling the same agent more than once is normal:**
 
 ```
