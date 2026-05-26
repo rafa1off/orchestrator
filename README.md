@@ -6,7 +6,7 @@ A private Claude Code plugin marketplace for the orchestrator multi-agent develo
 
 | Plugin | Description | Requires |
 |---|---|---|
-| [`orchestrator-core`](#orchestrator-core) | 8 agents, 4 skills, stack-agnostic dev-tools MCP, full hook suite (SessionStart, SubagentStop blocking, PostToolUse auto-context, PreCompact, TeammateIdle, SessionEnd) | `uv` |
+| [`orchestrator-core`](#orchestrator-core) | 8 agents, 4 skills, stack-agnostic dev-tools MCP with timeout protection, full hook suite (SessionStart, SubagentStop JSON-validated blocking, PostToolUse auto-context, PreCompact snapshot with progress.md, TeammateIdle gate, SessionEnd audit) | `uv` |
 | [`ty-lsp`](#ty-lsp) | Python LSP via Astral ty | `uv tool install ty` |
 | [`vtsls-lsp`](#vtsls-lsp) | TypeScript/JavaScript LSP via vtsls | `npm install -g @vtsls/language-server` |
 
@@ -108,19 +108,19 @@ A complete multi-agent development harness for Claude Code. The orchestrator ses
 
 | Skill | When to use |
 |---|---|
-| `/orchestrator-core:orchestrator` | Load at every session start — the agent routing guide |
-| `/orchestrator-core:orchestrator-plan` | Before any multi-step task — writes a plan to `.claude/plans/` |
-| `/orchestrator-core:orchestrator-execute` | After plan approval — dispatches agents and enforces the 5 invariants |
-| `/orchestrator-core:orchestrator-team` | For tasks with 3+ independent write tracks — fans out to agent teammates running in parallel; requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` |
+| `/orchestrator-core:orchestrator` | Load at every session start — the agent routing guide; includes session registry pattern for warm agent reuse |
+| `/orchestrator-core:orchestrator-plan` | Before any multi-step task — writes a plan to `.claude/plans/` with agent assignments, `*(reuse: true)*` stage annotations, and auto-detected execution mode (`execute` or `team`) |
+| `/orchestrator-core:orchestrator-execute` | After plan approval — dispatches agents, maintains a session registry to reuse warm agent sessions across stages, and routes to `orchestrator-team` when `mode: team` |
+| `/orchestrator-core:orchestrator-team` | For tasks with 3+ independent write tracks — fans out to agent teammates running in parallel with per-track `(agent_type, track_id)` session registry to isolate context; requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` |
 
 ### Hooks
 
 | Event | Trigger | Behavior |
 |---|---|---|
 | `SessionStart` | Session begins or resumes | Clears stale findings and snapshot from `.claude/pipeline/` |
-| `SubagentStop` (checker/reviewer) | Agent finishes | **Blocks** (exit 2) if the agent stopped without writing its findings file — forces re-invocation of `write_findings` |
+| `SubagentStop` (checker/reviewer) | Agent finishes | **Blocks** (exit 2) if the agent stopped without a valid findings JSON file — validates with `jq` when available; forces re-invocation of `write_findings` |
 | `PostToolUse` (`write_findings`) | Findings file written | Reads the file and injects its content as `additionalContext` — orchestrator receives results automatically |
-| `PreCompact` | Context compaction begins | Snapshots both findings files to `.claude/pipeline/pre-compact-snapshot.md` so state survives compaction |
+| `PreCompact` | Context compaction begins | Snapshots findings files and `progress.md` to `.claude/pipeline/pre-compact-snapshot.md` so state survives compaction |
 | `TeammateIdle` | Agent team teammate goes idle | **Blocks** if unread findings files are present — enforces that the lead reads all findings before the teammate closes |
 | `SessionEnd` | Session terminates | Appends an entry to `.claude/pipeline/session-log.txt` and removes stale findings |
 
@@ -128,7 +128,7 @@ Checker and reviewer also carry **frontmatter `PreToolUse` hooks** (active only 
 
 ### Dev-tools MCP server
 
-Stack-agnostic tools available to checker, reviewer, and tester:
+Stack-agnostic tools available to checker, reviewer, and tester. Each command runs with a 120-second timeout:
 
 | Tool | Description |
 |---|---|
