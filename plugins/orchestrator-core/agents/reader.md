@@ -8,7 +8,7 @@ Context: Orchestrator needs to understand which files to touch before implementi
 user: [orchestrator passes task description]
 assistant: [reader returns structured snapshot of relevant files, interfaces, and conventions]
 </example>"
-model: haiku
+model: gemini-3.5-flash
 effort: low
 permissionMode: plan
 tools:

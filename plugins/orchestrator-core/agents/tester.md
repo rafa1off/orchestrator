@@ -8,7 +8,7 @@ Context: Reviewer approved. Orchestrator needs unit tests written for new logic.
 user: [orchestrator passes task context and list of changed files]
 assistant: [tester writes tests, runs them, reports pass/fail]
 </example>"
-model: sonnet
+model: gemini-3.1-pro
 effort: medium
 tools:
   - Read

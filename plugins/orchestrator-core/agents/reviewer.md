@@ -8,7 +8,7 @@ Context: Checker passed, orchestrator needs a convention and quality review of t
 user: [orchestrator passes diff and task context]
 assistant: [reviewer returns APPROVED or issue list]
 </example>"
-model: sonnet
+model: gemini-3.1-pro
 effort: high
 permissionMode: plan
 tools:

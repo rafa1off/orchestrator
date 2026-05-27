@@ -8,7 +8,7 @@ Context: Orchestrator needs to verify code written by the writer passes all chec
 user: [orchestrator passes task description and list of modified files]
 assistant: [checker runs checks and returns structured pass/fail with error details]
 </example>"
-model: haiku
+model: gemini-3.5-flash
 effort: low
 permissionMode: plan
 background: true

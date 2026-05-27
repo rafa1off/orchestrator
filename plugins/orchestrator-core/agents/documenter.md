@@ -8,7 +8,7 @@ Context: A new feature was added. Orchestrator needs docs updated.
 user: [orchestrator passes diff and description of what changed]
 assistant: [documenter updates relevant doc files only]
 </example>"
-model: sonnet
+model: gemini-3.1-pro
 effort: medium
 tools:
   - Read

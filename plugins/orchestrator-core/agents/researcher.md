@@ -8,7 +8,7 @@ Context: Orchestrator needs to know how a library handles a specific pattern bef
 user: [orchestrator passes task + research question]
 assistant: [researcher returns concise findings from web and docs]
 </example>"
-model: sonnet
+model: gemini-3.1-pro
 effort: medium
 permissionMode: plan
 memory: project

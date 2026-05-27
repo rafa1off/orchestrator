@@ -8,7 +8,7 @@ Context: Orchestrator has reader context + researcher findings and needs code wr
 user: [orchestrator passes context block + task]
 assistant: [writer produces minimal, focused code changes]
 </example>"
-model: sonnet
+model: gemini-3.1-pro
 effort: high
 tools:
   - Read

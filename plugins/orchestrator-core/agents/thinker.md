@@ -8,7 +8,7 @@ Context: User asks whether to use a queue or a cron job for a scheduled task.
 user: [orchestrator passes context and question]
 assistant: [thinker returns structured analysis with recommendation]
 </example>"
-model: sonnet
+model: gemini-3.1-pro
 effort: high
 permissionMode: plan
 memory: project
