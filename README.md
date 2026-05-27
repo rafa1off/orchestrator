@@ -1,6 +1,6 @@
 # Orchestrator Plugins
 
-A private Claude Code plugin marketplace for the orchestrator multi-agent development ecosystem.
+A private plugin marketplace for the orchestrator multi-agent development ecosystem, fully supporting both **Claude Code** and **Google Antigravity CLI** (using native Google Gemini models).
 
 ## Plugins
 
@@ -29,7 +29,36 @@ If `uv` is present it is used automatically. If only `python` is available, the 
 
 ## Installation
 
-### 1. Add this marketplace to Claude Code
+### Installation (Google Antigravity CLI)
+
+1. Import the plugins directly into your global store:
+```bash
+# Core orchestrator (required)
+agy plugin import /path/to/orchestrator/plugins/orchestrator-core
+
+# Python LSP — install for Python projects
+agy plugin import /path/to/orchestrator/plugins/ty-lsp
+
+# TypeScript/JavaScript LSP — install for TS/JS projects
+agy plugin import /path/to/orchestrator/plugins/vtsls-lsp
+```
+
+2. Copy the auxiliary scripts and configurations to your global plugin directories (to bridge import copy limitations):
+```bash
+mkdir -p ~/.gemini/config/plugins/orchestrator-core/hooks ~/.gemini/config/plugins/orchestrator-core/mcp-server-py
+cp plugins/orchestrator-core/hooks/*.sh ~/.gemini/config/plugins/orchestrator-core/hooks/
+cp plugins/orchestrator-core/mcp-server-py/*.py ~/.gemini/config/plugins/orchestrator-core/mcp-server-py/
+cp plugins/ty-lsp/.lsp.json ~/.gemini/config/plugins/ty-lsp/.lsp.json
+cp plugins/vtsls-lsp/.lsp.json ~/.gemini/config/plugins/vtsls-lsp/.lsp.json
+```
+
+3. Run `agy plugin list` to verify they are enabled. No other setup is required.
+
+---
+
+### Installation (Claude Code)
+
+#### 1. Add this marketplace to Claude Code
 
 ```bash
 /plugin marketplace add rafa1off/orchestrator
@@ -50,7 +79,7 @@ Or manually in your project's `.claude/settings.json` or user settings (`~/.clau
 }
 ```
 
-### 2. Install plugins
+#### 2. Install plugins
 
 ```bash
 # Core orchestrator (required)
@@ -73,7 +102,7 @@ For Go, Rust, Java, and other languages, check the official Claude Code plugin m
 
 Official LSP plugins (gopls, rust-analyzer, etc.) are maintained there and install without any additional configuration.
 
-### 3. Activate in your project
+#### 3. Activate in your project
 
 Add one line to your project's `CLAUDE.md`:
 
@@ -87,20 +116,20 @@ That's it. No other setup required.
 
 ## orchestrator-core
 
-A complete multi-agent development harness for Claude Code. The orchestrator session acts as a coordinator, calling specialized subagents on demand.
+A complete multi-agent development harness for Claude Code and Google Antigravity CLI. The main session acts as a coordinator, calling specialized subagents on demand.
 
 ### Agents
 
-| Agent | Model | Permission | Role |
-|---|---|---|---|
-| `reader` | haiku | `plan` | Maps code paths, returns structured context snapshots |
-| `researcher` | sonnet | `plan` | Finds external patterns, library APIs, prior project decisions; persists findings to project memory |
-| `writer` | sonnet | session | Produces minimal, focused code changes from a context block |
-| `thinker` | sonnet | `plan` | Deep reasoning, tradeoff analysis, architectural decisions; persists decisions to project memory |
-| `checker` | haiku | `plan` | Runs lint + typecheck, writes structured findings; dispatched as background task |
-| `reviewer` | sonnet | `plan` | Reviews diffs against conventions, writes structured findings |
-| `tester` | sonnet | session | Identifies missing tests, writes them, runs the suite |
-| `documenter` | sonnet | session | Updates `docs/` and `CLAUDE.md` when public surfaces change |
+| Agent | Claude Model | Gemini Model | Permission | Role |
+|---|---|---|---|---|
+| `reader` | haiku | `gemini-3.5-flash` | `plan` | Maps code paths, returns structured context snapshots |
+| `researcher` | sonnet | `gemini-3.1-pro` | `plan` | Finds external patterns, library APIs, prior project decisions; persists findings to project memory |
+| `writer` | sonnet | `gemini-3.1-pro` | session | Produces minimal, focused code changes from a context block |
+| `thinker` | sonnet | `gemini-3.1-pro` | `plan` | Deep reasoning, tradeoff analysis, architectural decisions; persists decisions to project memory |
+| `checker` | haiku | `gemini-3.5-flash` | `plan` | Runs lint + typecheck, writes structured findings; dispatched as background task |
+| `reviewer` | sonnet | `gemini-3.1-pro` | `plan` | Reviews diffs against conventions, writes structured findings |
+| `tester` | sonnet | `gemini-3.1-pro` | session | Identifies missing tests, writes them, runs the suite |
+| `documenter` | sonnet | `gemini-3.1-pro` | session | Updates `docs/` and `CLAUDE.md` when public surfaces change |
 
 `plan` = read-only at harness level regardless of session mode. `session` = inherits the active session's permission mode.
 
