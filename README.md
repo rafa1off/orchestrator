@@ -9,9 +9,9 @@ A private plugin marketplace for the orchestrator multi-agent development ecosys
 | [`orchestrator-core`](#orchestrator-core) | 8 agents, 4 skills, stack-agnostic dev-tools MCP with timeout protection, full hook suite (SessionStart, SubagentStop JSON-validated blocking, PostToolUse auto-context, PreCompact snapshot with progress.md, TeammateIdle gate, SessionEnd audit) | `uv` |
 | [`ty-lsp`](#ty-lsp) | Python LSP via Astral ty | `uv tool install ty` |
 | [`vtsls-lsp`](#vtsls-lsp) | TypeScript/JavaScript LSP via vtsls | `npm install -g @vtsls/language-server` |
-| `lua-lsp` | Lua LSP via lua-language-server | `lua-language-server` |
-| `rust-lsp` | Rust LSP via rust-analyzer | `rust-analyzer` |
-| `go-lsp` | Go LSP via gopls | `gopls` |
+| [`lua-lsp`](#lua-lsp) | Lua LSP via lua-language-server | `lua-language-server` |
+| [`rust-lsp`](#rust-lsp) | Rust LSP via rust-analyzer | `rust-analyzer` |
+| [`go-lsp`](#go-lsp) | Go LSP via gopls | `gopls` |
 
 ---
 
@@ -240,6 +240,30 @@ Python LSP via [Astral ty](https://github.com/astral-sh/ty). Provides go-to-defi
 TypeScript and JavaScript LSP via [vtsls](https://github.com/yioneko/vtsls). Provides go-to-definition, find-references, hover, and document-symbol on `.ts`, `.tsx`, `.js`, and `.jsx` files.
 
 **Prerequisite:** `npm install -g @vtsls/language-server`
+
+---
+
+## lua-lsp
+
+Lua LSP via [lua-language-server](https://github.com/LuaLS/lua-language-server). Provides go-to-definition, find-references, hover, and document-symbol on `.lua` files.
+
+**Prerequisite:** `lua-language-server`
+
+---
+
+## rust-lsp
+
+Rust LSP via [rust-analyzer](https://github.com/rust-lang/rust-analyzer). Provides go-to-definition, find-references, hover, and document-symbol on `.rs` files.
+
+**Prerequisite:** `rust-analyzer`
+
+---
+
+## go-lsp
+
+Go LSP via [gopls](https://github.com/golang/tools/tree/master/gopls). Provides go-to-definition, find-references, hover, and document-symbol on `.go` files.
+
+**Prerequisite:** `gopls`
 
 ---
 
