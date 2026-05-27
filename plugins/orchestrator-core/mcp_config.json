@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "dev-tools": {
+      "command": "uv",
+      "args": [
+        "run",
+        "${CLAUDE_PLUGIN_ROOT}/mcp-server-py/server.py"
+      ],
+      "cwd": "",
+      "env": {
+        "CLAUDE_PROJECT_DIR": "${CLAUDE_PROJECT_DIR}"
+      }
+    }
+  }
+}
