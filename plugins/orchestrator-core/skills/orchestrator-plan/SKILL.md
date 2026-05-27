@@ -1,6 +1,6 @@
 ---
 name: orchestrator-plan
-description: "Use this skill when the user wants to plan out a multi-step coding task before writing any code. Triggers on: \"plan this out\", \"write up a plan\", \"map out how we'd\", \"let's plan\", \"before we start\", or any request to design/outline an implementation spanning multiple files, schema changes, API additions, or refactors. Creates a structured orchestrator-native plan with agent assignments saved to .claude/plans/ for later execution. Use when the user is thinking ahead — not yet implementing, but scoping what needs to change and in what order."
+description: "Use this skill when the user wants to plan out a multi-step coding task before writing any code. Triggers on: \"plan this out\", \"write up a plan\", \"map out how we'd\", \"let's plan\", \"before we start\", or any request to design/outline an implementation spanning multiple files, schema changes, API additions, or refactors. Creates a structured plan saved to .claude/plans/ for later execution. Use when the user is thinking ahead — not yet implementing, but scoping what needs to change and in what order."
 ---
 
 # Orchestrator Plan
@@ -28,40 +28,9 @@ Agent(researcher, "Find external patterns or prior decisions in docs/ relevant t
 
 ---
 
-## Step 3 — Decide
+## Step 3 — Write the Plan
 
-Run thinker with the gathered context to decide which agents apply and why.
-
-```
-Agent(thinker, """
-Task: [description]
-
-Reader output:
-[paste reader result]
-
-Researcher output (if run):
-[paste researcher result or "not run"]
-
-Produce an agent map for this task. List only the agents that are needed with a one-line reason each — omit agents that clearly don't apply. For writer stages, name the files. For tester, note what new logic needs tests. For documenter, note what public surface changes.
-
-Then list the ordered stages with dependencies.
-
-Also decide the execution mode:
-- If the task naturally decomposes into 3 or more write tracks with fully disjoint file sets (no file appears in more than one track), set mode: team and list each track with its files.
-- Otherwise set mode: execute.
-
-Output at the end of your response:
-mode: execute | team
-tracks (if mode: team):
-  - track-a: [files] — [description]
-  - track-b: [files] — [description]
-  ...
-""")
-```
-
----
-
-## Step 4 — Write the Plan
+Using the research from Step 2, reason directly and write the plan. You are the orchestrator — you have the full context. Synthesize what reader and researcher returned into the format below.
 
 Write the plan to **the file path specified in the plan mode system message** — that is the path ExitPlanMode will read. Do not write to `.claude/plans/` here; Write is blocked in plan mode.
 
@@ -70,17 +39,16 @@ Use this content format:
 ```markdown
 # [Feature Name] — Orchestrator Plan
 
-> **For execution:** Use `orchestrator-execute` to run this plan. It enforces the 5 invariants automatically.
+> **For execution:** Use `orchestrator-execute` to run this plan.
 
 **Goal:** [one sentence]
 **Date:** YYYY-MM-DD
-**Mode:** execute
 
 ---
 
-## Context
+## Explanation
 
-[2-3 sentences summarizing what reader and researcher found — enough for execute to skip re-reading]
+[Claude writes a prose explanation of this specific plan: what was found during research, what the implementation approach is, why it's structured this way, what dependencies or constraints matter, and any tradeoffs made. This is the plan's own rationale — written for a human reviewer to understand what's being done and why before approving.]
 
 ## Files
 
@@ -89,73 +57,27 @@ Use this content format:
 | Create | `path/to/file.py` | ... |
 | Modify | `path/to/existing.py` | ... |
 
-## Agent Map
-
-Agents marked ✗ are explicitly excluded from this plan.
-
-| Agent | Included | Reason |
-|-------|----------|--------|
-| reader | ✓ | Map [module] before writing |
-| researcher | ✗ | No external APIs or prior decisions involved |
-| thinker | ✗ | No architectural decision point |
-| writer | ✓ | Implement [feature] in [files] |
-| checker+reviewer | ✓ | After write phase |
-| tester | ✓ | New logic in [file] needs tests |
-| documenter | ✗ | No public API changes |
-
 ## Tasks
 
-List every individual work item. Each becomes one entry in the Claude Code task list during execution.
+List every deliverable — what needs to be built, changed, or tested. Name them after *what changes*, not *who makes the change*. Each numbered item becomes one `TaskCreate` call at the start of execution.
 
-1. [work description] — `file1.py`
-2. [work description] — `file2.py`
-3. [work description] — `file3.py`
-
-## Stages
-
-Stages describe how agents execute the tasks above. Each verify checkpoint is one atomic gate — checker and reviewer always run together.
-
-Each stage line may optionally carry `*(reuse: true)*` to signal that the executor should resume an existing agent session (warm cache) rather than spawn a fresh one. Default policy: reader stages always carry `*(reuse: true)*` (called by nearly every stage, highest cache ROI); checker always omits it (short-lived, no multi-turn benefit); all other agents carry it only when explicitly annotated. Omitting the marker is equivalent to `reuse: false` and is fully backwards compatible.
-
-- [ ] **Stage 1 — reader:** [specific instruction — what to map] *(reuse: true)*
-- [ ] **Stage 2 — writer:**
-  - task 1: [description] — `file1.py`
-  - task 2: [description] — `file2.py` *(parallel with task 1 — disjoint files)*
-- [ ] **Stage 3 — verify:** checker + reviewer scoped to `file1.py`, `file2.py`
-  - If findings → writer fixes → re-verify (max 2 rounds)
-- [ ] **Stage 4 — writer:**
-  - task 3: [description] — `file3.py`
-- [ ] **Stage 5 — verify:** checker + reviewer scoped to `file3.py`
-  - If findings → writer fixes → re-verify (max 2 rounds)
-- [ ] **Stage 6 — tester:** [what logic to test, which files to cover]
-
-> When a writer stage lists multiple tasks with disjoint files, mark them `*(parallel)*`. Tasks sharing a file must be serialized — omit the parallel marker.
-
-## Risks
-
-- [risk or unknown 1]
-- [risk or unknown 2]
-
-## Tracks
-*(present only when Mode: team — omit for Mode: execute)*
-
-- track-a: `file1.py`, `file2.py` — [description of this track's scope]
-- track-b: `file3.py`, `file4.py` — [description]
+1. [what to build/change] — `file1.py`
+2. [what to build/change] — `file2.py`
+3. verify [scope] — checker + reviewer
+4. [what to test] — `tests/test_foo.py`
 ```
 
 ---
 
-## Step 5 — Present for Approval
+## Step 4 — Present for Approval
 
-Call `ExitPlanMode`. Claude Code reads the plan file from Step 4 and presents it to the user. The user chooses to approve (and picks a permission mode) or keep planning.
+Call `ExitPlanMode`. Claude Code reads the plan file from Step 3 and presents it to the user. The user chooses to approve (and picks a permission mode) or keep planning.
 
 ---
 
-## Step 6 — Archive and Execute
+## Step 5 — Archive and Execute
 
 After the user approves (plan mode is now exited, Write is unblocked):
 
-1. Write the plan to `.claude/plans/YYYY-MM-DD-<feature-name>.md`. The system plan file from Step 4 is session-scoped and will not survive a new session — this archive is what makes deferred or repeated execution possible, and what gets committed to git as a decision record.
-2. Read the **Mode** field from the archived plan:
-   - `mode: execute` (or field absent) → Call `Skill("/orchestrator-core:orchestrator-execute")`
-   - `mode: team` → Call `Skill("/orchestrator-core:orchestrator-team")`
+1. Write the plan to `.claude/plans/YYYY-MM-DD-<feature-name>.md`. The system plan file from Step 3 is session-scoped and will not survive a new session — this archive is what makes deferred or repeated execution possible, and what gets committed to git as a decision record.
+2. Call `Skill("/orchestrator-core:orchestrator-execute")` passing the archived plan path.
