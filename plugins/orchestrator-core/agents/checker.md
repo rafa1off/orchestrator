@@ -14,8 +14,6 @@ permissionMode: plan
 background: true
 tools:
   - Bash
-  - mcp__dev-tools__lint
-  - mcp__dev-tools__typecheck
   - mcp__dev-tools__write_findings
 hooks:
   PreToolUse:
@@ -37,18 +35,31 @@ The orchestrator passes when invoking checker:
 
 ## Checks to Run
 
-**1. Lint** — scoped to modified files passed in the prompt:
+Determine commands by reading `CLAUDE.md` first. If not documented there, probe marker files:
+
+| Marker | Lint command | Typecheck command |
+|--------|-------------|-------------------|
+| `uv.lock` | `uv run ruff check <files>` | `uv run mypy .` |
+| `package.json` + `tsconfig.json` | `npx eslint <files>` | `npx tsc --noEmit` |
+| `package.json` (JS only) | `npx eslint src/` | *(none)* |
+| `go.mod` | `go vet ./...` | `go build ./...` |
+| `Cargo.toml` | `cargo clippy -- -D warnings` | `cargo check` |
+| `Gemfile` | `bundle exec rubocop` | *(none)* |
+| `build.gradle` / `pom.xml` | Gradle/Maven checkstyle | compile task |
+
+**1. Lint** — scoped to modified files when the stack supports it (Python, TS/JS); full-project for Go, Rust, Java:
+```bash
+# example — Python with uv
+uv run ruff check src/foo.py src/bar.py
 ```
-lint({ files: ["src/foo.py", "src/bar.py"] })
-```
-If no file list was provided, call `lint()` with no arguments for a full-project run.
+If no file list was provided, run full-project lint.
 
 **2. Typecheck** — always full project:
-```
-typecheck()
+```bash
+uv run mypy .
 ```
 
-**3. Build** — skip unless explicitly instructed. The MCP server does not expose a build tool by default.
+**3. Build** — skip unless explicitly instructed.
 
 ## Output
 
