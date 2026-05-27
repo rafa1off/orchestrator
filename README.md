@@ -9,6 +9,9 @@ A private plugin marketplace for the orchestrator multi-agent development ecosys
 | [`orchestrator-core`](#orchestrator-core) | 8 agents, 4 skills, stack-agnostic dev-tools MCP with timeout protection, full hook suite (SessionStart, SubagentStop JSON-validated blocking, PostToolUse auto-context, PreCompact snapshot with progress.md, TeammateIdle gate, SessionEnd audit) | `uv` |
 | [`ty-lsp`](#ty-lsp) | Python LSP via Astral ty | `uv tool install ty` |
 | [`vtsls-lsp`](#vtsls-lsp) | TypeScript/JavaScript LSP via vtsls | `npm install -g @vtsls/language-server` |
+| `lua-lsp` | Lua LSP via lua-language-server | `lua-language-server` |
+| `rust-lsp` | Rust LSP via rust-analyzer | `rust-analyzer` |
+| `go-lsp` | Go LSP via gopls | `gopls` |
 
 ---
 
@@ -36,11 +39,20 @@ If `uv` is present it is used automatically. If only `python` is available, the 
 # Core orchestrator (required)
 agy plugin import /path/to/orchestrator/plugins/orchestrator-core
 
-# Python LSP — install for Python projects
+# Python LSP
 agy plugin import /path/to/orchestrator/plugins/ty-lsp
 
-# TypeScript/JavaScript LSP — install for TS/JS projects
+# TypeScript/JavaScript LSP
 agy plugin import /path/to/orchestrator/plugins/vtsls-lsp
+
+# Lua LSP
+agy plugin import /path/to/orchestrator/plugins/lua-lsp
+
+# Rust LSP
+agy plugin import /path/to/orchestrator/plugins/rust-lsp
+
+# Go LSP
+agy plugin import /path/to/orchestrator/plugins/go-lsp
 ```
 
 2. Copy the auxiliary scripts and configurations to your global plugin directories (to bridge import copy limitations):
@@ -50,6 +62,9 @@ cp plugins/orchestrator-core/hooks/*.sh ~/.gemini/config/plugins/orchestrator-co
 cp plugins/orchestrator-core/mcp-server-py/*.py ~/.gemini/config/plugins/orchestrator-core/mcp-server-py/
 cp plugins/ty-lsp/.lsp.json ~/.gemini/config/plugins/ty-lsp/.lsp.json
 cp plugins/vtsls-lsp/.lsp.json ~/.gemini/config/plugins/vtsls-lsp/.lsp.json
+cp plugins/lua-lsp/.lsp.json ~/.gemini/config/plugins/lua-lsp/.lsp.json
+cp plugins/rust-lsp/.lsp.json ~/.gemini/config/plugins/rust-lsp/.lsp.json
+cp plugins/go-lsp/.lsp.json ~/.gemini/config/plugins/go-lsp/.lsp.json
 ```
 
 3. Run `agy plugin list` to verify they are enabled. No other setup is required.
@@ -85,11 +100,20 @@ Or manually in your project's `.claude/settings.json` or user settings (`~/.clau
 # Core orchestrator (required)
 claude plugin install orchestrator-core@orchestrator
 
-# Python LSP — install for Python projects
+# Python LSP
 claude plugin install ty-lsp@orchestrator
 
-# TypeScript/JavaScript LSP — install for TS/JS projects
+# TypeScript/JavaScript LSP
 claude plugin install vtsls-lsp@orchestrator
+
+# Lua LSP
+claude plugin install lua-lsp@orchestrator
+
+# Rust LSP
+claude plugin install rust-lsp@orchestrator
+
+# Go LSP
+claude plugin install go-lsp@orchestrator
 ```
 
 #### Other language servers

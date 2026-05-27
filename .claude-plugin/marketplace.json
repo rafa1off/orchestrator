@@ -29,6 +29,27 @@
       "version": "1.0.0",
       "description": "TypeScript/JavaScript LSP via vtsls — go-to-definition, find-references, document-symbol on .ts/.tsx/.js files. Requires: npm install -g @vtsls/language-server",
       "strict": true
+    },
+    {
+      "name": "lua-lsp",
+      "source": "./plugins/lua-lsp",
+      "version": "1.0.0",
+      "description": "Lua LSP via lua-language-server — go-to-definition, find-references, document-symbol on Lua files. Requires: lua-language-server",
+      "strict": true
+    },
+    {
+      "name": "rust-lsp",
+      "source": "./plugins/rust-lsp",
+      "version": "1.0.0",
+      "description": "Rust LSP via rust-analyzer — go-to-definition, find-references, document-symbol on Rust files. Requires: rust-analyzer",
+      "strict": true
+    },
+    {
+      "name": "go-lsp",
+      "source": "./plugins/go-lsp",
+      "version": "1.0.0",
+      "description": "Go LSP via gopls — go-to-definition, find-references, document-symbol on Go files. Requires: gopls",
+      "strict": true
     }
   ]
 }

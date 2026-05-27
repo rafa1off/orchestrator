@@ -1,0 +1,5 @@
+{
+  "name": "go-lsp",
+  "version": "1.0.0",
+  "description": "Go LSP via gopls — go-to-definition, find-references, document-symbol on Go files. Requires: gopls"
+}

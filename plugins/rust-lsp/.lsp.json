@@ -1,0 +1,9 @@
+{
+  "servers": {
+    "command": "rust-analyzer",
+    "args": [],
+    "extensionToLanguage": {
+      ".rs": "rust"
+    }
+  }
+}

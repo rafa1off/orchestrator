@@ -1,0 +1,5 @@
+{
+  "name": "rust-lsp",
+  "version": "1.0.0",
+  "description": "Rust LSP via rust-analyzer — go-to-definition, find-references, document-symbol on Rust files. Requires: rust-analyzer"
+}

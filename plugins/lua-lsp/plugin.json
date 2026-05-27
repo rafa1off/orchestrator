@@ -1,0 +1,5 @@
+{
+  "name": "lua-lsp",
+  "version": "1.0.0",
+  "description": "Lua LSP via lua-language-server — go-to-definition, find-references, document-symbol on Lua files. Requires: lua-language-server"
+}
