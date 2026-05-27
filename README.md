@@ -6,7 +6,7 @@ A private Claude Code plugin marketplace for the orchestrator multi-agent develo
 
 | Plugin | Description | Requires |
 |---|---|---|
-| [`orchestrator-core`](#orchestrator-core) | 8 agents, 4 skills, stack-agnostic dev-tools MCP with timeout protection, full hook suite (SessionStart, SubagentStop JSON-validated blocking, PostToolUse auto-context, PreCompact snapshot with progress.md, TeammateIdle gate, SessionEnd audit) | `uv` |
+| [`orchestrator-core`](#orchestrator-core) | 8 agents, 5 skills, dev-tools MCP server (`write_findings` pipeline contract), full hook suite (SessionStart, SubagentStop JSON-validated blocking, PostToolUse auto-context, PreCompact snapshot with progress.md, TeammateIdle gate, SessionEnd audit) | `uv` |
 | [`ty-lsp`](#ty-lsp) | Python LSP via Astral ty | `uv tool install ty` |
 | [`vtsls-lsp`](#vtsls-lsp) | TypeScript/JavaScript LSP via vtsls | `npm install -g @vtsls/language-server` |
 
@@ -16,14 +16,12 @@ A private Claude Code plugin marketplace for the orchestrator multi-agent develo
 
 ### MCP dev-tools server (`orchestrator-core`)
 
-The dev-tools MCP server is a Python process launched automatically when the plugin is active. It requires either:
+The dev-tools MCP server is a Python process launched automatically when the plugin is active. Requires either:
 
-| Runtime | Minimum version | Notes |
-|---|---|---|
-| [`uv`](https://github.com/astral-sh/uv) | any recent | Preferred — server runs via `uv run`; dependencies resolved automatically from the bundled `pyproject.toml` |
-| Python | 3.11+ | Fallback — server runs via `python`; install dependencies manually: `pip install fastmcp` |
-
-If `uv` is present it is used automatically. If only `python` is available, the server falls back to the plain-Python command set — no extra configuration needed.
+| Runtime | Notes |
+|---|---|
+| [`uv`](https://github.com/astral-sh/uv) | Preferred — dependencies resolved automatically |
+| Python 3.11+ | Fallback — install manually: `pip install fastmcp` |
 
 ---
 
@@ -109,8 +107,8 @@ A complete multi-agent development harness for Claude Code. The orchestrator ses
 | Skill | When to use |
 |---|---|
 | `/orchestrator-core:orchestrator` | Load at every session start — the agent routing guide; includes session registry pattern for warm agent reuse |
-| `/orchestrator-core:orchestrator-plan` | Before any multi-step task — writes a plan to `.claude/plans/` with agent assignments, `*(reuse: true)*` stage annotations, and auto-detected execution mode (`execute` or `team`) |
-| `/orchestrator-core:orchestrator-execute` | After plan approval — dispatches agents, maintains a session registry to reuse warm agent sessions across stages, and routes to `orchestrator-team` when `mode: team` |
+| `/orchestrator-core:orchestrator-plan` | Before any multi-step task — writes a plan to `.claude/plans/` with agent assignments and auto-detected execution mode (`execute` or `team`) |
+| `/orchestrator-core:orchestrator-execute` | After plan approval — routes to `orchestrator-subagent` or `orchestrator-team` based on plan `mode:` field |
 | `/orchestrator-core:orchestrator-team` | For tasks with 3+ independent write tracks — fans out to agent teammates running in parallel with per-track `(agent_type, track_id)` session registry to isolate context; requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` |
 
 ### Hooks
@@ -128,39 +126,13 @@ Checker and reviewer also carry **frontmatter `PreToolUse` hooks** (active only 
 
 ### Dev-tools MCP server
 
-Stack-agnostic tools available to checker, reviewer, and tester. Each command runs with a 120-second timeout:
+Exposes a single tool used by checker and reviewer to write structured findings to the pipeline:
 
 | Tool | Description |
 |---|---|
-| `lint(files)` | Scoped linter run |
-| `typecheck()` | Full-project type check |
-| `test(pattern)` | Scoped test run |
-| `write_findings(...)` | Writes structured JSON to `.claude/pipeline/` for the orchestrator to read |
+| `write_findings(source, status, pipeline?, errors?, issues?)` | Writes `<source>-findings.json` to `.claude/pipeline/` (or a per-track subdirectory for parallel runs) |
 
-Stack is auto-detected at server startup from marker files:
-
-| Stack | Detection | Commands |
-|---|---|---|
-| Python (uv) | `uv.lock` | `uv run ruff check` / `uv run mypy .` / `uv run pytest -x` |
-| Python | `pyproject.toml`, `requirements.txt` | `python -m ruff check` / `python -m mypy .` / `python -m pytest -x` |
-| TypeScript | `tsconfig.json` + `package.json` | `npx eslint` / `npx tsc --noEmit` / `npx jest` |
-| JavaScript | `package.json` | `npx eslint` / — / `npx jest` |
-| Go | `go.mod` | `go vet ./...` / `go build ./...` / `go test ./...` |
-| Rust | `Cargo.toml` | `cargo clippy` / `cargo check` / `cargo test` |
-| Ruby | `Gemfile` | `bundle exec rubocop` / — / `bundle exec rspec` |
-| Java (Gradle) | `build.gradle` | `./gradlew checkstyleMain` / `./gradlew compileJava` / `./gradlew test` |
-| Java (Maven) | `pom.xml` | `mvn checkstyle:check` / `mvn compile` / `mvn test` |
-
-**Override any command** by creating `.claude/dev-tools.json` in your project:
-
-```json
-{
-  "lint": ["./scripts/lint.sh"],
-  "test": ["npx", "vitest", "run"]
-}
-```
-
-Any key present overrides only that command. All three keys present skips detection entirely.
+Checker and tester run lint, typecheck, and tests directly via `Bash`, reading the project's commands from `CLAUDE.md` first and falling back to marker-file detection (`uv.lock` → ruff/mypy/pytest, `package.json` → eslint/tsc/jest, etc.).
 
 ### The 5 Invariants
 
