@@ -56,7 +56,7 @@ Never introduce a new convention, abstraction, or pattern without a reason state
 
 ## Symbol Navigation
 
-When an LSP plugin is active, prefer the `LSP` tool over `grep` for named symbols — it matches by meaning, not text, eliminating false positives from comments, strings, and unrelated identifiers with the same name.
+Prefer the `LSP` tool over `grep` for named symbols — it matches by meaning, not text, eliminating false positives from comments, strings, and unrelated identifiers with the same name. Call `LSP` first; if it returns an error (server unavailable or file type unsupported), fall back to `grep`.
 
 | Goal | Tool |
 |---|---|
@@ -65,8 +65,6 @@ When an LSP plugin is active, prefer the `LSP` tool over `grep` for named symbol
 | List all symbols in a file to locate edit targets | `LSP` — document symbols |
 | Audit everything a function calls before refactoring its internals | `LSP` — prepareCallHierarchy, then outgoingCalls |
 | Search for a string or regex pattern | `grep` |
-
-Fall back to `grep` if no LSP plugin is configured for the current language.
 
 ## On Initial Write
 
