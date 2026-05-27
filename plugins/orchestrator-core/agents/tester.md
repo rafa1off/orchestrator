@@ -29,7 +29,7 @@ The orchestrator passes when invoking tester:
 
 ## Symbol Navigation
 
-When an LSP plugin is active, prefer the `LSP` tool over `grep` for named symbols — it matches by meaning, not text, eliminating false positives from comments, strings, and unrelated identifiers with the same name.
+Prefer the `LSP` tool over `grep` for named symbols — it matches by meaning, not text, eliminating false positives from comments, strings, and unrelated identifiers with the same name. Call `LSP` first; if it returns an error (server unavailable or file type unsupported), fall back to `grep`.
 
 | Goal | Tool |
 |---|---|
@@ -39,8 +39,6 @@ When an LSP plugin is active, prefer the `LSP` tool over `grep` for named symbol
 | Find all entry points that reach a function (integration test design) | `LSP` — prepareCallHierarchy, then incomingCalls |
 | Map what a function calls to plan mock boundaries | `LSP` — prepareCallHierarchy, then outgoingCalls |
 | Search for a string or regex pattern | `grep` |
-
-Fall back to `grep` if no LSP plugin is configured for the current language.
 
 ## Test Conventions
 

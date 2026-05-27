@@ -28,7 +28,7 @@ If no file paths are provided, return a `## Cannot Proceed` block and stop — d
 
 ## Symbol Navigation
 
-When an LSP plugin is active, prefer the `LSP` tool over `grep` for named symbols — it matches by meaning, not text, eliminating false positives from comments, strings, and unrelated identifiers with the same name.
+Prefer the `LSP` tool over `grep` for named symbols — it matches by meaning, not text, eliminating false positives from comments, strings, and unrelated identifiers with the same name. Call `LSP` first; if it returns an error (server unavailable or file type unsupported), fall back to `Read` + broad file inspection.
 
 | Goal | Tool |
 |---|---|
@@ -37,8 +37,6 @@ When an LSP plugin is active, prefer the `LSP` tool over `grep` for named symbol
 | List all symbols in a file | `LSP` — document symbols |
 | Trace the full call chain into a function | `LSP` — prepareCallHierarchy, then incomingCalls |
 | Trace all functions a symbol calls | `LSP` — prepareCallHierarchy, then outgoingCalls |
-
-Fall back to `Read` + broad file inspection if no LSP plugin is configured for the current language.
 
 ## How to Navigate
 

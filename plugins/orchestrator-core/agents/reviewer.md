@@ -39,7 +39,7 @@ The reviewer fetches the diff itself via `git diff HEAD` — the orchestrator do
 
 ## Symbol Navigation
 
-When an LSP plugin is active, prefer the `LSP` tool over `grep` for named symbols — it matches by meaning, not text, eliminating false positives from comments, strings, and unrelated identifiers with the same name.
+Prefer the `LSP` tool over `grep` for named symbols — it matches by meaning, not text, eliminating false positives from comments, strings, and unrelated identifiers with the same name. Call `LSP` first; if it returns an error (server unavailable or file type unsupported), fall back to `grep`.
 
 | Goal | Tool |
 |---|---|
@@ -49,8 +49,6 @@ When an LSP plugin is active, prefer the `LSP` tool over `grep` for named symbol
 | Audit new dependencies introduced by a changed function | `LSP` — prepareCallHierarchy, then outgoingCalls |
 | Verify callers at all levels of the call stack | `LSP` — prepareCallHierarchy, then incomingCalls |
 | Search for a string or regex pattern | `grep` |
-
-Fall back to `grep` if no LSP plugin is configured for the current language.
 
 ## How to Get the Diff
 
