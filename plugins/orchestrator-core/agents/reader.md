@@ -10,7 +10,6 @@ assistant: [reader returns structured snapshot of relevant files, interfaces, an
 </example>"
 model: haiku
 effort: low
-permissionMode: plan
 tools:
   - Read
   - LSP

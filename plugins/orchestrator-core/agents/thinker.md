@@ -10,7 +10,6 @@ assistant: [thinker returns structured analysis with recommendation]
 </example>"
 model: sonnet
 effort: high
-permissionMode: plan
 memory: project
 skills:
   - brainstorming  # optional — if unavailable, use the Output Modes defined below directly

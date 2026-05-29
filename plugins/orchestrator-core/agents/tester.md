@@ -1,10 +1,10 @@
 ---
 name: tester
 color: orange
-description: "Use this agent to identify missing unit tests, write them, and run the test suite after reviewer has approved. Reports test failures with full output.
+description: "Use this agent to identify missing unit tests, write them, and run the test suite after verify has approved. Reports test failures with full output.
 
 <example>
-Context: Reviewer approved. Orchestrator needs unit tests written for new logic.
+Context: Verify approved. Orchestrator needs unit tests written for new logic.
 user: [orchestrator passes task context and list of changed files]
 assistant: [tester writes tests, runs them, reports pass/fail]
 </example>"

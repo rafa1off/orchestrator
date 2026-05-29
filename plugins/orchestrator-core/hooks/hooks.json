@@ -8,8 +8,7 @@
             "command": "rm",
             "args": [
               "-f",
-              "${CLAUDE_PROJECT_DIR}/.claude/pipeline/checker-findings.json",
-              "${CLAUDE_PROJECT_DIR}/.claude/pipeline/reviewer-findings.json",
+              "${CLAUDE_PROJECT_DIR}/.claude/pipeline/verify-findings.json",
               "${CLAUDE_PROJECT_DIR}/.claude/pipeline/pre-compact-snapshot.md"
             ]
           }
@@ -18,27 +17,14 @@
     ],
     "SubagentStop": [
       {
-        "matcher": "checker",
+        "matcher": "verify",
         "hooks": [
           {
             "type": "command",
             "command": "bash",
             "args": [
               "-c",
-              "FILE=\"${CLAUDE_PROJECT_DIR}/.claude/pipeline/checker-findings.json\"; { [ -f \"$FILE\" ] && { ! command -v jq >/dev/null 2>&1 || jq -e . \"$FILE\" >/dev/null 2>&1; }; } || { echo '[orchestrator] BLOCKED: checker exited without valid findings JSON. Re-invoke write_findings before stopping.' >&2; exit 2; }"
-            ]
-          }
-        ]
-      },
-      {
-        "matcher": "reviewer",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash",
-            "args": [
-              "-c",
-              "FILE=\"${CLAUDE_PROJECT_DIR}/.claude/pipeline/reviewer-findings.json\"; { [ -f \"$FILE\" ] && { ! command -v jq >/dev/null 2>&1 || jq -e . \"$FILE\" >/dev/null 2>&1; }; } || { echo '[orchestrator] BLOCKED: reviewer exited without valid findings JSON. Re-invoke write_findings before stopping.' >&2; exit 2; }"
+              "FILE=\"${CLAUDE_PROJECT_DIR}/.claude/pipeline/verify-findings.json\"; { [ -f \"$FILE\" ] && { ! command -v jq >/dev/null 2>&1 || jq -e . \"$FILE\" >/dev/null 2>&1; }; } || { echo '[orchestrator] BLOCKED: verify exited without valid findings JSON. Re-invoke write_findings before stopping.' >&2; exit 2; }"
             ]
           }
         ]
@@ -64,21 +50,7 @@
             "command": "bash",
             "args": [
               "-c",
-              "P=\"${CLAUDE_PROJECT_DIR}/.claude/pipeline\"; { printf '# Pipeline Snapshot — %s\\n' \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"; for f in checker-findings.json reviewer-findings.json; do [ -f \"$P/$f\" ] && { printf '## %s\\n' \"$f\"; cat \"$P/$f\"; echo; }; done; [ -f \"$P/progress.md\" ] && { printf '## progress.md\\n'; cat \"$P/progress.md\"; echo; }; } > \"$P/pre-compact-snapshot.md\" 2>/dev/null || true"
-            ]
-          }
-        ]
-      }
-    ],
-    "TeammateIdle": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash",
-            "args": [
-              "-c",
-              "P=\"${CLAUDE_PROJECT_DIR}/.claude/pipeline\"; UNREAD=\"\"; [ -f \"$P/checker-findings.json\" ] && UNREAD=\"${UNREAD}checker-findings.json \"; [ -f \"$P/reviewer-findings.json\" ] && UNREAD=\"${UNREAD}reviewer-findings.json \"; if [ -n \"$UNREAD\" ]; then echo \"[orchestrator] Teammate idle blocked: unread findings (${UNREAD})— read .claude/pipeline/ before continuing.\" >&2; exit 2; fi"
+              "P=\"${CLAUDE_PROJECT_DIR}/.claude/pipeline\"; { printf '# Pipeline Snapshot — %s\\n' \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"; for f in verify-findings.json; do [ -f \"$P/$f\" ] && { printf '## %s\\n' \"$f\"; cat \"$P/$f\"; echo; }; done; [ -f \"$P/progress.md\" ] && { printf '## progress.md\\n'; cat \"$P/progress.md\"; echo; }; } > \"$P/pre-compact-snapshot.md\" 2>/dev/null || true"
             ]
           }
         ]
@@ -92,7 +64,7 @@
             "command": "bash",
             "args": [
               "-c",
-              "L=\"${CLAUDE_PROJECT_DIR}/.claude/pipeline/session-log.txt\"; mkdir -p \"$(dirname \"$L\")\"; printf '%s session-end\\n' \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\" >> \"$L\"; rm -f \"${CLAUDE_PROJECT_DIR}/.claude/pipeline/checker-findings.json\" \"${CLAUDE_PROJECT_DIR}/.claude/pipeline/reviewer-findings.json\" \"${CLAUDE_PROJECT_DIR}/.claude/pipeline/pre-compact-snapshot.md\""
+              "L=\"${CLAUDE_PROJECT_DIR}/.claude/pipeline/session-log.txt\"; mkdir -p \"$(dirname \"$L\")\"; printf '%s session-end\\n' \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\" >> \"$L\"; rm -f \"${CLAUDE_PROJECT_DIR}/.claude/pipeline/verify-findings.json\" \"${CLAUDE_PROJECT_DIR}/.claude/pipeline/pre-compact-snapshot.md\""
             ]
           }
         ]
