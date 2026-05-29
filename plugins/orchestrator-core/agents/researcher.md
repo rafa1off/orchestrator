@@ -10,7 +10,6 @@ assistant: [researcher returns concise findings from web and docs]
 </example>"
 model: sonnet
 effort: medium
-permissionMode: plan
 memory: project
 disallowedTools:
   - Edit
