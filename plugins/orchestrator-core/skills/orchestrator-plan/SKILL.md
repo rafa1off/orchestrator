@@ -22,8 +22,8 @@ Otherwise, call `EnterPlanMode`. The session is now read-only — file edits are
 Run reader and researcher **in parallel** to gather context. Skip researcher if the task is purely internal (no external library APIs, no prior decisions in `docs/`).
 
 ```
-Agent(reader,     "Map the relevant modules for: [task]. Return files, interfaces, entry points, conventions.")
-Agent(researcher, "Find external patterns or prior decisions in docs/ relevant to: [task].")  // omit if not needed
+Agent(orchestrator-core:reader,     "Map the relevant modules for: [task]. Return files, interfaces, entry points, conventions.")
+Agent(orchestrator-core:researcher, "Find external patterns or prior decisions in docs/ relevant to: [task].")  // omit if not needed
 ```
 
 ---

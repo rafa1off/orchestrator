@@ -14,12 +14,12 @@ The main Claude Code session acts as orchestrator. Agents are tools — call the
 | Agent | Model | Type | When to call |
 |-------|-------|------|--------------|
 | Explore | haiku | readonly | Broad codebase discovery — "survey the repo", "find all usages of X". Built-in; use `Agent(subagent_type="Explore", ...)` |
-| reader | haiku | readonly | Map files, interfaces, and conventions before writing. Call multiple times as new paths surface. |
-| researcher | sonnet | readonly | External APIs, library patterns, prior decisions in `docs/`. |
-| thinker | sonnet | readonly | Analysis, brainstorming, architectural decisions. Isolates verbose reasoning from main context. |
-| writer | sonnet | read+write | Produce code changes from a context block. |
-| verify | sonnet | readonly | Lint + typecheck + diff review in one pass. Always `background: true`. Never reused — always spawn fresh. |
-| tester | sonnet | read+write | Write and run tests after verify approves. |
+| orchestrator-core:reader | haiku | readonly | Map files, interfaces, and conventions before writing. Call multiple times as new paths surface. |
+| orchestrator-core:researcher | sonnet | readonly | External APIs, library patterns, prior decisions in `docs/`. |
+| orchestrator-core:thinker | sonnet | readonly | Analysis, brainstorming, architectural decisions. Isolates verbose reasoning from main context. |
+| orchestrator-core:writer | sonnet | read+write | Produce code changes from a context block. |
+| orchestrator-core:verify | sonnet | readonly | Lint + typecheck + diff review in one pass. Always `background: true`. Never reused — always spawn fresh. |
+| orchestrator-core:tester | sonnet | read+write | Write and run tests after verify approves. |
 
 ---
 
@@ -27,12 +27,12 @@ The main Claude Code session acts as orchestrator. Agents are tools — call the
 
 | Agent | Invoke with | Returns |
 |-------|------------|---------|
-| reader | task + file paths | `Relevant Files / Interfaces / Conventions / Entry Points / Test Files` — or `## Cannot Proceed` |
-| researcher | task + research question | `Prior Decisions / API Reference / Approach / Caveats` |
-| thinker | context block + question | `Analysis / Brainstorming / Q&A` — or `## Context Request` |
-| writer | `## Context` + `## Task` + `## Files to modify` (initial); `## Batch Fixes Required` (retry) | `## Modified Files` with exact paths |
-| verify | modified files list + pipeline path | `## Verify Results`; writes `<pipeline>/verify-findings.json` |
-| tester | task + changed files + what to test | `## Test Results` with written files + pass/fail table |
+| orchestrator-core:reader | task + file paths | `Relevant Files / Interfaces / Conventions / Entry Points / Test Files` — or `## Cannot Proceed` |
+| orchestrator-core:researcher | task + research question | `Prior Decisions / API Reference / Approach / Caveats` |
+| orchestrator-core:thinker | context block + question | `Analysis / Brainstorming / Q&A` — or `## Context Request` |
+| orchestrator-core:writer | `## Context` + `## Task` + `## Files to modify` (initial); `## Batch Fixes Required` (retry) | `## Modified Files` with exact paths |
+| orchestrator-core:verify | modified files list + pipeline path | `## Verify Results`; writes `<pipeline>/verify-findings.json` |
+| orchestrator-core:tester | task + changed files + what to test | `## Test Results` with written files + pass/fail table |
 
 ---
 
@@ -85,16 +85,16 @@ Wave 5 (if needed): writer fixes → verify reruns (once max)
 
 ## Parallel Dispatch Rules
 
-- **reader + researcher + thinker** — unlimited parallel (all readonly)
-- **verify + tester** — always dispatched together in the same message turn after a write phase
-- **writers** — parallel only when file sets are fully disjoint
-- **verify** — never reused; always spawn fresh
+- **orchestrator-core:reader + orchestrator-core:researcher + orchestrator-core:thinker** — unlimited parallel (all readonly)
+- **orchestrator-core:verify + orchestrator-core:tester** — always dispatched together in the same message turn after a write phase
+- **orchestrator-core:writer** — parallel only when file sets are fully disjoint
+- **orchestrator-core:verify** — never reused; always spawn fresh
 
 **Example — parallel readonly agents:**
 ```
-Agent(reader,     "map module X")
-Agent(researcher, "find library pattern Y")
-Agent(thinker,    "analyze tradeoff Z")
+Agent(orchestrator-core:reader,     "map module X")
+Agent(orchestrator-core:researcher, "find library pattern Y")
+Agent(orchestrator-core:thinker,    "analyze tradeoff Z")
 ```
 
 ---
@@ -110,8 +110,8 @@ rm -f .claude/pipeline/<track>/verify-findings.json
 
 **2 — Dispatch verify + tester in the same message turn:**
 ```
-Agent(verify, "Modified files: [list]. Pipeline: .claude/pipeline/[track if multi]")
-Agent(tester, "Task: [desc]. Changed files: [list]. Test: [what]")
+Agent(orchestrator-core:verify, "Modified files: [list]. Pipeline: .claude/pipeline/[track if multi]")
+Agent(orchestrator-core:tester, "Task: [desc]. Changed files: [list]. Test: [what]")
 ```
 
 **3 — Read findings after both complete:**
@@ -142,16 +142,16 @@ After each `Agent()` dispatch, save the returned `agent_id` in working memory ke
 - Otherwise: spawn fresh (system prompts still cache across calls).
 
 **Two rules:**
-1. **reader** — always try to reuse (called most frequently; highest cache value).
-2. **verify** — never reuse; always spawn fresh.
+1. **orchestrator-core:reader** — always try to reuse (called most frequently; highest cache value).
+2. **orchestrator-core:verify** — never reuse; always spawn fresh.
 
 ---
 
 ## Routing Special Cases
 
-**Trivial tasks** (single file, ≤15 lines, no new signatures): read the file directly, edit inline, spawn verify only.
+**Trivial tasks** (single file, ≤15 lines, no new signatures): read the file directly, edit inline, spawn `orchestrator-core:verify` only.
 
-**Analytical tasks** (questions, brainstorming, design): dispatch thinker directly. If thinker returns `## Context Request` with `Needed:` / `For reader:` / `For researcher:` / `Why:` fields — dispatch requested agents in parallel, re-invoke thinker with their output.
+**Analytical tasks** (questions, brainstorming, design): dispatch `orchestrator-core:thinker` directly. If thinker returns `## Context Request` with `Needed:` / `For reader:` / `For researcher:` / `Why:` fields — dispatch requested agents in parallel, re-invoke thinker with their output.
 
 ---
 

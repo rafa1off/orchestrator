@@ -91,12 +91,12 @@ A complete multi-agent development harness for Claude Code. The orchestrator ses
 
 | Agent | Model | Type | Role |
 |---|---|---|---|
-| `reader` | haiku | readonly | Maps code paths, returns structured context snapshots |
-| `researcher` | sonnet | readonly | Finds external patterns, library APIs, prior project decisions |
-| `thinker` | sonnet | readonly | Deep reasoning, tradeoff analysis, brainstorming; isolates verbose analysis from main context |
-| `writer` | sonnet | read+write | Produces minimal, focused code changes from a context block |
-| `verify` | sonnet | readonly | Runs lint + typecheck + diff review in one pass; writes `verify-findings.json`; `background: true` |
-| `tester` | sonnet | read+write | Identifies missing tests, writes them, runs the suite |
+| `orchestrator-core:reader` | haiku | readonly | Maps code paths, returns structured context snapshots |
+| `orchestrator-core:researcher` | sonnet | readonly | Finds external patterns, library APIs, prior project decisions |
+| `orchestrator-core:thinker` | sonnet | readonly | Deep reasoning, tradeoff analysis, brainstorming; isolates verbose analysis from main context |
+| `orchestrator-core:writer` | sonnet | read+write | Produces minimal, focused code changes from a context block |
+| `orchestrator-core:verify` | sonnet | readonly | Runs lint + typecheck + diff review in one pass; writes `verify-findings.json`; `background: true` |
+| `orchestrator-core:tester` | sonnet | read+write | Identifies missing tests, writes them, runs the suite |
 
 ### Skills
 
