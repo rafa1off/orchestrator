@@ -8,7 +8,7 @@ Context: Orchestrator needs to verify code written by the writer passes checks a
 user: [orchestrator passes task context, modified files list, and optional pipeline path]
 assistant: [verify runs lint, typecheck, and diff review, then writes verify-findings.json and returns a ## Verify Results table]
 </example>"
-model: sonnet
+model: gemini-3.1-pro
 effort: high
 background: true
 disallowedTools: Edit, Write, NotebookEdit

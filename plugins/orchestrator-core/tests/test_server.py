@@ -46,3 +46,24 @@ def test_write_findings_reviewer(tmp_path, monkeypatch):
     assert data["source"] == "reviewer"
     assert data["status"] == "APPROVED"
     assert data["issues"] == ["no issues found"]
+
+def test_write_findings_verify(tmp_path, monkeypatch):
+    monkeypatch.setattr("server.PROJECT_DIR", tmp_path)
+
+    result = write_findings(
+        source="verify",
+        status="FAIL",
+        lint={"status": "FAIL", "output": "ruff error"},
+        typecheck={"status": "PASS", "output": ""},
+        review={"status": "APPROVED", "issues": []}
+    )
+
+    expected_file = tmp_path / ".claude" / "pipeline" / "verify-findings.json"
+    assert expected_file.exists()
+
+    data = json.loads(expected_file.read_text())
+    assert data["source"] == "verify"
+    assert data["status"] == "FAIL"
+    assert data["lint"] == {"status": "FAIL", "output": "ruff error"}
+    assert data["typecheck"] == {"status": "PASS", "output": ""}
+    assert data["review"] == {"status": "APPROVED", "issues": []}
