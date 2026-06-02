@@ -8,8 +8,8 @@
             "command": "rm",
             "args": [
               "-f",
-              "${CLAUDE_PROJECT_DIR}/.claude/pipeline/verify-findings.json",
-              "${CLAUDE_PROJECT_DIR}/.claude/pipeline/pre-compact-snapshot.md"
+              "${GEMINI_PROJECT_DIR}/.gemini/pipeline/verify-findings.json",
+              "${GEMINI_PROJECT_DIR}/.gemini/pipeline/pre-compact-snapshot.md"
             ]
           }
         ]
@@ -24,7 +24,7 @@
             "command": "bash",
             "args": [
               "-c",
-              "FILE=\"${CLAUDE_PROJECT_DIR}/.claude/pipeline/verify-findings.json\"; { [ -f \"$FILE\" ] && { ! command -v jq >/dev/null 2>&1 || jq -e . \"$FILE\" >/dev/null 2>&1; }; } || { echo '[orchestrator] BLOCKED: verify exited without valid findings JSON. Re-invoke write_findings before stopping.' >&2; exit 2; }"
+              "FILE=\"${GEMINI_PROJECT_DIR}/.gemini/pipeline/verify-findings.json\"; { [ -f \"$FILE\" ] && { ! command -v jq >/dev/null 2>&1 || jq -e . \"$FILE\" >/dev/null 2>&1; }; } || { echo '[orchestrator] BLOCKED: verify exited without valid findings JSON. Re-invoke write_findings before stopping.' >&2; exit 2; }"
             ]
           }
         ]
@@ -53,7 +53,7 @@
             "command": "bash",
             "args": [
               "-c",
-              "P=\"${CLAUDE_PROJECT_DIR}/.claude/pipeline\"; { printf '# Pipeline Snapshot — %s\\n' \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"; for f in verify-findings.json; do [ -f \"$P/$f\" ] && { printf '## %s\\n' \"$f\"; cat \"$P/$f\"; echo; }; done; [ -f \"$P/progress.md\" ] && { printf '## progress.md\\n'; cat \"$P/progress.md\"; echo; }; } > \"$P/pre-compact-snapshot.md\" 2>/dev/null || true"
+              "P=\"${GEMINI_PROJECT_DIR}/.gemini/pipeline\"; { printf '# Pipeline Snapshot — %s\\n' \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"; for f in verify-findings.json; do [ -f \"$P/$f\" ] && { printf '## %s\\n' \"$f\"; cat \"$P/$f\"; echo; }; done; [ -f \"$P/progress.md\" ] && { printf '## progress.md\\n'; cat \"$P/progress.md\"; echo; }; } > \"$P/pre-compact-snapshot.md\" 2>/dev/null || true"
             ]
           }
         ]
@@ -67,7 +67,7 @@
             "command": "bash",
             "args": [
               "-c",
-              "L=\"${CLAUDE_PROJECT_DIR}/.claude/pipeline/session-log.txt\"; mkdir -p \"$(dirname \"$L\")\"; printf '%s session-end\\n' \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\" >> \"$L\"; rm -f \"${CLAUDE_PROJECT_DIR}/.claude/pipeline/verify-findings.json\" \"${CLAUDE_PROJECT_DIR}/.claude/pipeline/pre-compact-snapshot.md\""
+              "L=\"${GEMINI_PROJECT_DIR}/.gemini/pipeline/session-log.txt\"; mkdir -p \"$(dirname \"$L\")\"; printf '%s session-end\\n' \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\" >> \"$L\"; rm -f \"${GEMINI_PROJECT_DIR}/.gemini/pipeline/verify-findings.json\" \"${GEMINI_PROJECT_DIR}/.gemini/pipeline/pre-compact-snapshot.md\""
             ]
           }
         ]

@@ -8,7 +8,7 @@
       ],
       "cwd": "",
       "env": {
-        "CLAUDE_PROJECT_DIR": "${CLAUDE_PROJECT_DIR}"
+        "GEMINI_PROJECT_DIR": "${GEMINI_PROJECT_DIR}"
       }
     }
   }

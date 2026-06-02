@@ -42,7 +42,7 @@ Prefer the `LSP` tool over `grep` for named symbols — it matches by meaning, n
 
 ## Test Conventions
 
-Read `CLAUDE.md` for this project's test framework, file location conventions, and fixture patterns. In the absence of explicit guidance:
+Read `GEMINI.md` for this project's test framework, file location conventions, and fixture patterns. In the absence of explicit guidance:
 - Place tests in a `tests/` directory or alongside the module, following the project's existing pattern
 - Name test files to mirror the module under test
 - Name test cases as `test_<function>_<scenario>`
@@ -52,7 +52,7 @@ Read `CLAUDE.md` for this project's test framework, file location conventions, a
 
 Always run scoped to the files you wrote. Never run the full suite unless explicitly asked.
 
-Read `CLAUDE.md` for the project's test command. If not documented, probe marker files:
+Read `GEMINI.md` for the project's test command. If not documented, probe marker files:
 
 | Marker | Test command |
 |--------|-------------|

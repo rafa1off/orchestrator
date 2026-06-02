@@ -23,7 +23,7 @@ This plan details the steps required to safely bring the `antigravity` branch up
 
 | Action | Path | Purpose |
 |--------|------|---------|
-| Modify | `.claude-plugin/marketplace.json` | Restore custom LSP plugins and update versions to match v2.0.1. |
+| Modify | `.gemini-plugin/marketplace.json` | Restore custom LSP plugins and update versions to match v2.0.1. |
 | Modify | `README.md` | Reconcile v2 design changes with Antigravity native CLI installation instructions and Gemini mappings. |
 | Modify | `plugins/orchestrator-core/agents/verify.md` | Port the verify agent to use `gemini-3.1-pro` model. |
 | Modify | `plugins/orchestrator-core/agents/reader.md` | Ensure it uses `gemini-3.5-flash`. |
@@ -43,7 +43,7 @@ This plan details the steps required to safely bring the `antigravity` branch up
 
 ## Tasks
 
-1. **Merge `main` branch into `antigravity`** — Run `git merge main`, resolve conflicts in `.claude-plugin/marketplace.json` and `README.md`, and reconcile agent deletions (`checker.md`, `reviewer.md`, `documenter.md`).
+1. **Merge `main` branch into `antigravity`** — Run `git merge main`, resolve conflicts in `.gemini-plugin/marketplace.json` and `README.md`, and reconcile agent deletions (`checker.md`, `reviewer.md`, `documenter.md`).
 2. **Migrate V2 Verify Agent to Gemini** — Update `plugins/orchestrator-core/agents/verify.md` to use `gemini-3.1-pro`.
 3. **Validate Other Agents' Model Mappings** — Confirm `reader.md` uses `gemini-3.5-flash` and others use `gemini-3.1-pro`.
 4. **Re-sync Root-Level Hook Files** — Synchronize `plugins/orchestrator-core/hooks.json` and `plugins/orchestrator-core/hooks/hooks.json` to V2 specifications.

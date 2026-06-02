@@ -9,8 +9,8 @@ import json
 import os
 from pathlib import Path
 
-PROJECT_DIR = Path(os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd()))
-DEFAULT_PIPELINE = ".claude/pipeline"
+PROJECT_DIR = Path(os.environ.get("GEMINI_PROJECT_DIR", os.getcwd()))
+DEFAULT_PIPELINE = ".gemini/pipeline"
 
 mcp = FastMCP("dev-tools")
 
@@ -27,11 +27,11 @@ def write_findings(
     review: dict | None = None,
 ) -> str:
     """
-    Write checker, reviewer, or verify findings to .claude/pipeline/<source>-findings.json.
+    Write checker, reviewer, or verify findings to .gemini/pipeline/<source>-findings.json.
     Always call — even on PASS.
     source: 'checker' | 'reviewer' | 'verify'
     status: 'PASS'|'FAIL' (checker/verify) or 'APPROVED'|'ISSUES' (reviewer)
-    pipeline: optional override for multi-track runs, e.g. '.claude/pipeline/track-a'
+    pipeline: optional override for multi-track runs, e.g. '.gemini/pipeline/track-a'
     """
     pipeline_dir = PROJECT_DIR / (pipeline or DEFAULT_PIPELINE)
     pipeline_dir.mkdir(parents=True, exist_ok=True)

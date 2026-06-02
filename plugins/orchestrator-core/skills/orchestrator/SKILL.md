@@ -5,7 +5,7 @@ description: "Agent dispatch guide and routing protocol for all development work
 
 # Orchestrator
 
-The main Claude Code session acts as orchestrator. Agents are tools — call them whenever you need their capability, as many times as needed, in whatever order the task requires. There is no fixed pipeline.
+The main Antigravity CLI session acts as orchestrator. Agents are tools — call them whenever you need their capability, as many times as needed, in whatever order the task requires. There is no fixed pipeline.
 
 ---
 
@@ -67,14 +67,14 @@ Wave 5 (if needed): writer fixes → verify reruns (once max)
 
 ### Level 2 — Multi-track (2–3 independent file sets, ≤15 files total)
 
-- Assign each track a pipeline path: `.claude/pipeline/track-a/`, `.claude/pipeline/track-b/`, etc.
+- Assign each track a pipeline path: `.gemini/pipeline/track-a/`, `.gemini/pipeline/track-b/`, etc.
 - Dispatch all writers simultaneously with `background: true` (disjoint files = no conflict).
 - Dispatch verify + tester per track in parallel (4 agents at once for 2 tracks), each scoped to its pipeline path.
 - After all tracks clear: serial integration pass on shared files (`pyproject.toml`, lock files, `conftest.py`).
 
 ### Level 3 — Background sessions (3+ tracks OR >15 files total)
 
-- Dispatch each track as a background session: `claude --bg "Implement track-a of .claude/plans/<plan>.md. Pipeline: .claude/pipeline/track-a."`
+- Dispatch each track as a background session: `gemini --bg "Implement track-a of .gemini/plans/<plan>.md. Pipeline: .gemini/pipeline/track-a."`
 - Each background session gets its own worktree and runs the full loop (read → write → verify → test) independently.
 - Each session writes status when done: `{"track":"track-a","status":"done","modified":["file.py"]}`
 - Status values: `"working"` | `"done"` | `"escalated"` | `"failed"`
@@ -103,20 +103,20 @@ Agent(orchestrator-core:thinker,    "analyze tradeoff Z")
 
 **1 — Clear stale findings:**
 ```bash
-rm -f .claude/pipeline/verify-findings.json
+rm -f .gemini/pipeline/verify-findings.json
 # or for multi-track:
-rm -f .claude/pipeline/<track>/verify-findings.json
+rm -f .gemini/pipeline/<track>/verify-findings.json
 ```
 
 **2 — Dispatch verify + tester in the same message turn:**
 ```
-Agent(orchestrator-core:verify, "Modified files: [list]. Pipeline: .claude/pipeline/[track if multi]")
+Agent(orchestrator-core:verify, "Modified files: [list]. Pipeline: .gemini/pipeline/[track if multi]")
 Agent(orchestrator-core:tester, "Task: [desc]. Changed files: [list]. Test: [what]")
 ```
 
 **3 — Read findings after both complete:**
 ```bash
-cat .claude/pipeline/verify-findings.json
+cat .gemini/pipeline/verify-findings.json
 ```
 
 **4 — Branch on result:**

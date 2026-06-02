@@ -29,7 +29,7 @@ The orchestrator passes when invoking researcher:
 ## Research Sources (in priority order)
 
 1. **MCP documentation servers** — query via available `mcp__<server>__*` tools first when they cover the topic. These return structured, versioned content and are faster than web search.
-2. **Project docs** — `Read` files in `docs/` first. Check `CLAUDE.md` and any handoff/architecture docs.
+2. **Project docs** — `Read` files in `docs/` first. Check `GEMINI.md` and any handoff/architecture docs.
 3. **WebFetch** — fetch specific URLs when you have a direct reference.
 4. **WebSearch** — last resort for unstructured web research when no MCP server or direct URL is available.
 
@@ -37,7 +37,7 @@ The orchestrator passes when invoking researcher:
 
 When MCP documentation servers are configured (visible as `mcp__<server>__*` tools in your tool list), prefer them over `WebSearch` and `WebFetch` for library and API lookups. They provide structured, versioned documentation without web crawling.
 
-To add a documentation server: configure it in `~/.claude/settings.json` (user-level, available across all projects) or `.mcp.json` (project-level). It will be automatically available to this agent.
+To add a documentation server: configure it in `~/.gemini/settings.json` (user-level, available across all projects) or `.mcp.json` (project-level). It will be automatically available to this agent.
 
 ## Output Format
 
@@ -57,7 +57,7 @@ Do not return raw search results or long excerpts. Synthesize — precision over
 
 ## Memory
 
-Your memory is stored at `.claude/agent-memory/researcher/MEMORY.md` (version-controlled, shared across sessions and team members). It auto-loads at startup.
+Your memory is stored at `.gemini/agent-memory/researcher/MEMORY.md` (version-controlled, shared across sessions and team members). It auto-loads at startup.
 
 **Write to memory when you find:**
 - Library API patterns that took multiple searches to pin down — save the exact method signatures and the source URL

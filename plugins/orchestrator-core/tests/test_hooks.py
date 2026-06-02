@@ -20,7 +20,7 @@ def test_post_tool_findings_nonexistent(tmp_path):
         input=json.dumps(input_json),
         text=True,
         capture_output=True,
-        env={"CLAUDE_PROJECT_DIR": str(tmp_path), "PATH": os.environ["PATH"]}
+        env={"GEMINI_PROJECT_DIR": str(tmp_path), "PATH": os.environ["PATH"]}
     )
     
     assert proc.returncode == 0
@@ -28,7 +28,7 @@ def test_post_tool_findings_nonexistent(tmp_path):
 
 def test_post_tool_findings_success(tmp_path):
     # Setup mock findings
-    pipeline_dir = tmp_path / ".claude" / "pipeline"
+    pipeline_dir = tmp_path / ".gemini" / "pipeline"
     pipeline_dir.mkdir(parents=True)
     findings_file = pipeline_dir / "verify-findings.json"
     
@@ -52,7 +52,7 @@ def test_post_tool_findings_success(tmp_path):
         input=json.dumps(input_json),
         text=True,
         capture_output=True,
-        env={"CLAUDE_PROJECT_DIR": str(tmp_path), "PATH": os.environ["PATH"]}
+        env={"GEMINI_PROJECT_DIR": str(tmp_path), "PATH": os.environ["PATH"]}
     )
     
     assert proc.returncode == 0

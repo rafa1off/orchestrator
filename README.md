@@ -1,6 +1,6 @@
 # Orchestrator Plugins
 
-A private plugin marketplace for the orchestrator multi-agent development ecosystem, fully supporting both **Claude Code** and **Google Antigravity CLI** (using native Google Gemini models).
+A private plugin marketplace for the orchestrator multi-agent development ecosystem, fully supporting both **Antigravity CLI** and **Google Antigravity CLI** (using native Google Gemini models).
 
 ## Plugins
 
@@ -69,15 +69,15 @@ cp plugins/go-lsp/.lsp.json ~/.gemini/config/plugins/go-lsp/.lsp.json
 
 ---
 
-### Installation (Claude Code)
+### Installation (Antigravity CLI)
 
-#### 1. Add this marketplace to Claude Code
+#### 1. Add this marketplace to Antigravity CLI
 
 ```bash
 /plugin marketplace add rafa1off/orchestrator
 ```
 
-Or manually in your project's `.claude/settings.json` or user settings (`~/.claude/settings.json`):
+Or manually in your project's `.gemini/settings.json` or user settings (`~/.gemini/settings.json`):
 
 ```json
 {
@@ -96,27 +96,27 @@ Or manually in your project's `.claude/settings.json` or user settings (`~/.clau
 
 ```bash
 # Core orchestrator (required)
-claude plugin install orchestrator-core@orchestrator
+agy plugin install orchestrator-core@orchestrator
 
 # Python LSP
-claude plugin install ty-lsp@orchestrator
+agy plugin install ty-lsp@orchestrator
 
 # TypeScript/JavaScript LSP
-claude plugin install vtsls-lsp@orchestrator
+agy plugin install vtsls-lsp@orchestrator
 
 # Lua LSP
-claude plugin install lua-lsp@orchestrator
+agy plugin install lua-lsp@orchestrator
 
 # Rust LSP
-claude plugin install rust-lsp@orchestrator
+agy plugin install rust-lsp@orchestrator
 
 # Go LSP
-claude plugin install go-lsp@orchestrator
+agy plugin install go-lsp@orchestrator
 ```
 
 #### Other language servers
 
-For Go, Rust, Java, and other languages, check the official Claude Code plugin marketplace:
+For Go, Rust, Java, and other languages, check the official Antigravity CLI plugin marketplace:
 
 ```bash
 /plugin marketplace browse
@@ -126,7 +126,7 @@ Official LSP plugins (gopls, rust-analyzer, etc.) are maintained there and insta
 
 #### 3. Activate in your project
 
-Add one line to your project's `CLAUDE.md`:
+Add one line to your project's `GEMINI.md`:
 
 ```markdown
 Skill("/orchestrator-core:orchestrator")
@@ -138,11 +138,11 @@ That's it. No other setup required.
 
 ## orchestrator-core
 
-A complete multi-agent development harness for Claude Code and Google Antigravity CLI. The main session acts as a coordinator, calling specialized subagents on demand.
+A complete multi-agent development harness for Antigravity CLI and Google Antigravity CLI. The main session acts as a coordinator, calling specialized subagents on demand.
 
 ### Agents
 
-| Agent | Claude Model | Gemini Model | Type | Role |
+| Agent | Gemini Model | Gemini Model | Type | Role |
 |---|---|---|---|---|
 | `orchestrator-core:reader` | haiku | `gemini-3.5-flash` | readonly | Maps code paths, returns structured context snapshots |
 | `orchestrator-core:researcher` | sonnet | `gemini-3.1-pro` | readonly | Finds external patterns, library APIs, prior project decisions |
@@ -156,17 +156,17 @@ A complete multi-agent development harness for Claude Code and Google Antigravit
 | Skill | When to use |
 |---|---|
 | `/orchestrator-core:orchestrator` | Load at every session start — the agent routing guide; L1/L2/L3 dispatch levels, 3 invariants, verify loop |
-| `/orchestrator-core:orchestrator-plan` | Before any multi-step task — writes a plan to `.claude/plans/`, then dispatches directly after approval |
+| `/orchestrator-core:orchestrator-plan` | Before any multi-step task — writes a plan to `.gemini/plans/`, then dispatches directly after approval |
 
 ### Hooks
 
 | Event | Trigger | Behavior |
 |---|---|---|
-| `SessionStart` | Session begins or resumes | Clears stale `verify-findings.json` and snapshot from `.claude/pipeline/` |
+| `SessionStart` | Session begins or resumes | Clears stale `verify-findings.json` and snapshot from `.gemini/pipeline/` |
 | `SubagentStop` (verify) | verify agent finishes | **Blocks** (exit 2) if the agent stopped without a valid `verify-findings.json` — validates with `jq` when available; forces re-invocation of `write_findings` |
 | `PostToolUse` (`write_findings`) | Findings file written | Reads the file and injects its content as `additionalContext` — orchestrator receives results automatically |
-| `PreCompact` | Context compaction begins | Snapshots `verify-findings.json` and `progress.md` to `.claude/pipeline/pre-compact-snapshot.md` so state survives compaction |
-| `SessionEnd` | Session terminates | Appends an entry to `.claude/pipeline/session-log.txt` and removes stale findings |
+| `PreCompact` | Context compaction begins | Snapshots `verify-findings.json` and `progress.md` to `.gemini/pipeline/pre-compact-snapshot.md` so state survives compaction |
+| `SessionEnd` | Session terminates | Appends an entry to `.gemini/pipeline/session-log.txt` and removes stale findings |
 
 ### Dev-tools MCP server
 
@@ -174,9 +174,9 @@ Exposes a single tool used by verify to write structured findings to the pipelin
 
 | Tool | Description |
 |---|---|
-| `write_findings(source, status, pipeline?, errors?, issues?)` | Writes `verify-findings.json` to `.claude/pipeline/` (or a per-track subdirectory for parallel runs) |
+| `write_findings(source, status, pipeline?, errors?, issues?)` | Writes `verify-findings.json` to `.gemini/pipeline/` (or a per-track subdirectory for parallel runs) |
 
-Verify runs lint, typecheck, and diff review directly via `Bash`, reading the project's commands from `CLAUDE.md` first and falling back to marker-file detection (`uv.lock` → ruff/mypy, `package.json` → eslint/tsc, etc.).
+Verify runs lint, typecheck, and diff review directly via `Bash`, reading the project's commands from `GEMINI.md` first and falling back to marker-file detection (`uv.lock` → ruff/mypy, `package.json` → eslint/tsc, etc.).
 
 ### The 3 Invariants
 
@@ -230,11 +230,11 @@ Go LSP via [gopls](https://github.com/golang/tools/tree/master/gopls). Provides 
 
 ## Contributing
 
-Each plugin lives in `plugins/<name>/`. The marketplace manifest is at `.claude-plugin/marketplace.json`.
+Each plugin lives in `plugins/<name>/`. The marketplace manifest is at `.gemini-plugin/marketplace.json`.
 
 To add a new plugin:
-1. Create `plugins/<name>/` with a `.claude-plugin/plugin.json` manifest
-2. Add the entry to `.claude-plugin/marketplace.json`
+1. Create `plugins/<name>/` with a `.gemini-plugin/plugin.json` manifest
+2. Add the entry to `.gemini-plugin/marketplace.json`
 3. Bump the version in both files
 
 Versioning follows semver. `MAJOR` for breaking protocol changes, `MINOR` for new agents/skills/tools, `PATCH` for fixes and instruction improvements.

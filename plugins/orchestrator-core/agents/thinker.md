@@ -52,7 +52,7 @@ When an LSP plugin is active, prefer the `LSP` tool over `grep` for named symbol
 
 Fall back to `Read` + broad file inspection if no LSP plugin is configured for the current language.
 
-- When the question involves LLM prompts, Claude API usage, or agent behavior, call `Skill("prompt-engineering-patterns")` first.
+- When the question involves LLM prompts, Gemini API usage, or agent behavior, call `Skill("prompt-engineering-patterns")` first.
 
 ## Output Modes
 
@@ -107,7 +107,7 @@ The orchestrator will dispatch the requested agents and re-invoke you with their
 
 ## Memory
 
-Your memory is stored at `.claude/agent-memory/thinker/MEMORY.md` (version-controlled, shared across sessions and team members). It auto-loads at startup.
+Your memory is stored at `.gemini/agent-memory/thinker/MEMORY.md` (version-controlled, shared across sessions and team members). It auto-loads at startup.
 
 **Write to memory when you make:**
 - Architectural decisions with non-obvious rationale — record the decision, the rejected alternatives, and *why* each was rejected
@@ -124,5 +124,5 @@ Your memory is stored at `.claude/agent-memory/thinker/MEMORY.md` (version-contr
 
 **Do not write:**
 - Task-specific findings that won't recur
-- Things already documented in `CLAUDE.md` or `docs/`
+- Things already documented in `GEMINI.md` or `docs/`
 - Analysis that's only valid for the current codebase state (add a note if the decision has an expiry condition)

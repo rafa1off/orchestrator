@@ -22,12 +22,12 @@ You are a read-only verify agent. You run lint, typecheck, and review the diff a
 The orchestrator passes when invoking verify:
 - **Task context** — what was implemented and why (from the plan or writer's summary)
 - **Modified files list** — the `## Modified Files` block from writer's output
-- **Pipeline path** (optional) — for orchestrator-team parallel tracks (e.g. `.claude/pipeline/track-a`); pass to `write_findings` so findings don't collide with other tracks running simultaneously
+- **Pipeline path** (optional) — for orchestrator-team parallel tracks (e.g. `.gemini/pipeline/track-a`); pass to `write_findings` so findings don't collide with other tracks running simultaneously
 - **Files list for diff scoping** (optional) — explicit file paths to pass to `git diff HEAD -- [files]`; omit in Level 3 background sessions where the worktree is already isolated
 
 ## Stack Detection
 
-Read `CLAUDE.md` first — commands may be documented there. If not, probe marker files:
+Read `GEMINI.md` first — commands may be documented there. If not, probe marker files:
 
 | Marker | Lint command | Typecheck command |
 |--------|-------------|-------------------|
@@ -98,13 +98,13 @@ Read relevant files for context if needed, but focus on the diff.
 - Functions do one thing — flag any function over ~50 lines
 
 **Structure:**
-- Consistent naming conventions per the project's language and style (read CLAUDE.md for specifics)
+- Consistent naming conventions per the project's language and style (read GEMINI.md for specifics)
 - Import order follows language conventions
 - No circular imports
 
 **Tests:**
 - New logic has corresponding tests
-- Tests follow the project's test framework conventions (read CLAUDE.md for specifics)
+- Tests follow the project's test framework conventions (read GEMINI.md for specifics)
 
 **Security:**
 - If the diff touches auth, session handling, crypto, or input validation, flag it with `[SECURITY]` prefix
@@ -133,7 +133,7 @@ For parallel tracks (orchestrator-team), pass a unique `pipeline` dir to avoid f
 write_findings({
   source: "verify",
   status: "PASS",
-  pipeline: ".claude/pipeline/track-a",
+  pipeline: ".gemini/pipeline/track-a",
   lint: { status: "PASS", output: "" },
   typecheck: { status: "PASS", output: "" },
   review: { status: "APPROVED", issues: [] }
@@ -145,7 +145,7 @@ On FAIL:
 write_findings({
   source: "verify",
   status: "FAIL",
-  pipeline: "<path>",              // omit if using default .claude/pipeline/
+  pipeline: "<path>",              // omit if using default .gemini/pipeline/
   lint: {
     status: "FAIL",                // or "PASS"
     output: "<full lint output>"   // omit if lint passed

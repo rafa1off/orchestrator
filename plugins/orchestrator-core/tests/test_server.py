@@ -20,7 +20,7 @@ def test_write_findings(tmp_path, monkeypatch):
         issues=["issue 1"]
     )
 
-    expected_file = tmp_path / ".claude" / "pipeline" / "checker-findings.json"
+    expected_file = tmp_path / ".gemini" / "pipeline" / "checker-findings.json"
     assert expected_file.exists()
 
     data = json.loads(expected_file.read_text())
@@ -39,7 +39,7 @@ def test_write_findings_reviewer(tmp_path, monkeypatch):
         issues=["no issues found"]
     )
 
-    expected_file = tmp_path / ".claude" / "pipeline" / "reviewer-findings.json"
+    expected_file = tmp_path / ".gemini" / "pipeline" / "reviewer-findings.json"
     assert expected_file.exists()
 
     data = json.loads(expected_file.read_text())
@@ -58,7 +58,7 @@ def test_write_findings_verify(tmp_path, monkeypatch):
         review={"status": "APPROVED", "issues": []}
     )
 
-    expected_file = tmp_path / ".claude" / "pipeline" / "verify-findings.json"
+    expected_file = tmp_path / ".gemini" / "pipeline" / "verify-findings.json"
     assert expected_file.exists()
 
     data = json.loads(expected_file.read_text())
