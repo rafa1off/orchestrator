@@ -2,13 +2,13 @@
   "mcpServers": {
     "dev-tools": {
       "type": "stdio",
-      "command": "uv",
+      "command": "bash",
       "args": [
-        "run",
-        "${CLAUDE_PLUGIN_ROOT}/mcp-server-py/server.py"
+        "-c",
+        "uv run \"$HOME/.gemini/config/plugins/orchestrator-core/mcp-server-py/server.py\""
       ],
       "env": {
-        "CLAUDE_PROJECT_DIR": "${CLAUDE_PROJECT_DIR}"
+        "GEMINI_PROJECT_DIR": "${GEMINI_PROJECT_DIR}"
       }
     }
   }

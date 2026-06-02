@@ -1,0 +1,10 @@
+{
+  "extraKnownMarketplaces": {
+    "orchestrator": {
+      "source": {
+        "source": "github",
+        "repo": "rafa1off/orchestrator#antigravity"
+      }
+    }
+  }
+}
