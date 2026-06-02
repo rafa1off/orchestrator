@@ -22,12 +22,15 @@ def write_findings(
     pipeline: str | None = None,
     errors: dict | None = None,
     issues: list[str] | None = None,
+    lint: dict | None = None,
+    typecheck: dict | None = None,
+    review: dict | None = None,
 ) -> str:
     """
-    Write checker or reviewer findings to .claude/pipeline/<source>-findings.json.
-    Always call — even on PASS/APPROVED.
-    source: 'checker' | 'reviewer'
-    status: 'PASS'|'FAIL' (checker) or 'APPROVED'|'ISSUES' (reviewer)
+    Write checker, reviewer, or verify findings to .claude/pipeline/<source>-findings.json.
+    Always call — even on PASS.
+    source: 'checker' | 'reviewer' | 'verify'
+    status: 'PASS'|'FAIL' (checker/verify) or 'APPROVED'|'ISSUES' (reviewer)
     pipeline: optional override for multi-track runs, e.g. '.claude/pipeline/track-a'
     """
     pipeline_dir = PROJECT_DIR / (pipeline or DEFAULT_PIPELINE)
@@ -38,6 +41,19 @@ def write_findings(
         findings["errors"] = errors
     if source == "reviewer" and issues:
         findings["issues"] = issues
+
+    # Support for verify findings format and metadata parameters
+    if source == "verify":
+        if errors:
+            findings["errors"] = errors
+        if issues:
+            findings["issues"] = issues
+        if lint:
+            findings["lint"] = lint
+        if typecheck:
+            findings["typecheck"] = typecheck
+        if review:
+            findings["review"] = review
 
     out_path = pipeline_dir / f"{source}-findings.json"
     out_path.write_text(json.dumps(findings, indent=2))
