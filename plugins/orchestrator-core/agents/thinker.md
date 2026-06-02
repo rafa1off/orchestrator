@@ -10,7 +10,6 @@ assistant: [thinker returns structured analysis with recommendation]
 </example>"
 model: gemini-3.1-pro
 effort: high
-permissionMode: plan
 memory: project
 skills:
   - brainstorming  # optional — if unavailable, use the Output Modes defined below directly

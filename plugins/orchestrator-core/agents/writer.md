@@ -54,6 +54,9 @@ Never introduce a new convention, abstraction, or pattern without a reason state
 [from reviewer-findings.json, or "none"]
 ```
 
+**On track dispatch** — for Level 2 and Level 3 parallel execution:
+The `## Files to modify` list is authoritative. Write ONLY to listed files. Never touch integration-owned files (pyproject.toml, lock files, conftest.py) when operating as a parallel track.
+
 ## Symbol Navigation
 
 Prefer the `LSP` tool over `grep` for named symbols — it matches by meaning, not text, eliminating false positives from comments, strings, and unrelated identifiers with the same name. Call `LSP` first; if it returns an error (server unavailable or file type unsupported), fall back to `grep`.

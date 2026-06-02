@@ -6,7 +6,7 @@ A private plugin marketplace for the orchestrator multi-agent development ecosys
 
 | Plugin | Description | Requires |
 |---|---|---|
-| [`orchestrator-core`](#orchestrator-core) | 8 agents, 5 skills, dev-tools MCP server (`write_findings` pipeline contract), full hook suite (SessionStart, SubagentStop JSON-validated blocking, PostToolUse auto-context, PreCompact snapshot with progress.md, TeammateIdle gate, SessionEnd audit) | `uv` |
+| [`orchestrator-core`](#orchestrator-core) | 6 agents, 2 skills, dev-tools MCP server (`write_findings` pipeline contract), full hook suite (SessionStart, SubagentStop JSON-validated blocking, PostToolUse auto-context, PreCompact snapshot, SessionEnd audit) | `uv` |
 | [`ty-lsp`](#ty-lsp) | Python LSP via Astral ty | `uv tool install ty` |
 | [`vtsls-lsp`](#vtsls-lsp) | TypeScript/JavaScript LSP via vtsls | `npm install -g @vtsls/language-server` |
 | [`lua-lsp`](#lua-lsp) | Lua LSP via lua-language-server | `lua-language-server` |
@@ -142,60 +142,49 @@ A complete multi-agent development harness for Claude Code and Google Antigravit
 
 ### Agents
 
-| Agent | Claude Model | Gemini Model | Permission | Role |
+| Agent | Claude Model | Gemini Model | Type | Role |
 |---|---|---|---|---|
-| `reader` | haiku | `gemini-3.5-flash` | `plan` | Maps code paths, returns structured context snapshots |
-| `researcher` | sonnet | `gemini-3.1-pro` | `plan` | Finds external patterns, library APIs, prior project decisions; persists findings to project memory |
-| `writer` | sonnet | `gemini-3.1-pro` | session | Produces minimal, focused code changes from a context block |
-| `thinker` | sonnet | `gemini-3.1-pro` | `plan` | Deep reasoning, tradeoff analysis, architectural decisions; persists decisions to project memory |
-| `checker` | haiku | `gemini-3.5-flash` | `plan` | Runs lint + typecheck, writes structured findings; dispatched as background task |
-| `reviewer` | sonnet | `gemini-3.1-pro` | `plan` | Reviews diffs against conventions, writes structured findings |
-| `tester` | sonnet | `gemini-3.1-pro` | session | Identifies missing tests, writes them, runs the suite |
-| `documenter` | sonnet | `gemini-3.1-pro` | session | Updates `docs/` and `CLAUDE.md` when public surfaces change |
-
-`plan` = read-only at harness level regardless of session mode. `session` = inherits the active session's permission mode.
+| `orchestrator-core:reader` | haiku | `gemini-3.5-flash` | readonly | Maps code paths, returns structured context snapshots |
+| `orchestrator-core:researcher` | sonnet | `gemini-3.1-pro` | readonly | Finds external patterns, library APIs, prior project decisions |
+| `orchestrator-core:thinker` | sonnet | `gemini-3.1-pro` | readonly | Deep reasoning, tradeoff analysis, brainstorming; isolates verbose analysis from main context |
+| `orchestrator-core:writer` | sonnet | `gemini-3.1-pro` | read+write | Produces minimal, focused code changes from a context block |
+| `orchestrator-core:verify` | sonnet | `gemini-3.1-pro` | readonly | Runs lint + typecheck + diff review in one pass; writes `verify-findings.json`; `background: true` |
+| `orchestrator-core:tester` | sonnet | `gemini-3.1-pro` | read+write | Identifies missing tests, writes them, runs the suite |
 
 ### Skills
 
 | Skill | When to use |
 |---|---|
-| `/orchestrator-core:orchestrator` | Load at every session start — the agent routing guide; includes session registry pattern for warm agent reuse |
-| `/orchestrator-core:orchestrator-plan` | Before any multi-step task — writes a plan to `.claude/plans/` with agent assignments and auto-detected execution mode (`execute` or `team`) |
-| `/orchestrator-core:orchestrator-execute` | After plan approval — routes to `orchestrator-subagent` or `orchestrator-team` based on plan `mode:` field |
-| `/orchestrator-core:orchestrator-team` | For tasks with 3+ independent write tracks — fans out to agent teammates running in parallel with per-track `(agent_type, track_id)` session registry to isolate context; requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` |
+| `/orchestrator-core:orchestrator` | Load at every session start — the agent routing guide; L1/L2/L3 dispatch levels, 3 invariants, verify loop |
+| `/orchestrator-core:orchestrator-plan` | Before any multi-step task — writes a plan to `.claude/plans/`, then dispatches directly after approval |
 
 ### Hooks
 
 | Event | Trigger | Behavior |
 |---|---|---|
-| `SessionStart` | Session begins or resumes | Clears stale findings and snapshot from `.claude/pipeline/` |
-| `SubagentStop` (checker/reviewer) | Agent finishes | **Blocks** (exit 2) if the agent stopped without a valid findings JSON file — validates with `jq` when available; forces re-invocation of `write_findings` |
+| `SessionStart` | Session begins or resumes | Clears stale `verify-findings.json` and snapshot from `.claude/pipeline/` |
+| `SubagentStop` (verify) | verify agent finishes | **Blocks** (exit 2) if the agent stopped without a valid `verify-findings.json` — validates with `jq` when available; forces re-invocation of `write_findings` |
 | `PostToolUse` (`write_findings`) | Findings file written | Reads the file and injects its content as `additionalContext` — orchestrator receives results automatically |
-| `PreCompact` | Context compaction begins | Snapshots findings files and `progress.md` to `.claude/pipeline/pre-compact-snapshot.md` so state survives compaction |
-| `TeammateIdle` | Agent team teammate goes idle | **Blocks** if unread findings files are present — enforces that the lead reads all findings before the teammate closes |
+| `PreCompact` | Context compaction begins | Snapshots `verify-findings.json` and `progress.md` to `.claude/pipeline/pre-compact-snapshot.md` so state survives compaction |
 | `SessionEnd` | Session terminates | Appends an entry to `.claude/pipeline/session-log.txt` and removes stale findings |
-
-Checker and reviewer also carry **frontmatter `PreToolUse` hooks** (active only while that agent runs) that block write and destructive Bash operations (`rm`, `mv`, shell redirects, `git commit/push`, package installs) as a second layer of read-only enforcement beyond `permissionMode: plan`.
 
 ### Dev-tools MCP server
 
-Exposes a single tool used by checker and reviewer to write structured findings to the pipeline:
+Exposes a single tool used by verify to write structured findings to the pipeline:
 
 | Tool | Description |
 |---|---|
-| `write_findings(source, status, pipeline?, errors?, issues?)` | Writes `<source>-findings.json` to `.claude/pipeline/` (or a per-track subdirectory for parallel runs) |
+| `write_findings(source, status, pipeline?, errors?, issues?)` | Writes `verify-findings.json` to `.claude/pipeline/` (or a per-track subdirectory for parallel runs) |
 
-Checker and tester run lint, typecheck, and tests directly via `Bash`, reading the project's commands from `CLAUDE.md` first and falling back to marker-file detection (`uv.lock` → ruff/mypy/pytest, `package.json` → eslint/tsc/jest, etc.).
+Verify runs lint, typecheck, and diff review directly via `Bash`, reading the project's commands from `CLAUDE.md` first and falling back to marker-file detection (`uv.lock` → ruff/mypy, `package.json` → eslint/tsc, etc.).
 
-### The 5 Invariants
+### The 3 Invariants
 
-The orchestrator enforces these rules regardless of task or mode:
+The orchestrator enforces these rules regardless of task or scale:
 
-1. **Read before write** — reader runs before writer on any file set
-2. **Verify at checkpoints** — checker + reviewer run together after every write phase
-3. **One writer per overlapping file set** — writers sharing files are serialized
-4. **Max 2 verify rounds** — unresolved findings after 2 cycles escalate to the user
-5. **Plan mode blocks writes** — only reader, researcher, thinker run until plan is approved
+1. **Read before write** — invoke reader (or read files directly for trivial changes) before calling writer
+2. **Verify after write, max 2 rounds** — run verify + tester after a meaningful write phase, always together in the same message turn; escalate after 2 rounds with remaining findings
+3. **One writer per overlapping file set** — serialize writers sharing files; disjoint sets may run in parallel
 
 ---
 

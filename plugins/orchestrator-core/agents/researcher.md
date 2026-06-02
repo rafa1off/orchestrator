@@ -10,7 +10,6 @@ assistant: [researcher returns concise findings from web and docs]
 </example>"
 model: gemini-3.1-pro
 effort: medium
-permissionMode: plan
 memory: project
 disallowedTools:
   - Edit

@@ -1,6 +1,6 @@
 ---
 name: orchestrator-plan
-description: "Use this skill when the user wants to plan out a multi-step coding task before writing any code. Triggers on: \"plan this out\", \"write up a plan\", \"map out how we'd\", \"let's plan\", \"before we start\", or any request to design/outline an implementation spanning multiple files, schema changes, API additions, or refactors. Creates a structured plan saved to .claude/plans/ for later execution. Use when the user is thinking ahead — not yet implementing, but scoping what needs to change and in what order."
+description: "Use this skill when the user wants to plan out a multi-step coding task before writing any code. Triggers on: \"plan this out\", \"write up a plan\", \"map out how we'd\", \"let's plan\", \"before we start\", or any request to design/outline an implementation spanning multiple files, schema changes, API additions, or refactors. Creates a structured plan saved to .claude/plans/ for later execution. After approval, dispatches directly following the orchestrator L1/L2/L3 pattern. Use when the user is thinking ahead — not yet implementing, but scoping what needs to change and in what order."
 ---
 
 # Orchestrator Plan
@@ -22,8 +22,8 @@ Otherwise, call `EnterPlanMode`. The session is now read-only — file edits are
 Run reader and researcher **in parallel** to gather context. Skip researcher if the task is purely internal (no external library APIs, no prior decisions in `docs/`).
 
 ```
-Agent(reader,     "Map the relevant modules for: [task]. Return files, interfaces, entry points, conventions.")
-Agent(researcher, "Find external patterns or prior decisions in docs/ relevant to: [task].")  // omit if not needed
+Agent(orchestrator-core:reader,     "Map the relevant modules for: [task]. Return files, interfaces, entry points, conventions.")
+Agent(orchestrator-core:researcher, "Find external patterns or prior decisions in docs/ relevant to: [task].")  // omit if not needed
 ```
 
 ---
@@ -80,4 +80,9 @@ Call `ExitPlanMode`. Claude Code reads the plan file from Step 3 and presents it
 After the user approves (plan mode is now exited, Write is unblocked):
 
 1. Write the plan to `.claude/plans/YYYY-MM-DD-<feature-name>.md`. The system plan file from Step 3 is session-scoped and will not survive a new session — this archive is what makes deferred or repeated execution possible, and what gets committed to git as a decision record.
-2. Call `Skill("/orchestrator-core:orchestrator-execute")` passing the archived plan path.
+2. Dispatch directly following the orchestrator guide's dispatch levels:
+   - **Level 1** — single-track plan (one logical sequence of tasks, no independent write tracks): run the agent loop sequentially in this session.
+   - **Level 2** — 2–3 independent tracks (disjoint file sets, tasks that could run in parallel): fan out with `SendMessage` per track within this session, then consolidate.
+   - **Level 3** — 3+ independent tracks or >15 files changed: use `TeamCreate` to launch parallel teammate sessions, one per track.
+
+   Do not call `orchestrator-execute` or `orchestrator-subagent`.

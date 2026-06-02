@@ -10,7 +10,6 @@ assistant: [reader returns structured snapshot of relevant files, interfaces, an
 </example>"
 model: gemini-3.5-flash
 effort: low
-permissionMode: plan
 tools:
   - Read
   - LSP
