@@ -37,7 +37,10 @@
           {
             "type": "command",
             "command": "bash",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/post-tool-findings.sh"]
+            "args": [
+              "-c",
+              "bash \"$HOME/.gemini/config/plugins/orchestrator-core/hooks/post-tool-findings.sh\""
+            ]
           }
         ]
       }
