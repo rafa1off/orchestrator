@@ -39,8 +39,6 @@ Use this content format:
 ```markdown
 # [Feature Name] — Orchestrator Plan
 
-> **For execution:** Use `orchestrator-execute` to run this plan.
-
 **Goal:** [one sentence]
 **Date:** YYYY-MM-DD
 
@@ -63,7 +61,7 @@ List every deliverable — what needs to be built, changed, or tested. Name them
 
 1. [what to build/change] — `file1.py`
 2. [what to build/change] — `file2.py`
-3. verify [scope] — checker + reviewer
+3. verify [scope] — `checker` + `reviewer` (or `verify` if post-write loop)
 4. [what to test] — `tests/test_foo.py`
 ```
 
@@ -80,7 +78,8 @@ Call `ExitPlanMode`. Claude Code reads the plan file from Step 3 and presents it
 After the user approves (plan mode is now exited, Write is unblocked):
 
 1. Write the plan to `.claude/plans/YYYY-MM-DD-<feature-name>.md`. The system plan file from Step 3 is session-scoped and will not survive a new session — this archive is what makes deferred or repeated execution possible, and what gets committed to git as a decision record.
-2. Dispatch directly following the orchestrator guide's dispatch levels:
+2. Create tasks from the plan's `## Tasks` section — call `TaskCreate` for each numbered item in order, using the item text as the title and `status: "pending"`. Mark each task `in_progress` when you start it, `completed` when it's done.
+3. Dispatch directly following the orchestrator guide's dispatch levels:
    - **Level 1** — single-track plan (one logical sequence of tasks, no independent write tracks): run the agent loop sequentially in this session.
    - **Level 2** — 2–3 independent tracks (disjoint file sets, tasks that could run in parallel): fan out with `SendMessage` per track within this session, then consolidate.
    - **Level 3** — 3+ independent tracks or >15 files changed: use `TeamCreate` to launch parallel teammate sessions, one per track.

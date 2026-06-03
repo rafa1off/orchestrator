@@ -1,6 +1,6 @@
 ---
 name: orchestrator
-description: "Agent dispatch guide and routing protocol for all development work in this codebase. Load this skill at the start of every session — before any code change, bug fix, refactor, or documentation update of any size. It defines the 6-agent catalog (reader, researcher, thinker, writer, verify, tester), the 3 core invariants that govern every task, and the flexible working loop. Always load before writing any code."
+description: "Agent dispatch guide and routing protocol for all development work in this codebase. Load this skill at the start of every session — before any code change, bug fix, refactor, or documentation update of any size. It defines the 8-agent catalog (reader, researcher, thinker, writer, checker, reviewer, verify, tester), the 3 core invariants that govern every task, and the flexible working loop. Always load before writing any code."
 ---
 
 # Orchestrator
@@ -18,7 +18,9 @@ The main Claude Code session acts as orchestrator. Agents are tools — call the
 | orchestrator-core:researcher | sonnet | readonly | External APIs, library patterns, prior decisions in `docs/`. |
 | orchestrator-core:thinker | sonnet | readonly | Analysis, brainstorming, architectural decisions. Isolates verbose reasoning from main context. |
 | orchestrator-core:writer | sonnet | read+write | Produce code changes from a context block. |
-| orchestrator-core:verify | sonnet | readonly | Lint + typecheck + diff review in one pass. Always `background: true`. Never reused — always spawn fresh. |
+| orchestrator-core:checker | haiku | readonly | Lint + typecheck + build checks only — no diff review. Ad-hoc quality gate; call any time. |
+| orchestrator-core:reviewer | sonnet | readonly | Diff review only — no lint/typecheck. Use for PR reviews or reviewing a change set after checker passes. |
+| orchestrator-core:verify | sonnet | readonly | Lint + typecheck + diff review in one pass. Post-write loop only. Always `background: true`. Never reused — always spawn fresh. |
 | orchestrator-core:tester | sonnet | read+write | Write and run tests after verify approves. |
 
 ---
@@ -31,6 +33,8 @@ The main Claude Code session acts as orchestrator. Agents are tools — call the
 | orchestrator-core:researcher | task + research question | `Prior Decisions / API Reference / Approach / Caveats` |
 | orchestrator-core:thinker | context block + question | `Analysis / Brainstorming / Q&A` — or `## Context Request` |
 | orchestrator-core:writer | `## Context` + `## Task` + `## Files to modify` (initial); `## Batch Fixes Required` (retry) | `## Modified Files` with exact paths |
+| orchestrator-core:checker | files to check (optional) | `## Check Results` table; raw output on failure |
+| orchestrator-core:reviewer | task context + modified files list | `## Review Results`; issues list or APPROVED |
 | orchestrator-core:verify | modified files list + pipeline path | `## Verify Results`; writes `<pipeline>/verify-findings.json` |
 | orchestrator-core:tester | task + changed files + what to test | `## Test Results` with written files + pass/fail table |
 
@@ -86,9 +90,10 @@ Wave 5 (if needed): writer fixes → verify reruns (once max)
 ## Parallel Dispatch Rules
 
 - **orchestrator-core:reader + orchestrator-core:researcher + orchestrator-core:thinker** — unlimited parallel (all readonly)
+- **orchestrator-core:checker + orchestrator-core:reviewer** — may run in parallel; ad-hoc, no pipeline dependency
 - **orchestrator-core:verify + orchestrator-core:tester** — always dispatched together in the same message turn after a write phase
 - **orchestrator-core:writer** — parallel only when file sets are fully disjoint
-- **orchestrator-core:verify** — never reused; always spawn fresh
+- **orchestrator-core:verify** — never reused; always spawn fresh; post-write loop only
 
 **Example — parallel readonly agents:**
 ```

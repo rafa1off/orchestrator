@@ -6,7 +6,7 @@ A private Claude Code plugin marketplace for the orchestrator multi-agent develo
 
 | Plugin | Description | Requires |
 |---|---|---|
-| [`orchestrator-core`](#orchestrator-core) | 6 agents, 2 skills, dev-tools MCP server (`write_findings` pipeline contract), full hook suite (SessionStart, SubagentStop JSON-validated blocking, PostToolUse auto-context, PreCompact snapshot, SessionEnd audit) | `uv` |
+| [`orchestrator-core`](#orchestrator-core) | 8 agents, 2 skills, dev-tools MCP server (`write_findings` pipeline contract), full hook suite (SessionStart, SubagentStop JSON-validated blocking, PostToolUse auto-context, PreCompact snapshot, SessionEnd audit) | `uv` |
 | [`ty-lsp`](#ty-lsp) | Python LSP via Astral ty | `uv tool install ty` |
 | [`vtsls-lsp`](#vtsls-lsp) | TypeScript/JavaScript LSP via vtsls | `npm install -g @vtsls/language-server` |
 
@@ -95,7 +95,9 @@ A complete multi-agent development harness for Claude Code. The orchestrator ses
 | `orchestrator-core:researcher` | sonnet | readonly | Finds external patterns, library APIs, prior project decisions |
 | `orchestrator-core:thinker` | sonnet | readonly | Deep reasoning, tradeoff analysis, brainstorming; isolates verbose analysis from main context |
 | `orchestrator-core:writer` | sonnet | read+write | Produces minimal, focused code changes from a context block |
-| `orchestrator-core:verify` | sonnet | readonly | Runs lint + typecheck + diff review in one pass; writes `verify-findings.json`; `background: true` |
+| `orchestrator-core:checker` | haiku | readonly | Lint + typecheck + build only — no diff review; ad-hoc quality gate, call any time |
+| `orchestrator-core:reviewer` | sonnet | readonly | Diff review only — no lint/typecheck; for PR reviews or reviewing a change set after checker passes |
+| `orchestrator-core:verify` | sonnet | readonly | Lint + typecheck + diff review in one pass; post-write loop only; writes `verify-findings.json`; `background: true` |
 | `orchestrator-core:tester` | sonnet | read+write | Identifies missing tests, writes them, runs the suite |
 
 ### Skills
@@ -130,7 +132,7 @@ Verify runs lint, typecheck, and diff review directly via `Bash`, reading the pr
 The orchestrator enforces these rules regardless of task or scale:
 
 1. **Read before write** — invoke reader (or read files directly for trivial changes) before calling writer
-2. **Verify after write, max 2 rounds** — run verify + tester after a meaningful write phase, always together in the same message turn; escalate after 2 rounds with remaining findings
+2. **Verify after write, max 2 rounds** — run verify + tester after a write phase, always together in the same message turn; escalate after 2 rounds with remaining findings. Use checker/reviewer for ad-hoc checks outside the write loop.
 3. **One writer per overlapping file set** — serialize writers sharing files; disjoint sets may run in parallel
 
 ---
