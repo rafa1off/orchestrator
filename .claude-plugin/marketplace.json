@@ -12,8 +12,8 @@
     {
       "name": "orchestrator-core",
       "source": "./plugins/orchestrator-core",
-      "version": "2.1.0",
-      "description": "Multi-agent orchestrator v2: 8 agents (reader, researcher, thinker, writer, checker, reviewer, verify, tester), 2 skills (orchestrator, orchestrator-plan), dev-tools MCP server (write_findings pipeline contract), hook suite (SessionStart, SubagentStop JSON-validated blocking, PostToolUse auto-context, PreCompact snapshot, SessionEnd audit). Three dispatch levels: L1 single-track, L2 parallel background writers, L3 background sessions with status.json coordination. checker = lint/typecheck only; reviewer = diff review only; verify = post-write loop (both). Activate with: Skill(\"/orchestrator-core:orchestrator\") in CLAUDE.md.",
+      "version": "2.2.0",
+      "description": "Multi-agent orchestrator v2: 8 agents (reader, researcher, thinker, writer, checker, reviewer, verify, tester), 2 skills (orchestrator, orchestrator-plan), dev-tools MCP server (write_findings pipeline contract), hook suite (SessionStart, SubagentStop JSON-validated blocking, PostToolUse auto-context, PreCompact snapshot, SessionEnd audit). Three dispatch levels: L1 single-track, L2 parallel background writers, L3 background sessions with status.json coordination. All 8 agents are background: true — orchestrator can dispatch any agent non-blocking. checker = lint/typecheck only; reviewer = diff review only; verify = post-write loop (both). Activate with: Skill(\"/orchestrator-core:orchestrator\") in CLAUDE.md.",
       "strict": true
     },
     {

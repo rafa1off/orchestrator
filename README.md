@@ -91,14 +91,14 @@ A complete multi-agent development harness for Claude Code. The orchestrator ses
 
 | Agent | Model | Type | Role |
 |---|---|---|---|
-| `orchestrator-core:reader` | haiku | readonly | Maps code paths, returns structured context snapshots |
-| `orchestrator-core:researcher` | sonnet | readonly | Finds external patterns, library APIs, prior project decisions |
-| `orchestrator-core:thinker` | sonnet | readonly | Deep reasoning, tradeoff analysis, brainstorming; isolates verbose analysis from main context |
-| `orchestrator-core:writer` | sonnet | read+write | Produces minimal, focused code changes from a context block |
-| `orchestrator-core:checker` | haiku | readonly | Lint + typecheck + build only — no diff review; ad-hoc quality gate, call any time |
-| `orchestrator-core:reviewer` | sonnet | readonly | Diff review only — no lint/typecheck; for PR reviews or reviewing a change set after checker passes |
+| `orchestrator-core:reader` | haiku | readonly | Maps code paths, returns structured context snapshots; `background: true` |
+| `orchestrator-core:researcher` | sonnet | readonly | Finds external patterns, library APIs, prior project decisions; `background: true` |
+| `orchestrator-core:thinker` | sonnet | readonly | Deep reasoning, tradeoff analysis, brainstorming; isolates verbose analysis from main context; `background: true` |
+| `orchestrator-core:writer` | sonnet | read+write | Produces minimal, focused code changes from a context block; `background: true` |
+| `orchestrator-core:checker` | haiku | readonly | Lint + typecheck + build only — no diff review; ad-hoc quality gate, call any time; `background: true` |
+| `orchestrator-core:reviewer` | sonnet | readonly | Diff review only — no lint/typecheck; for PR reviews or reviewing a change set after checker passes; `background: true` |
 | `orchestrator-core:verify` | sonnet | readonly | Lint + typecheck + diff review in one pass; post-write loop only; writes `verify-findings.json`; `background: true` |
-| `orchestrator-core:tester` | sonnet | read+write | Identifies missing tests, writes them, runs the suite |
+| `orchestrator-core:tester` | sonnet | read+write | Identifies missing tests, writes them, runs the suite; `background: true` |
 
 ### Skills
 
