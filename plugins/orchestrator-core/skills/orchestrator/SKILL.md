@@ -72,17 +72,25 @@ Wave 5 (if needed): writer fixes → verify reruns (once max)
 ### Level 2 — Multi-track (2–3 independent file sets, ≤15 files total)
 
 - Assign each track a pipeline path: `.claude/pipeline/track-a/`, `.claude/pipeline/track-b/`, etc.
-- Dispatch all writers simultaneously with `background: true` (disjoint files = no conflict).
+- Dispatch all writers simultaneously with `background: true` and `isolation: "worktree"` (disjoint files = no conflict; worktree prevents cross-track interference):
+  ```
+  Agent({ description: "Writer: track-a — [task]", subagent_type: "orchestrator-core:writer", background: true, isolation: "worktree", prompt: "## Context\n..." })
+  Agent({ description: "Writer: track-b — [task]", subagent_type: "orchestrator-core:writer", background: true, isolation: "worktree", prompt: "## Context\n..." })
+  ```
 - Dispatch verify + tester per track in parallel (4 agents at once for 2 tracks), each scoped to its pipeline path.
 - After all tracks clear: serial integration pass on shared files (`pyproject.toml`, lock files, `conftest.py`).
 
-### Level 3 — Background sessions (3+ tracks OR >15 files total)
+### Level 3 — Teammate sessions (3+ tracks OR >15 files total)
 
-- Dispatch each track as a background session: `claude --bg "Implement track-a of .claude/plans/<plan>.md. Pipeline: .claude/pipeline/track-a."`
-- Each background session gets its own worktree and runs the full loop (read → write → verify → test) independently.
-- Each session writes status when done: `{"track":"track-a","status":"done","modified":["file.py"]}`
+- Dispatch each track as a teammate via `TeamCreate` — one teammate per track, each with its own worktree:
+  ```
+  TeamCreate({ name: "track-a", prompt: "Implement track-a of .claude/plans/<plan>.md. Pipeline: .claude/pipeline/track-a." })
+  TeamCreate({ name: "track-b", prompt: "Implement track-b of .claude/plans/<plan>.md. Pipeline: .claude/pipeline/track-b." })
+  ```
+- Each teammate runs the full loop (read → write → verify → test) independently.
+- Each teammate writes status when done: `{"track":"track-a","status":"done","modified":["file.py"]}`
 - Status values: `"working"` | `"done"` | `"escalated"` | `"failed"`
-- Poll until all tracks report `done` or `escalated`.
+- Wait for all teammates to report `done` or `escalated` (via `TeammateIdle` hook or polling).
 - After all tracks complete: serial integration pass.
 
 ---
@@ -97,9 +105,9 @@ Wave 5 (if needed): writer fixes → verify reruns (once max)
 
 **Example — parallel readonly agents:**
 ```
-Agent(orchestrator-core:reader,     "map module X")
-Agent(orchestrator-core:researcher, "find library pattern Y")
-Agent(orchestrator-core:thinker,    "analyze tradeoff Z")
+Agent({ description: "Reader: map module X",              subagent_type: "orchestrator-core:reader",     prompt: "Task: [desc]. Files: [paths]." })
+Agent({ description: "Researcher: find library pattern Y", subagent_type: "orchestrator-core:researcher", prompt: "Task: [desc]. Research question: [question]." })
+Agent({ description: "Thinker: analyze tradeoff Z",        subagent_type: "orchestrator-core:thinker",   prompt: "Task: [desc]. Question: [question]." })
 ```
 
 ---
@@ -115,8 +123,8 @@ rm -f .claude/pipeline/<track>/verify-findings.json
 
 **2 — Dispatch verify + tester in the same message turn:**
 ```
-Agent(orchestrator-core:verify, "Modified files: [list]. Pipeline: .claude/pipeline/[track if multi]")
-Agent(orchestrator-core:tester, "Task: [desc]. Changed files: [list]. Test: [what]")
+Agent({ description: "Verify: post-write pass",        subagent_type: "orchestrator-core:verify", background: true, prompt: "Modified files: [list]. Pipeline: .claude/pipeline/[track if multi]" })
+Agent({ description: "Tester: write and run tests",    subagent_type: "orchestrator-core:tester",          prompt: "Task: [desc]. Changed files: [list]. Test: [what]" })
 ```
 
 **3 — Read findings after both complete:**
@@ -141,14 +149,14 @@ cat .claude/pipeline/verify-findings.json
 
 ## Session Registry
 
-After each `Agent()` dispatch, save the returned `agent_id` in working memory keyed by type. Before re-dispatching:
+Before any `Agent()` dispatch, check working memory for a saved `agent_id` of that type:
 
-- If `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`: use `SendMessage(to: saved_id)` to resume the warm agent (cache hit on file content).
-- Otherwise: spawn fresh (system prompts still cache across calls).
+1. **Found** → `SendMessage(to: saved_id)` — resumes the warm agent (cache hit on file content, no cold-start overhead).
+2. **Not found** → `Agent(...)` → save the returned `agent_id` keyed by type.
 
-**Two rules:**
-1. **orchestrator-core:reader** — always try to reuse (called most frequently; highest cache value).
-2. **orchestrator-core:verify** — never reuse; always spawn fresh.
+**Hard exception:** `orchestrator-core:verify` — always step 2. Never reuse a verify agent; always spawn fresh.
+
+**Best reuse target:** `orchestrator-core:reader` — called most frequently; highest cache value from file content.
 
 ---
 

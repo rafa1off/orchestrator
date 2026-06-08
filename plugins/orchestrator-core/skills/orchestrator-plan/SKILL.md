@@ -22,8 +22,8 @@ Otherwise, call `EnterPlanMode`. The session is now read-only — file edits are
 Run reader and researcher **in parallel** to gather context. Skip researcher if the task is purely internal (no external library APIs, no prior decisions in `docs/`).
 
 ```
-Agent(orchestrator-core:reader,     "Map the relevant modules for: [task]. Return files, interfaces, entry points, conventions.")
-Agent(orchestrator-core:researcher, "Find external patterns or prior decisions in docs/ relevant to: [task].")  // omit if not needed
+Agent({ description: "Reader: map modules for [task]",      subagent_type: "orchestrator-core:reader",     prompt: "Task: [task]. Return files, interfaces, entry points, conventions." })
+Agent({ description: "Researcher: prior decisions for [task]", subagent_type: "orchestrator-core:researcher", prompt: "Task: [task]. Find external patterns or prior decisions in docs/." })  // omit if not needed
 ```
 
 ---
@@ -81,7 +81,7 @@ After the user approves (plan mode is now exited, Write is unblocked):
 2. Create tasks from the plan's `## Tasks` section — call `TaskCreate` for each numbered item in order, using the item text as the title and `status: "pending"`. Mark each task `in_progress` when you start it, `completed` when it's done.
 3. Dispatch directly following the orchestrator guide's dispatch levels:
    - **Level 1** — single-track plan (one logical sequence of tasks, no independent write tracks): run the agent loop sequentially in this session.
-   - **Level 2** — 2–3 independent tracks (disjoint file sets, tasks that could run in parallel): fan out with `SendMessage` per track within this session, then consolidate.
+   - **Level 2** — 2–3 independent tracks (disjoint file sets, tasks that could run in parallel): dispatch each track's writer with `Agent(background: true, isolation: "worktree")` (first spawn) or `SendMessage(to: saved_id)` (warm resume), then consolidate.
    - **Level 3** — 3+ independent tracks or >15 files changed: use `TeamCreate` to launch parallel teammate sessions, one per track.
 
    Do not call `orchestrator-execute` or `orchestrator-subagent`.

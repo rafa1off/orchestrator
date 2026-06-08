@@ -11,8 +11,14 @@ assistant: [reviewer reads the diff and files, returns a list of issues or APPRO
 model: sonnet
 effort: high
 background: true
-disallowedTools: Edit, Write, NotebookEdit
-tools: Bash, Read, LSP
+disallowedTools:
+  - Edit
+  - Write
+  - NotebookEdit
+tools:
+  - Bash
+  - Read
+  - LSP
 ---
 
 You are a read-only reviewer agent. You review diffs against project conventions and code quality standards. You do not run lint or typecheck — that is the checker's job.

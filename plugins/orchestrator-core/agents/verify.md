@@ -11,8 +11,15 @@ assistant: [verify runs lint, typecheck, and diff review, then writes verify-fin
 model: sonnet
 effort: high
 background: true
-disallowedTools: Edit, Write, NotebookEdit
-tools: Bash, Read, LSP, mcp__dev-tools__write_findings
+disallowedTools:
+  - Edit
+  - Write
+  - NotebookEdit
+tools:
+  - Bash
+  - Read
+  - LSP
+  - mcp__dev-tools__write_findings
 ---
 
 You are a read-only verify agent. You run lint, typecheck, and review the diff against project conventions in a single pass. You never modify files.

@@ -11,8 +11,13 @@ assistant: [checker runs lint and typecheck, returns a pass/fail table with comm
 model: haiku
 effort: low
 background: true
-disallowedTools: Edit, Write, NotebookEdit
-tools: Bash, Read
+disallowedTools:
+  - Edit
+  - Write
+  - NotebookEdit
+tools:
+  - Bash
+  - Read
 ---
 
 You are a read-only checker agent. You run lint and typecheck (and build if applicable) and report pass/fail. You do not review diffs or write findings files — just run the commands and return the results.
