@@ -97,7 +97,19 @@ Wave 5 (if needed): writer fixes → verify reruns (once max)
   Agent({ description: "Writer: track-b — [task]", subagent_type: "orchestrator-core:writer", background: true, isolation: "worktree", prompt: "## Context\n...\ntaskId: [track-b-task-id]." })
   ```
 - Dispatch verify + tester per track in parallel (4 agents at once for 2 tracks), each scoped to its pipeline path.
-- After all tracks clear: serial integration pass on shared files (`pyproject.toml`, lock files, `conftest.py`).
+- **Commit each worktree before consolidating.** The writer has no `Bash` tool and cannot commit. After a writer returns `## Modified Files`, the orchestrator commits from the worktree path using the exact file list from that output:
+  ```bash
+  git -C <worktree-path> add <file1> <file2> ...
+  git -C <worktree-path> commit -m "track-a: <one-line task summary>"
+  ```
+  The worktree path is returned in the Agent result alongside the branch name.
+- **Consolidate — do NOT use `cp`.** After all tracks verify clean, cherry-pick each worktree branch into the main working tree in sequence:
+  ```bash
+  git cherry-pick <track-a-branch>   # branch name returned in Agent result
+  git cherry-pick <track-b-branch>
+  ```
+  If cherry-pick fails (unexpected overlap): abort with `git cherry-pick --abort`, resolve conflicts manually, then continue.
+- After all cherry-picks complete: serial integration pass on shared files (`pyproject.toml`, lock files, `conftest.py`).
 
 ### Level 3 — Teammate sessions (3+ tracks OR >15 files total)
 
@@ -107,10 +119,11 @@ Wave 5 (if needed): writer fixes → verify reruns (once max)
   TeamCreate({ name: "track-b", prompt: "Implement track-b of .claude/plans/<plan>.md. Pipeline: .claude/pipeline/track-b." })
   ```
 - Each teammate runs the full loop (read → write → verify → test) independently.
-- Each teammate writes status when done: `{"track":"track-a","status":"done","modified":["file.py"]}`
+- Each teammate writes status when done: `{"track":"track-a","status":"done","modified":["file.py"],"branch":"<worktree-branch>"}`
 - Status values: `"working"` | `"done"` | `"escalated"` | `"failed"`
 - Wait for all teammates to report `done` or `escalated` (via `TeammateIdle` hook or polling).
-- After all tracks complete: serial integration pass.
+- **Consolidate:** each teammate must commit its own changes before reporting `done` (teammates have Bash access). Cherry-pick each teammate's branch into the main working tree in the same order as the plan tracks — never use `cp`. If a teammate didn't commit, the orchestrator commits from the worktree path using the file list from the teammate's status `modified` field: `git -C <worktree-path> add <file1> <file2> ... && git -C <worktree-path> commit -m "<track>: <summary>"` before cherry-picking.
+- After all cherry-picks complete: serial integration pass.
 
 ---
 
