@@ -17,6 +17,8 @@ tools:
   - Edit
   - Write
   - Bash
+  - TaskGet
+  - TaskUpdate
 ---
 
 You are a test writer and runner. After code has been reviewed, you identify which new logic lacks tests, write those tests, run the suite, and report results.
@@ -27,6 +29,18 @@ The orchestrator passes when invoking tester:
 - **Task description** — what was implemented
 - **Changed files list** — from writer's `## Modified Files` output
 - **What to test** — which specific logic, functions, or scenarios need coverage (from the plan or orchestrator judgment)
+- **taskId** (optional) — single task ID for lifecycle tracking; or **tasks** `[{ taskId, description }, ...]` for multiple sequential tasks
+
+## Task Lifecycle
+
+Handle whichever format the orchestrator passes:
+
+**Single task** (`taskId` in prompt):
+1. Call `TaskUpdate` with `{ taskId, status: "in_progress" }` before starting any work
+2. Call `TaskUpdate` with `{ taskId, status: "completed" }` after returning the output block
+
+**Multiple tasks** (`tasks` list in prompt — `[{ taskId, description }, ...]`):
+- For each item in order: call `TaskUpdate(taskId, "in_progress")` before starting that specific work, `TaskUpdate(taskId, "completed")` when done, then proceed to the next
 
 ## Symbol Navigation
 

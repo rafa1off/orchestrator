@@ -23,20 +23,39 @@ The main Claude Code session acts as orchestrator. Agents are tools — call the
 | orchestrator-core:verify | sonnet | readonly | Lint + typecheck + diff review in one pass. Post-write loop only. Always `background: true`. Never reused — always spawn fresh. |
 | orchestrator-core:tester | sonnet | read+write | Write and run tests after verify approves. |
 
+> **Task tracking:** pass task context when dispatching any agent — `taskId: [id]` for a single plan task, or `tasks: [{taskId, description}, ...]` when delegating multiple sequential plan items to one agent call. Agents self-manage all status transitions.
+
 ---
 
 ## Agent Contracts
 
 | Agent | Invoke with | Returns |
 |-------|------------|---------|
-| orchestrator-core:reader | task + file paths | `Relevant Files / Interfaces / Conventions / Entry Points / Test Files` — or `## Cannot Proceed` |
-| orchestrator-core:researcher | task + research question | `Prior Decisions / API Reference / Approach / Caveats` |
-| orchestrator-core:thinker | context block + question | `Analysis / Brainstorming / Q&A` — or `## Context Request` |
-| orchestrator-core:writer | `## Context` + `## Task` + `## Files to modify` (initial); `## Batch Fixes Required` (retry) | `## Modified Files` with exact paths |
-| orchestrator-core:checker | files to check (optional) | `## Check Results` table; raw output on failure |
-| orchestrator-core:reviewer | task context + modified files list | `## Review Results`; issues list or APPROVED |
-| orchestrator-core:verify | modified files list + pipeline path | `## Verify Results`; writes `<pipeline>/verify-findings.json` |
-| orchestrator-core:tester | task + changed files + what to test | `## Test Results` with written files + pass/fail table |
+| orchestrator-core:reader | task + file paths + taskId / tasks (optional) | `Relevant Files / Interfaces / Conventions / Entry Points / Test Files` — or `## Cannot Proceed` |
+| orchestrator-core:researcher | task + research question + taskId / tasks (optional) | `Prior Decisions / API Reference / Approach / Caveats` |
+| orchestrator-core:thinker | context block + question + taskId / tasks (optional) | `Analysis / Brainstorming / Q&A` — or `## Context Request` |
+| orchestrator-core:writer | `## Context` + `## Task` + `## Files to modify` + taskId / tasks (optional) (initial); `## Batch Fixes Required` (retry) | `## Modified Files` with exact paths |
+| orchestrator-core:checker | files to check (optional) + taskId / tasks (optional) | `## Check Results` table; raw output on failure |
+| orchestrator-core:reviewer | task context + modified files list + taskId / tasks (optional) | `## Review Results`; issues list or APPROVED |
+| orchestrator-core:verify | modified files list + pipeline path + taskId / tasks (optional) | `## Verify Results`; writes `<pipeline>/verify-findings.json` |
+| orchestrator-core:tester | task + changed files + what to test + taskId / tasks (optional) | `## Test Results` with written files + pass/fail table |
+
+---
+
+## Dispatch Mode Rules
+
+Controls whether an agent runs in the background (orchestrator continues immediately) or in-session (orchestrator blocks until done). Frontmatter `background: true` sets a default — this table is authoritative for every dispatch.
+
+| Agent | Mode | Rule |
+|-------|------|------|
+| `orchestrator-core:reader` | `background: true` | Always — agent ID saved to session registry for warm resumption |
+| `orchestrator-core:researcher` | `background: true` | Always — session registry reuse |
+| `orchestrator-core:thinker` | `background: true` | Always — session registry reuse |
+| `orchestrator-core:checker` | in-session (omit) | Always — orchestrator blocks on result before deciding next step |
+| `orchestrator-core:reviewer` | in-session (omit) | Always — orchestrator blocks on result before deciding next step |
+| `orchestrator-core:writer` | in-session (L1) / `background: true` (L2+) | L1: single writer, orchestrator blocks for `## Modified Files`; L2+: parallel writers require background |
+| `orchestrator-core:verify` | `background: true` | Always — hard rule; never reused; always spawn fresh |
+| `orchestrator-core:tester` | `background: true` | Always — dispatched in the same message turn as verify (parallel); must be background |
 
 ---
 
@@ -74,8 +93,8 @@ Wave 5 (if needed): writer fixes → verify reruns (once max)
 - Assign each track a pipeline path: `.claude/pipeline/track-a/`, `.claude/pipeline/track-b/`, etc.
 - Dispatch all writers simultaneously with `background: true` and `isolation: "worktree"` (disjoint files = no conflict; worktree prevents cross-track interference):
   ```
-  Agent({ description: "Writer: track-a — [task]", subagent_type: "orchestrator-core:writer", background: true, isolation: "worktree", prompt: "## Context\n..." })
-  Agent({ description: "Writer: track-b — [task]", subagent_type: "orchestrator-core:writer", background: true, isolation: "worktree", prompt: "## Context\n..." })
+  Agent({ description: "Writer: track-a — [task]", subagent_type: "orchestrator-core:writer", background: true, isolation: "worktree", prompt: "## Context\n...\ntaskId: [track-a-task-id]." })
+  Agent({ description: "Writer: track-b — [task]", subagent_type: "orchestrator-core:writer", background: true, isolation: "worktree", prompt: "## Context\n...\ntaskId: [track-b-task-id]." })
   ```
 - Dispatch verify + tester per track in parallel (4 agents at once for 2 tracks), each scoped to its pipeline path.
 - After all tracks clear: serial integration pass on shared files (`pyproject.toml`, lock files, `conftest.py`).
@@ -105,10 +124,16 @@ Wave 5 (if needed): writer fixes → verify reruns (once max)
 
 **Example — parallel readonly agents:**
 ```
-Agent({ description: "Reader: map module X",              subagent_type: "orchestrator-core:reader",     prompt: "Task: [desc]. Files: [paths]." })
-Agent({ description: "Researcher: find library pattern Y", subagent_type: "orchestrator-core:researcher", prompt: "Task: [desc]. Research question: [question]." })
-Agent({ description: "Thinker: analyze tradeoff Z",        subagent_type: "orchestrator-core:thinker",   prompt: "Task: [desc]. Question: [question]." })
+Agent({ description: "Reader: map module X",               subagent_type: "orchestrator-core:reader",     background: true, prompt: "Task: [desc]. Files: [paths]. taskId: [id]." })
+Agent({ description: "Researcher: find library pattern Y", subagent_type: "orchestrator-core:researcher", background: true, prompt: "Task: [desc]. Research question: [question]. taskId: [id]." })
+Agent({ description: "Thinker: analyze tradeoff Z",        subagent_type: "orchestrator-core:thinker",   background: true, prompt: "Task: [desc]. Question: [question]. taskId: [id]." })
 ```
+
+**Example — writer handling multiple plan tasks in one call:**
+```
+Agent({ description: "Writer: implement features A and B", subagent_type: "orchestrator-core:writer", prompt: "## Context\n...\ntasks: [{taskId: [id1], description: 'add X to api.py'}, {taskId: [id2], description: 'update schema in models.py'}]." })
+```
+Use this when consecutive plan tasks share enough context that a single writer invocation is more efficient than two. Each task is marked `in_progress`/`completed` individually as the writer works through them.
 
 ---
 
@@ -123,8 +148,8 @@ rm -f .claude/pipeline/<track>/verify-findings.json
 
 **2 — Dispatch verify + tester in the same message turn:**
 ```
-Agent({ description: "Verify: post-write pass",        subagent_type: "orchestrator-core:verify", background: true, prompt: "Modified files: [list]. Pipeline: .claude/pipeline/[track if multi]" })
-Agent({ description: "Tester: write and run tests",    subagent_type: "orchestrator-core:tester",          prompt: "Task: [desc]. Changed files: [list]. Test: [what]" })
+Agent({ description: "Verify: post-write pass",      subagent_type: "orchestrator-core:verify", background: true, prompt: "Modified files: [list]. Pipeline: .claude/pipeline/[track if multi]. taskId: [verify-task-id]." })
+Agent({ description: "Tester: write and run tests",  subagent_type: "orchestrator-core:tester", background: true, prompt: "Task: [desc]. Changed files: [list]. Test: [what]. taskId: [tester-task-id]." })
 ```
 
 **3 — Read findings after both complete:**

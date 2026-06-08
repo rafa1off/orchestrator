@@ -78,7 +78,7 @@ Call `ExitPlanMode`. Claude Code reads the plan file from Step 3 and presents it
 After the user approves (plan mode is now exited, Write is unblocked):
 
 1. Write the plan to `.claude/plans/YYYY-MM-DD-<feature-name>.md`. The system plan file from Step 3 is session-scoped and will not survive a new session — this archive is what makes deferred or repeated execution possible, and what gets committed to git as a decision record.
-2. Create tasks from the plan's `## Tasks` section — call `TaskCreate` for each numbered item in order, using the item text as the title and `status: "pending"`. Mark each task `in_progress` when you start it, `completed` when it's done.
+2. Create tasks from the plan's `## Tasks` section — call `TaskCreate` for each numbered item in order, using the item text as the title and `status: "pending"`. Pass each task's ID to the agent dispatched for that task via `taskId: [id]` in the prompt. Agents own all status transitions — they mark themselves `in_progress` on invocation and `completed` on return. Do not call `TaskUpdate` from the orchestrator.
 3. Dispatch directly following the orchestrator guide's dispatch levels:
    - **Level 1** — single-track plan (one logical sequence of tasks, no independent write tracks): run the agent loop sequentially in this session.
    - **Level 2** — 2–3 independent tracks (disjoint file sets, tasks that could run in parallel): dispatch each track's writer with `Agent(background: true, isolation: "worktree")` (first spawn) or `SendMessage(to: saved_id)` (warm resume), then consolidate.

@@ -19,6 +19,8 @@ tools:
   - Bash
   - Read
   - LSP
+  - TaskGet
+  - TaskUpdate
   - mcp__dev-tools__write_findings
 ---
 
@@ -31,6 +33,20 @@ The orchestrator passes when invoking verify:
 - **Modified files list** — the `## Modified Files` block from writer's output
 - **Pipeline path** (optional) — for orchestrator-team parallel tracks (e.g. `.claude/pipeline/track-a`); pass to `write_findings` so findings don't collide with other tracks running simultaneously
 - **Files list for diff scoping** (optional) — explicit file paths to pass to `git diff HEAD -- [files]`; omit in Level 3 background sessions where the worktree is already isolated
+- **taskId** (optional) — single task ID for lifecycle tracking; or **tasks** `[{ taskId, description }, ...]` for multiple sequential tasks
+
+## Task Lifecycle
+
+Handle whichever format the orchestrator passes:
+
+**Single task** (`taskId` in prompt):
+1. Call `TaskUpdate` with `{ taskId, status: "in_progress" }` before starting any work
+2. Call `TaskUpdate` with `{ taskId, status: "completed" }` after returning the output block
+
+**Multiple tasks** (`tasks` list in prompt — `[{ taskId, description }, ...]`):
+- For each item in order: call `TaskUpdate(taskId, "in_progress")` before starting that specific work, `TaskUpdate(taskId, "completed")` when done, then proceed to the next
+
+**Note:** verify may run twice in a verify loop. Mark `completed` at the end of each round regardless of PASS/FAIL — task status tracks completion of the run, not lint/review outcome.
 
 ## Stack Detection
 

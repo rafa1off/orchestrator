@@ -89,23 +89,25 @@ A complete multi-agent development harness for Claude Code. The orchestrator ses
 
 ### Agents
 
-| Agent | Model | Type | Role |
-|---|---|---|---|
-| `orchestrator-core:reader` | haiku | readonly | Maps code paths, returns structured context snapshots; `background: true` |
-| `orchestrator-core:researcher` | sonnet | readonly | Finds external patterns, library APIs, prior project decisions; `background: true` |
-| `orchestrator-core:thinker` | sonnet | readonly | Deep reasoning, tradeoff analysis, brainstorming; isolates verbose analysis from main context; `background: true` |
-| `orchestrator-core:writer` | sonnet | read+write | Produces minimal, focused code changes from a context block; `background: true` |
-| `orchestrator-core:checker` | haiku | readonly | Lint + typecheck + build only — no diff review; ad-hoc quality gate, call any time; `background: true` |
-| `orchestrator-core:reviewer` | sonnet | readonly | Diff review only — no lint/typecheck; for PR reviews or reviewing a change set after checker passes; `background: true` |
-| `orchestrator-core:verify` | sonnet | readonly | Lint + typecheck + diff review in one pass; post-write loop only; writes `verify-findings.json`; `background: true` |
-| `orchestrator-core:tester` | sonnet | read+write | Identifies missing tests, writes them, runs the suite; `background: true` |
+| Agent | Model | Type | Dispatch | Role |
+|---|---|---|---|---|
+| `orchestrator-core:reader` | haiku | readonly | `background: true` | Maps code paths, returns structured context snapshots |
+| `orchestrator-core:researcher` | sonnet | readonly | `background: true` | Finds external patterns, library APIs, prior project decisions |
+| `orchestrator-core:thinker` | sonnet | readonly | `background: true` | Deep reasoning, tradeoff analysis, brainstorming; isolates verbose analysis from main context |
+| `orchestrator-core:writer` | sonnet | read+write | in-session (L1) / `background: true` (L2+) | Produces minimal, focused code changes from a context block |
+| `orchestrator-core:checker` | haiku | readonly | in-session | Lint + typecheck + build only — no diff review; ad-hoc quality gate, call any time |
+| `orchestrator-core:reviewer` | sonnet | readonly | in-session | Diff review only — no lint/typecheck; for PR reviews or reviewing a change set after checker passes |
+| `orchestrator-core:verify` | sonnet | readonly | `background: true` | Lint + typecheck + diff review in one pass; post-write loop only; writes `verify-findings.json` |
+| `orchestrator-core:tester` | sonnet | read+write | `background: true` | Identifies missing tests, writes them, runs the suite |
+
+All agents accept `taskId` (single task) or `tasks: [{taskId, description}, ...]` (multiple sequential tasks) in the invocation prompt and self-manage `in_progress`/`completed` status transitions.
 
 ### Skills
 
 | Skill | When to use |
 |---|---|
-| `/orchestrator-core:orchestrator` | Load at every session start — the agent routing guide; L1/L2/L3 dispatch levels (L2: `isolation:worktree` writers, L3: `TeamCreate` teammates), Session Registry check-first pattern, 3 invariants, verify loop |
-| `/orchestrator-core:orchestrator-plan` | Before any multi-step task — writes a plan to `.claude/plans/`, then dispatches directly after approval |
+| `/orchestrator-core:orchestrator` | Load at every session start — the agent routing guide; L1/L2/L3 dispatch levels (L2: `isolation:worktree` writers, L3: `TeamCreate` teammates), Session Registry check-first pattern, 3 invariants, verify loop, Dispatch Mode Rules (background vs in-session per agent type), task lifecycle tracking |
+| `/orchestrator-core:orchestrator-plan` | Before any multi-step task — writes a plan to `.claude/plans/`, creates tasks via `TaskCreate`, passes task IDs to agents for self-managed lifecycle, then dispatches after approval |
 
 ### Hooks
 
