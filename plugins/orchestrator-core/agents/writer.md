@@ -10,6 +10,7 @@ assistant: [writer produces minimal, focused code changes]
 </example>"
 model: sonnet
 effort: high
+background: true
 tools:
   - Read
   - Edit

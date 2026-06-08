@@ -11,6 +11,7 @@ assistant: [researcher returns concise findings from web and docs]
 model: sonnet
 effort: medium
 memory: project
+background: true
 disallowedTools:
   - Edit
   - Write

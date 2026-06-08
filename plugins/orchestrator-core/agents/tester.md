@@ -10,6 +10,7 @@ assistant: [tester writes tests, runs them, reports pass/fail]
 </example>"
 model: sonnet
 effort: medium
+background: true
 tools:
   - Read
   - LSP

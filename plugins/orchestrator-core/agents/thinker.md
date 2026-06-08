@@ -11,6 +11,7 @@ assistant: [thinker returns structured analysis with recommendation]
 model: sonnet
 effort: high
 memory: project
+background: true
 skills:
   - brainstorming  # optional — if unavailable, use the Output Modes defined below directly
 tools:
