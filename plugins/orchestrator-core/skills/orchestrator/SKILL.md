@@ -108,7 +108,11 @@ Wave 5 (if needed): writer fixes → verify reruns (once max)
   git cherry-pick <track-a-branch>   # branch name returned in Agent result
   git cherry-pick <track-b-branch>
   ```
-  If cherry-pick fails (unexpected overlap): abort with `git cherry-pick --abort`, resolve conflicts manually, then continue.
+  If cherry-pick fails: the disjoint-file invariant was violated — this is a planning error, not a normal merge scenario. Abort and escalate:
+  ```bash
+  git cherry-pick --abort
+  ```
+  Report to the user: which files conflicted, which tracks touched them, and that the tracks must be replanned with truly disjoint file sets before retrying.
 - After all cherry-picks complete: serial integration pass on shared files (`pyproject.toml`, lock files, `conftest.py`).
 
 ### Level 3 — Teammate sessions (3+ tracks OR >15 files total)
