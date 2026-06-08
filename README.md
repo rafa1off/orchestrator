@@ -6,7 +6,7 @@ A private Claude Code plugin marketplace for the orchestrator multi-agent develo
 
 | Plugin | Description | Requires |
 |---|---|---|
-| [`orchestrator-core`](#orchestrator-core) | 8 agents, 2 skills, dev-tools MCP server (`write_findings` pipeline contract), full hook suite (SessionStart, SubagentStop JSON-validated blocking, PostToolUse auto-context, PreCompact snapshot, SessionEnd audit) | `uv` |
+| [`orchestrator-core`](#orchestrator-core) | 8 agents, 2 skills, dev-tools MCP server (`write_findings` pipeline contract), full hook suite (SessionStart, SubagentStop JSON-validated blocking + additionalContext, PostToolUse auto-context, PreCompact snapshot, SessionEnd audit, FileChanged verify-findings watcher) | `uv` |
 | [`ty-lsp`](#ty-lsp) | Python LSP via Astral ty | `uv tool install ty` |
 | [`vtsls-lsp`](#vtsls-lsp) | TypeScript/JavaScript LSP via vtsls | `npm install -g @vtsls/language-server` |
 
@@ -104,7 +104,7 @@ A complete multi-agent development harness for Claude Code. The orchestrator ses
 
 | Skill | When to use |
 |---|---|
-| `/orchestrator-core:orchestrator` | Load at every session start — the agent routing guide; L1/L2/L3 dispatch levels, 3 invariants, verify loop |
+| `/orchestrator-core:orchestrator` | Load at every session start — the agent routing guide; L1/L2/L3 dispatch levels (L2: `isolation:worktree` writers, L3: `TeamCreate` teammates), Session Registry check-first pattern, 3 invariants, verify loop |
 | `/orchestrator-core:orchestrator-plan` | Before any multi-step task — writes a plan to `.claude/plans/`, then dispatches directly after approval |
 
 ### Hooks
@@ -112,8 +112,9 @@ A complete multi-agent development harness for Claude Code. The orchestrator ses
 | Event | Trigger | Behavior |
 |---|---|---|
 | `SessionStart` | Session begins or resumes | Clears stale `verify-findings.json` and snapshot from `.claude/pipeline/` |
-| `SubagentStop` (verify) | verify agent finishes | **Blocks** (exit 2) if the agent stopped without a valid `verify-findings.json` — validates with `jq` when available; forces re-invocation of `write_findings` |
+| `SubagentStop` (verify) | verify agent finishes | **Blocks** (exit 2) if the agent stopped without a valid `verify-findings.json`; on success injects `additionalContext` with status + findings path so the orchestrator knows immediately without reading the file |
 | `PostToolUse` (`write_findings`) | Findings file written | Reads the file and injects its content as `additionalContext` — orchestrator receives results automatically |
+| `FileChanged` (`verify-findings.json`) | Background verify writes its findings file | Injects findings status and pipeline path as `additionalContext` — eliminates the manual `cat` step from the verify loop |
 | `PreCompact` | Context compaction begins | Snapshots `verify-findings.json` and `progress.md` to `.claude/pipeline/pre-compact-snapshot.md` so state survives compaction |
 | `SessionEnd` | Session terminates | Appends an entry to `.claude/pipeline/session-log.txt` and removes stale findings |
 

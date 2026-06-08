@@ -24,7 +24,7 @@
             "command": "bash",
             "args": [
               "-c",
-              "FILE=\"${CLAUDE_PROJECT_DIR}/.claude/pipeline/verify-findings.json\"; { [ -f \"$FILE\" ] && { ! command -v jq >/dev/null 2>&1 || jq -e . \"$FILE\" >/dev/null 2>&1; }; } || { echo '[orchestrator] BLOCKED: verify exited without valid findings JSON. Re-invoke write_findings before stopping.' >&2; exit 2; }"
+              "FILE=$(find \"${CLAUDE_PROJECT_DIR}/.claude/pipeline\" -name 'verify-findings.json' 2>/dev/null | head -1); FILE=${FILE:-\"${CLAUDE_PROJECT_DIR}/.claude/pipeline/verify-findings.json\"}; if [ -f \"$FILE\" ] && { ! command -v jq >/dev/null 2>&1 || jq -e . \"$FILE\" >/dev/null 2>&1; }; then STATUS=$(command -v jq >/dev/null 2>&1 && jq -r '.status // \"UNKNOWN\"' \"$FILE\" 2>/dev/null || echo 'UNKNOWN'); printf '{\"hookSpecificOutput\":{\"additionalContext\":\"[verify] stopped — status=%s, findings at %s\"}}' \"$STATUS\" \"$FILE\"; else echo '[orchestrator] BLOCKED: verify exited without valid findings JSON. Re-invoke write_findings before stopping.' >&2; exit 2; fi"
             ]
           }
         ]
@@ -65,6 +65,21 @@
             "args": [
               "-c",
               "L=\"${CLAUDE_PROJECT_DIR}/.claude/pipeline/session-log.txt\"; mkdir -p \"$(dirname \"$L\")\"; printf '%s session-end\\n' \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\" >> \"$L\"; rm -f \"${CLAUDE_PROJECT_DIR}/.claude/pipeline/verify-findings.json\" \"${CLAUDE_PROJECT_DIR}/.claude/pipeline/pre-compact-snapshot.md\""
+            ]
+          }
+        ]
+      }
+    ],
+    "FileChanged": [
+      {
+        "matcher": "verify-findings.json",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash",
+            "args": [
+              "-c",
+              "FILE=$(find \"${CLAUDE_PROJECT_DIR}/.claude/pipeline\" -name 'verify-findings.json' 2>/dev/null | head -1); [ -f \"$FILE\" ] && command -v jq >/dev/null 2>&1 && STATUS=$(jq -r '.status // \"UNKNOWN\"' \"$FILE\" 2>/dev/null) && PIPELINE=$(jq -r 'if .pipeline then .pipeline else \"default\" end' \"$FILE\" 2>/dev/null) && printf '{\"hookSpecificOutput\":{\"additionalContext\":\"[verify-findings] status=%s pipeline=%s — findings ready at %s\"}}' \"$STATUS\" \"$PIPELINE\" \"$FILE\" || true"
             ]
           }
         ]
