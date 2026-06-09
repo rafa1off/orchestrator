@@ -1,5 +1,0 @@
-{
-  "name": "orchestrator-core",
-  "version": "2.5.2",
-  "description": "Multi-agent orchestrator v2: 8 agents (reader, researcher, thinker, writer, checker, reviewer, verify, tester), 2 skills (orchestrator, orchestrator-plan), dev-tools MCP server (write_findings pipeline contract), hook suite (SessionStart, SubagentStop JSON-validated blocking + additionalContext, PostToolUse auto-context, PreCompact snapshot, SessionEnd audit, FileChanged verify-findings watcher). Three dispatch levels: L1 single-track, L2 parallel writers with isolation:worktree, L3 TeamCreate teammates. Session Registry: check-first pattern (SendMessage to resume warm agents; always-fresh for verify). Dispatch Mode Rules: reader/researcher/thinker/verify/tester always background; checker/reviewer always in-session; writer in-session (L1) or background (L2+). Task lifecycle: agents self-manage in_progress/completed via taskId or tasks:[{taskId,description}] passed in prompt. Activate with: Skill(\"/orchestrator-core:orchestrator\") in CLAUDE.md."
-}
