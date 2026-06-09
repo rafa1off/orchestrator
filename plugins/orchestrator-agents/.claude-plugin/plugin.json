@@ -1,0 +1,6 @@
+{
+  "name": "orchestrator-agents",
+  "version": "1.0.0",
+  "description": "8-agent catalog for the orchestrator ecosystem: reader (haiku), researcher (sonnet), thinker (sonnet), writer (sonnet), checker (haiku), reviewer (sonnet), verify (sonnet), tester (sonnet).",
+  "dependencies": ["orchestrator-mcp"]
+}

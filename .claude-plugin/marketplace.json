@@ -10,10 +10,31 @@
   },
   "plugins": [
     {
-      "name": "orchestrator-core",
-      "source": "./plugins/orchestrator-core",
-      "version": "2.5.2",
-      "description": "Multi-agent orchestrator v2: 8 agents (reader, researcher, thinker, writer, checker, reviewer, verify, tester), 2 skills (orchestrator, orchestrator-plan), dev-tools MCP server (write_findings pipeline contract), hook suite (SessionStart, SubagentStop JSON-validated blocking + additionalContext, PostToolUse auto-context, PreCompact snapshot, SessionEnd audit, FileChanged verify-findings watcher). Three dispatch levels: L1 single-track, L2 parallel writers with isolation:worktree, L3 TeamCreate teammates. Session Registry: check-first pattern (SendMessage to resume warm agents; always-fresh for verify). Dispatch Mode Rules: reader/researcher/thinker/verify/tester always background; checker/reviewer always in-session; writer in-session (L1) or background (L2+). Task lifecycle: agents self-manage in_progress/completed via taskId or tasks:[{taskId,description}] passed in prompt. Activate with: Skill(\"/orchestrator-core:orchestrator\") in CLAUDE.md.",
+      "name": "orchestrator-mcp",
+      "source": "./plugins/orchestrator-mcp",
+      "version": "1.0.0",
+      "description": "Dev-tools MCP server for the orchestrator ecosystem — write_findings pipeline contract for verify and checker agents.",
+      "strict": true
+    },
+    {
+      "name": "orchestrator-hooks",
+      "source": "./plugins/orchestrator-hooks",
+      "version": "1.0.0",
+      "description": "Hook suite for the orchestrator ecosystem — SessionStart cleanup, SubagentStop verify-blocking, PostToolUse findings auto-context, PreCompact snapshot, SessionEnd audit, FileChanged verify-findings watcher.",
+      "strict": true
+    },
+    {
+      "name": "orchestrator-agents",
+      "source": "./plugins/orchestrator-agents",
+      "version": "1.0.0",
+      "description": "8-agent catalog for the orchestrator ecosystem: reader (haiku), researcher (sonnet), thinker (sonnet), writer (sonnet), checker (haiku), reviewer (sonnet), verify (sonnet), tester (sonnet).",
+      "strict": true
+    },
+    {
+      "name": "orchestrator-skills",
+      "source": "./plugins/orchestrator-skills",
+      "version": "1.0.0",
+      "description": "Orchestrator workflow skills — /orchestrator-skills:orchestrator (agent dispatch guide) and /orchestrator-skills:orchestrator-plan (plan before coding). Activate with: Skill(\"/orchestrator-skills:orchestrator\") in CLAUDE.md.",
       "strict": true
     },
     {

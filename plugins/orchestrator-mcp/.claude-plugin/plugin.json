@@ -1,0 +1,5 @@
+{
+  "name": "orchestrator-mcp",
+  "version": "1.0.0",
+  "description": "Dev-tools MCP server for the orchestrator ecosystem — write_findings pipeline contract for verify and checker agents."
+}
