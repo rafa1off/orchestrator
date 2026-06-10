@@ -109,7 +109,7 @@ Two workflow skills for the orchestrator session:
 
 | Skill | When to use |
 |---|---|
-| `/orchestrator-skills:orchestrator` | Load at every session start — the agent routing guide: 8-agent catalog, 3 core invariants, L1/L2/L3 dispatch levels, dispatch mode rules (background vs in-session per agent type), routing special cases. Lazy-loads `dispatch-levels.md`, `verify-loop.md`, and `agent-contracts.md` on demand. |
+| `/orchestrator-skills:orchestrator` | Load at every session start — the agent routing guide: 8-agent catalog, 3 core invariants, L1/L2/L3 dispatch levels (L3 splits into Workflow default + TeamCreate for coordination-heavy tasks), dispatch mode rules, routing special cases. Lazy-loads `dispatch-levels.md`, `verify-loop.md`, and `agent-contracts.md` on demand. |
 | `/orchestrator-skills:orchestrator-plan` | Before any multi-step task — enters plan mode, runs reader/researcher in parallel, writes a plan to `.claude/plans/`, creates tasks via `TaskCreate`, then dispatches after approval following L1/L2/L3. |
 
 **Dependencies:** `orchestrator-agents`, `orchestrator-hooks`
@@ -125,7 +125,7 @@ Two workflow skills for the orchestrator session:
 | `orchestrator-agents:reader` | haiku | readonly | `background: true` | Maps code paths, returns structured context snapshots |
 | `orchestrator-agents:researcher` | sonnet | readonly | `background: true` | Finds external patterns, library APIs, prior project decisions |
 | `orchestrator-agents:thinker` | sonnet | readonly | `background: true` | Deep reasoning, tradeoff analysis, brainstorming; isolates verbose analysis from main context |
-| `orchestrator-agents:writer` | sonnet | read+write | in-session (L1) / `background: true` (L2+) | Produces minimal, focused code changes from a context block |
+| `orchestrator-agents:writer` | sonnet | read+write | orchestrator's choice | Produces minimal, focused code changes from a context block |
 | `orchestrator-agents:checker` | haiku | readonly | in-session | Lint + typecheck + build only — no diff review; ad-hoc quality gate, call any time |
 | `orchestrator-agents:reviewer` | sonnet | readonly | in-session | Diff review only — no lint/typecheck; for PR reviews or reviewing a change set after checker passes |
 | `orchestrator-agents:verify` | sonnet | readonly | `background: true` | Lint + typecheck + diff review in one pass; post-write loop only; writes `verify-findings.json` |
@@ -137,7 +137,7 @@ All agents accept `taskId` (single task) or `tasks: [{taskId, description}, ...]
 
 ### The 3 Invariants
 
-1. **Read before write** — invoke reader (or read files directly for trivial changes) before calling writer
+1. **Read before write** — invoke reader before calling writer; the orchestrator may read files directly when the scope is narrow enough to not warrant a reader agent
 2. **Verify after write, max 2 rounds** — run verify + tester after a write phase, always together in the same message turn; escalate after 2 rounds with remaining findings
 3. **One writer per overlapping file set** — serialize writers sharing files; disjoint sets may run in parallel
 
