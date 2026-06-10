@@ -9,7 +9,7 @@ Read this file when starting a Level 2 (multi-track) or Level 3 (teammate) task.
 ```
 Wave 1 (parallel):  reader [+ researcher if external APIs needed] [+ thinker if design question]
 Wave 2 (inline):    orchestrator synthesizes → presents plan → user approves
-Wave 3:             writer
+Wave 3:             writer [background: true if parallelism is warranted]
 Wave 4 (parallel):  verify + tester
 Wave 5 (if needed): writer fixes → verify reruns (once max)
 ```
@@ -19,51 +19,74 @@ Wave 5 (if needed): writer fixes → verify reruns (once max)
 ## Level 2 — Multi-track (2–3 independent file sets, ≤15 files total)
 
 - Assign each track a pipeline path: `.claude/pipeline/track-a/`, `.claude/pipeline/track-b/`, etc.
-- **Worktree decision** — before dispatching writers, check whether the target files share the main repo:
-  ```bash
-  git -C <target-dir> rev-parse --show-toplevel 2>/dev/null
+- Dispatch all writers simultaneously with `background: true`:
   ```
-  If the result differs from `git rev-parse --show-toplevel` (i.e., targets live in a subrepo or git-ignored subtree with its own `.git`), omit `isolation: "worktree"` — the disjoint-file invariant is sufficient. Otherwise include it.
-- Dispatch all writers simultaneously with `background: true` (add `isolation: "worktree"` when targets share the main repo):
+  Agent({ description: "Writer: track-a — [task]", subagent_type: "orchestrator-agents:writer", background: true, prompt: "## Context\n...\ntaskId: [track-a-task-id]." })
+  Agent({ description: "Writer: track-b — [task]", subagent_type: "orchestrator-agents:writer", background: true, prompt: "## Context\n...\ntaskId: [track-b-task-id]." })
   ```
-  Agent({ description: "Writer: track-a — [task]", subagent_type: "orchestrator-agents:writer", background: true, isolation: "worktree", prompt: "## Context\n...\ntaskId: [track-a-task-id]." })
-  Agent({ description: "Writer: track-b — [task]", subagent_type: "orchestrator-agents:writer", background: true, isolation: "worktree", prompt: "## Context\n...\ntaskId: [track-b-task-id]." })
-  ```
+- Each writer edits its disjoint file set directly in the working tree. Wait for all to complete.
 - Dispatch verify + tester per track in parallel (4 agents at once for 2 tracks), each scoped to its pipeline path.
-- **Commit each worktree before consolidating.** The writer has no `Bash` tool and cannot commit. After a writer returns `## Modified Files`, the orchestrator commits from the worktree path:
-  ```bash
-  git -C <worktree-path> add <file1> <file2> ...
-  git -C <worktree-path> commit -m "track-a: <one-line task summary>"
-  ```
-  The worktree path is returned in the Agent result alongside the branch name.
-- **Consolidate — do NOT use `cp`.** After all tracks verify clean, cherry-pick each branch in sequence:
-  ```bash
-  git cherry-pick <track-a-branch>
-  git cherry-pick <track-b-branch>
-  ```
-  If cherry-pick fails: the disjoint-file invariant was violated — planning error, not a merge scenario. Abort and escalate:
-  ```bash
-  git cherry-pick --abort
-  ```
-  Report which files conflicted, which tracks touched them, and that tracks must be replanned with truly disjoint file sets.
-- After all cherry-picks complete: serial integration pass on shared files (`pyproject.toml`, lock files, `conftest.py`).
+- After all tracks verify clean: serial integration pass on shared files (`pyproject.toml`, lock files, `conftest.py`).
+
+> **If files conflict across tracks:** the disjoint-file invariant was violated — a planning error. Escalate: report which files conflicted and which tracks touched them. Tracks must be replanned with truly disjoint file sets.
 
 ---
 
-## Level 3 — Teammate sessions (3+ tracks OR >15 files total)
+## Level 3 — Large scale (3+ tracks OR >15 files total)
 
-- **Worktree decision** — same check as L2: if targets are in a subrepo, tell each teammate in its prompt not to use worktree isolation for those files.
-- Dispatch each track as a teammate via `TeamCreate` — one teammate per track, each with its own worktree:
-  ```
-  TeamCreate({ name: "track-a", prompt: "Implement track-a of .claude/plans/<plan>.md. Pipeline: .claude/pipeline/track-a." })
-  TeamCreate({ name: "track-b", prompt: "Implement track-b of .claude/plans/<plan>.md. Pipeline: .claude/pipeline/track-b." })
-  ```
+Choose based on whether tracks need to coordinate with each other:
+
+### 3a — Workflow (default: independent parallel work)
+
+Use when tracks are fully independent — no cross-track coordination or peer messaging needed. Workflow moves orchestration into a script outside Claude's context, making runs resumable and context-free.
+
+```javascript
+export const meta = {
+  name: 'l3-task',
+  description: 'Implement [task] across N independent tracks',
+  phases: [{ title: 'Read' }, { title: 'Write' }, { title: 'Verify' }],
+}
+
+const TRACKS = [
+  { label: 'track-a', files: ['path/to/a.py'], task: '...' },
+  { label: 'track-b', files: ['path/to/b.py'], task: '...' },
+  // ...
+]
+
+const results = await pipeline(
+  TRACKS,
+  t => agent(`Map files for ${t.label}: ${t.files.join(', ')}`, {
+    label: `read:${t.label}`, phase: 'Read',
+    agentType: 'orchestrator-agents:reader',
+  }),
+  (ctx, t) => agent(`Implement ${t.task}.\n\nContext:\n${ctx}`, {
+    label: `write:${t.label}`, phase: 'Write',
+    agentType: 'orchestrator-agents:writer',
+  }),
+  (_, t) => agent(`Verify changes in ${t.files.join(', ')}. Pipeline: .claude/pipeline/${t.label}.`, {
+    label: `verify:${t.label}`, phase: 'Verify',
+    agentType: 'orchestrator-agents:verify',
+  }),
+)
+return results
+```
+
+After the workflow completes: serial integration pass on shared files (`pyproject.toml`, lock files, `conftest.py`).
+
+### 3b — TeamCreate (coordination-heavy)
+
+Use when teammates need to share findings, challenge each other's work, or coordinate on dependent tasks via direct inter-agent messaging.
+
+```
+TeamCreate({ name: "track-a", prompt: "Implement track-a of .claude/plans/<plan>.md. Pipeline: .claude/pipeline/track-a." })
+TeamCreate({ name: "track-b", prompt: "Implement track-b of .claude/plans/<plan>.md. Pipeline: .claude/pipeline/track-b." })
+```
+
 - Each teammate runs the full loop (read → write → verify → test) independently.
-- Each teammate writes status when done: `{"track":"track-a","status":"done","modified":["file.py"],"branch":"<worktree-branch>"}`
+- Each teammate writes status when done: `{"track":"track-a","status":"done","modified":["file.py"]}`
 - Status values: `"working"` | `"done"` | `"escalated"` | `"failed"`
 - Wait for all teammates to report `done` or `escalated` (via `TeammateIdle` hook or polling).
-- **Consolidate:** each teammate must commit before reporting `done` (teammates have Bash access). Cherry-pick each branch into the main working tree in plan order — never use `cp`. If a teammate didn't commit, the orchestrator commits from the worktree: `git -C <worktree-path> add <files> && git -C <worktree-path> commit -m "<track>: <summary>"` before cherry-picking.
-- After all cherry-picks complete: serial integration pass.
+- After all tracks complete: serial integration pass on shared files.
 
 ---
 
