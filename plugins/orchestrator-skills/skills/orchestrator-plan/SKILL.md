@@ -82,3 +82,4 @@ Call `ExitPlanMode`. Claude Code reads the plan file from Step 3 and presents it
    2–3 tracks AND ≤15 files?   → Level 2
    3+ tracks OR >15 files?     → Level 3
    ```
+   Then follow the orchestrator guide's dispatch rules for the determined level.

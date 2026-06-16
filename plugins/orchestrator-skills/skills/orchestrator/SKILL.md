@@ -13,7 +13,7 @@ The main Claude Code session acts as orchestrator. Agents are tools — call the
 
 | Agent | Model | Type | When to call |
 |-------|-------|------|--------------|
-| Explore | haiku | readonly | Broad codebase discovery — "survey the repo", "find all usages of X". Built-in; use `Agent(subagent_type="Explore", ...)` |
+| Explore *(built-in)* | haiku | readonly | Broad codebase discovery — "survey the repo", "find all usages of X". Use `Agent(subagent_type="Explore", ...)` |
 | orchestrator-agents:reader | haiku | readonly | Map files, interfaces, and conventions before writing. Call multiple times as new paths surface. |
 | orchestrator-agents:researcher | sonnet | readonly | External APIs, library patterns, prior decisions in `docs/`. |
 | orchestrator-agents:thinker | sonnet | readonly | Analysis, brainstorming, architectural decisions. Isolates verbose reasoning from main context. |
