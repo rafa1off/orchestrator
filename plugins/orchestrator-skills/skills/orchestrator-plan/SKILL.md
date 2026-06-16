@@ -19,18 +19,13 @@ Otherwise, call `EnterPlanMode`. The session is now read-only — file edits are
 
 ## Step 2 — Research
 
-Run reader and researcher **in parallel** to gather context. Skip researcher if the task is purely internal (no external library APIs, no prior decisions in `docs/`).
-
-```
-Agent({ description: "Reader: map modules for [task]",      subagent_type: "orchestrator-agents:reader",     prompt: "Task: [task]. Return files, interfaces, entry points, conventions." })
-Agent({ description: "Researcher: prior decisions for [task]", subagent_type: "orchestrator-agents:researcher", prompt: "Task: [task]. Find external patterns or prior decisions in docs/." })  // omit if not needed
-```
+Gather context by reading relevant files directly or by spawning agents. Run them in parallel when possible. Skip external docs research if the task is purely internal (no external library APIs, no prior decisions in `docs/`).
 
 ---
 
 ## Step 3 — Write the Plan
 
-Using the research from Step 2, reason directly and write the plan. You are the orchestrator — you have the full context. Synthesize what reader and researcher returned into the format below.
+Using the research from Step 2, reason directly and write the plan. Synthesize the gathered context into the format below.
 
 Write the plan to **the file path specified in the plan mode system message** — that is the path ExitPlanMode will read. Do not write to `.claude/plans/` here; Write is blocked in plan mode.
 
@@ -80,7 +75,7 @@ Call `ExitPlanMode`. Claude Code reads the plan file from Step 3 and presents it
 **The plan was just approved. Execute this step now — no further user input is needed.**
 
 1. Write the plan to `.claude/plans/YYYY-MM-DD-<feature-name>.md`. The system plan file from Step 3 is session-scoped and will not survive a new session — this archive is what makes deferred or repeated execution possible, and what gets committed to git as a decision record.
-2. Create tasks from the plan's `## Tasks` section — call `TaskCreate` for each numbered item in order, using the item text as the title and `status: "pending"`. Pass each task's ID to the agent dispatched for that task via `taskId: [id]` in the prompt. Agents own all status transitions — they mark themselves `in_progress` on invocation and `completed` on return. Do not call `TaskUpdate` from the orchestrator.
+2. Create tasks from the plan's `## Tasks` section — call `TaskCreate` for each numbered item in order, using the item text as the title and `status: "pending"`.
 3. Determine the dispatch level from the plan's `## Tasks` section:
    ```
    Plan has 1 track?           → Level 1
