@@ -1,6 +1,6 @@
 ---
 name: orchestrator-plan
-description: "Use this skill when the user wants to plan out a multi-step coding task before writing any code. Triggers on: \"plan this out\", \"write up a plan\", \"map out how we'd\", \"let's plan\", \"before we start\", or any request to design/outline an implementation spanning multiple files, schema changes, API additions, or refactors. Creates a structured plan saved to .claude/plans/ for later execution. After approval, dispatches directly following the orchestrator L1/L2/L3 pattern. Use when the user is thinking ahead — not yet implementing, but scoping what needs to change and in what order."
+description: "Use this skill when the user wants to plan out a multi-step coding task before writing any code. Triggers on: \"plan this out\", \"write up a plan\", \"map out how we'd\", \"let's plan\", \"before we start\", or any request to design/outline an implementation spanning multiple files, schema changes, API additions, or refactors. Creates a structured plan saved to .claude/plans/ for later execution. After approval, determine dispatch following the orchestrator L1/L2/L3 pattern. Use when the user is thinking ahead — not yet implementing, but scoping what needs to change and in what order."
 ---
 
 # Orchestrator Plan
@@ -61,7 +61,7 @@ List every deliverable — what needs to be built, changed, or tested. Name them
 
 1. [what to build/change] — `file1.py`
 2. [what to build/change] — `file2.py`
-3. verify [scope] — `checker` + `reviewer` (or `verify` if post-write loop)
+3. verify [scope] — review + lint/type/runtime check (or build check too)
 4. [what to test] — `tests/test_foo.py`
 ```
 
@@ -87,10 +87,3 @@ Call `ExitPlanMode`. Claude Code reads the plan file from Step 3 and presents it
    2–3 tracks AND ≤15 files?   → Level 2
    3+ tracks OR >15 files?     → Level 3
    ```
-4. Dispatch following the level:
-   - **Level 1** — single track: run the agent loop sequentially in this session (reader → writer → verify + tester).
-   - **Level 2** — 2–3 independent tracks, ≤15 files, disjoint file sets: dispatch all writers simultaneously with `background: true`; each writer edits its track directly in the working tree. Assign each track a pipeline path (`.claude/pipeline/track-a/`, etc.). After all writers complete, dispatch verify + tester per track in parallel. Serial integration pass on shared files last.
-   - **Level 3a (default)** — 3+ independent tracks or >15 files, no cross-track coordination needed: use `Workflow(...)` to pipeline across tracks (read → write → verify per track). After the workflow completes, serial integration pass on shared files.
-   - **Level 3b** — 3+ tracks where tracks need to share findings or coordinate: use `TeamCreate` for each track; wait for all to report `done` or `escalated`; serial integration pass last.
-
-   Do not call `orchestrator-execute` or `orchestrator-subagent`.
