@@ -71,17 +71,26 @@ List every deliverable — what needs to be built, changed, or tested. Name them
 
 Call `ExitPlanMode`. Claude Code reads the plan file from Step 3 and presents it to the user. The user chooses to approve (and picks a permission mode) or keep planning.
 
+> **When approval arrives — whether in the same turn (hook path) or as a new turn (dialog path) — proceed immediately to Step 5. Do not wait for further user input.**
+
 ---
 
 ## Step 5 — Archive and Execute
 
-After the user approves (plan mode is now exited, Write is unblocked):
+**The plan was just approved. Execute this step now — no further user input is needed.**
 
 1. Write the plan to `.claude/plans/YYYY-MM-DD-<feature-name>.md`. The system plan file from Step 3 is session-scoped and will not survive a new session — this archive is what makes deferred or repeated execution possible, and what gets committed to git as a decision record.
 2. Create tasks from the plan's `## Tasks` section — call `TaskCreate` for each numbered item in order, using the item text as the title and `status: "pending"`. Pass each task's ID to the agent dispatched for that task via `taskId: [id]` in the prompt. Agents own all status transitions — they mark themselves `in_progress` on invocation and `completed` on return. Do not call `TaskUpdate` from the orchestrator.
-3. Dispatch directly following the orchestrator guide's dispatch levels:
-   - **Level 1** — single-track plan (one logical sequence of tasks, no independent write tracks): run the agent loop sequentially in this session.
-   - **Level 2** — 2–3 independent tracks (disjoint file sets, tasks that could run in parallel): dispatch each track's writer with `Agent(background: true, isolation: "worktree")` (first spawn) or `SendMessage(to: saved_id)` (warm resume), then consolidate.
-   - **Level 3** — 3+ independent tracks or >15 files changed: use `TeamCreate` to launch parallel teammate sessions, one per track.
+3. Determine the dispatch level from the plan's `## Tasks` section:
+   ```
+   Plan has 1 track?           → Level 1
+   2–3 tracks AND ≤15 files?   → Level 2
+   3+ tracks OR >15 files?     → Level 3
+   ```
+4. Dispatch following the level:
+   - **Level 1** — single track: run the agent loop sequentially in this session (reader → writer → verify + tester).
+   - **Level 2** — 2–3 independent tracks, ≤15 files, disjoint file sets: dispatch all writers simultaneously with `background: true`; each writer edits its track directly in the working tree. Assign each track a pipeline path (`.claude/pipeline/track-a/`, etc.). After all writers complete, dispatch verify + tester per track in parallel. Serial integration pass on shared files last.
+   - **Level 3a (default)** — 3+ independent tracks or >15 files, no cross-track coordination needed: use `Workflow(...)` to pipeline across tracks (read → write → verify per track). After the workflow completes, serial integration pass on shared files.
+   - **Level 3b** — 3+ tracks where tracks need to share findings or coordinate: use `TeamCreate` for each track; wait for all to report `done` or `escalated`; serial integration pass last.
 
    Do not call `orchestrator-execute` or `orchestrator-subagent`.
