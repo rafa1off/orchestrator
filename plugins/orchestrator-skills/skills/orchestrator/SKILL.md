@@ -33,7 +33,7 @@ The main Claude Code session acts as orchestrator. Agents are tools — call the
 
 These rules hold regardless of task size or route. Never violate them.
 
-1. **Read before write** — invoke reader before calling writer on those files. The orchestrator may read files directly when the scope is narrow enough to not warrant a reader agent.
+1. **Read before write** — invoke reader before calling writer on those files. Direct inline reads are for single known files only — anything broader warrants a reader agent.
 2. **Verify after write, max 2 rounds** — after any write phase, dispatch verify + tester together. If findings remain after 2 rounds: escalate to user. Read [verify-loop.md](verify-loop.md) for the step-by-step protocol.
 3. **Serialize writers on overlapping files** — one active writer per overlapping file set. Writers with fully disjoint file sets may run in parallel.
 
@@ -65,5 +65,11 @@ Plan has 1 track?           → Level 1
 ---
 
 ## Routing Special Cases
+
+**Exploration tasks** (understanding a feature, tracing a flow, mapping an unfamiliar area):
+- Files unknown (need to discover what's relevant): use `Explore` built-in.
+- Files known (need to read interfaces, conventions, content): dispatch `orchestrator-agents:reader`.
+
+**Research tasks** (external library APIs, framework patterns, prior project decisions in `docs/`): dispatch `orchestrator-agents:researcher` directly.
 
 **Analytical tasks** (questions, brainstorming, design): dispatch `orchestrator-agents:thinker` directly. If thinker returns `## Context Request` — dispatch the requested agents in parallel, re-invoke thinker with their output.

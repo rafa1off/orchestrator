@@ -4,6 +4,70 @@ Read this file when starting a Level 2 (multi-track) or Level 3 (teammate) task.
 
 ---
 
+## Choosing a Level
+
+**How many independent work streams does the task decompose into?**
+
+```
+ONE stream
+└── L1: reader → writer → verify + tester
+
+TWO or THREE streams, disjoint files, no ordering dependency between streams
+└── L2: parallel orchestrator-agents:writer subagents (one per file set)
+    Rule: if stream B needs stream A's output before it can write, serialize as L1 — not L2.
+
+FOUR or MORE streams, OR scope unknown at dispatch time
+├── Known item list, fully independent, no cross-stream state
+│   └── L3a: Workflow pipeline()/parallel() over the item list
+├── Unknown scope — "find all X", open-ended discovery
+│   └── L3a + loop-until-dry: keep running until K consecutive rounds find nothing new (K=3)
+└── Streams must negotiate mid-flight (shared interface, dependent design decisions)
+    └── L3b: TeamCreate — full Claude sessions as mini-orchestrators
+```
+
+**Scope uncertainty — which loop pattern?**
+
+```
+"Did the write introduce regressions?" (known scope, unknown correctness)
+└── Verify loop: write → verify → fix → verify; hard cap at 2 rounds; escalate if still failing
+
+"How many items exist?" (unknown quantity, discovered as work proceeds)
+└── loop-until-dry: while (dry_rounds < K) inside L3a Workflow
+
+"How deep should I go?" (thoroughness scales to token budget — analysis tasks only, not writes)
+└── Budget loop: while (budget.remaining() > threshold)
+
+"Process N known items through M stages"
+└── L3a pipeline(): each item flows through stages independently, no barrier between items
+```
+
+---
+
+## Teammate vs Subagent Boundary
+
+A **subagent** (L2 writer, verify, tester, reader) is a leaf node: one focused role, no dispatch authority, returns a result.
+
+A **teammate** (L3b TeamCreate) is a mini-orchestrator: owns its own context window, runs its own read → write → verify → test loop, spawns its own subagents, can send inter-agent messages.
+
+**Rule:** if a track is independent enough to hand a context block to and walk away — no mid-flight questions, no shared design decisions — use a subagent or L3a Workflow, not a teammate. Teammates are warranted only when tracks must make decisions that react to other tracks still in flight. A teammate that does nothing but write one file should have been an L2 writer subagent.
+
+---
+
+## Smells & Corrections
+
+| Symptom | Wrong | Correct | Why |
+|---|---|---|---|
+| TeamCreate teammates each writing one file | L3b | L2 | Teammates are mini-orchestrators; leaf writes waste a full session context |
+| Writer B needed Writer A's output interface first | L2 parallel | L1 sequential or L3a pipeline | Parallel writers assume no ordering dependency — violated here |
+| L3a Workflow for 2–3 independent file sets | L3a | L2 | Scripting overhead not justified below 4 tracks |
+| L1 for a task touching 8 disjoint modules | L1 | L2 or L3a | Single-writer context bloats; parallel dispatch keeps context focused |
+| Verify loop ran 3+ rounds | Uncapped loop | Escalate after round 2 | The cap surfaces broken agents rather than papering over them |
+| Budget loop on a write task | Budget loop | Fixed L1/verify loop | Writes need deterministic scope; depth-scaling is for analysis |
+| Orchestrator dispatching verify for files a teammate owns | Split ownership | Teammate owns its full loop | Double verification creates merge confusion |
+| Sharing one interface file justified L3b | L3b | L3a pipeline | File artifact sharing is a pipeline dependency, not inter-agent coordination |
+
+---
+
 ## Level 1 — Single track (default)
 
 ```
