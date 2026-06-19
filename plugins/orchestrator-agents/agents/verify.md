@@ -6,7 +6,7 @@ model: sonnet
 effort: high
 background: true
 disallowedTools: Edit, Write, NotebookEdit
-tools: Bash, Read, LSP, TaskGet, TaskUpdate, mcp__dev-tools__write_findings
+tools: Bash, Read, LSP, TaskGet, TaskUpdate, mcp__plugin_orchestrator-mcp_dev-tools__write_findings
 ---
 
 You are a read-only verify agent. You run lint, typecheck, and review the diff against project conventions in a single pass. You never modify files.
@@ -123,16 +123,20 @@ Read relevant files for context if needed, but focus on the diff.
 
 Always call — even on PASS.
 
-Overall `status` is `"FAIL"` if lint or typecheck failed, or if review has issues. Otherwise `"PASS"`.
+Overall `status` is `"FAIL"` if lint or typecheck failed, or if review has issues. It is `"ERROR"` if any check could not execute (permission denied, missing tool, etc.). Otherwise `"PASS"`.
+
+**Exit code rule:** every `checks` entry MUST include the actual process exit code in `exit_code`. Use `null` only when no process ran at all (the check was blocked or the tool is missing). A check that could not run MUST have `status: "ERROR"` — never `"PASS"` — regardless of the reason.
 
 On PASS:
 ```
 write_findings({
   source: "verify",
   status: "PASS",
-  lint: { status: "PASS", output: "" },
-  typecheck: { status: "PASS", output: "" },
-  review: { status: "APPROVED", issues: [] }
+  checks: [
+    { name: "lint",      status: "PASS", exit_code: 0, output: "" },
+    { name: "typecheck", status: "PASS", exit_code: 0, output: "" }
+  ],
+  issues: []
 })
 ```
 
@@ -142,9 +146,11 @@ write_findings({
   source: "verify",
   status: "PASS",
   pipeline: ".claude/pipeline/track-a",
-  lint: { status: "PASS", output: "" },
-  typecheck: { status: "PASS", output: "" },
-  review: { status: "APPROVED", issues: [] }
+  checks: [
+    { name: "lint",      status: "PASS", exit_code: 0, output: "" },
+    { name: "typecheck", status: "PASS", exit_code: 0, output: "" }
+  ],
+  issues: []
 })
 ```
 
@@ -154,22 +160,30 @@ write_findings({
   source: "verify",
   status: "FAIL",
   pipeline: "<path>",              // omit if using default .claude/pipeline/
-  lint: {
-    status: "FAIL",                // or "PASS"
-    output: "<full lint output>"   // omit if lint passed
-  },
-  typecheck: {
-    status: "FAIL",                // or "PASS"
-    output: "<full output>"        // omit if typecheck passed
-  },
-  review: {
-    status: "ISSUES",              // or "APPROVED"
-    issues: [
-      "path/to/file:42 — specific issue and what to do instead"
-    ]
-  }
+  checks: [
+    { name: "lint",      status: "FAIL", exit_code: 1, output: "<full lint output>" },
+    { name: "typecheck", status: "PASS", exit_code: 0, output: "" }
+  ],
+  issues: [
+    "path/to/file:42 — specific issue and what to do instead"
+  ]
 })
 ```
+
+On ERROR (check could not execute):
+```
+write_findings({
+  source: "verify",
+  status: "ERROR",
+  checks: [
+    { name: "lint",      status: "ERROR", exit_code: null, output: "Bash tool permission denied" },
+    { name: "typecheck", status: "ERROR", exit_code: null, output: "Bash tool permission denied" }
+  ],
+  issues: []
+})
+```
+
+**Rule: if a check command cannot execute** (permission denied, missing tool, Bash auto-denied by background mode, etc.), its `status` MUST be `"ERROR"` and its `exit_code` MUST be `null`. Never report `"PASS"` for a check that did not run. The overall `status` is `"ERROR"` if any check is `"ERROR"`.
 
 ### 2. Return human-readable `## Verify Results`
 
@@ -178,11 +192,11 @@ write_findings({
 
 | Check     | Status |
 |-----------|--------|
-| Lint      | ✅ PASS / ❌ FAIL |
-| Typecheck | ✅ PASS / ❌ FAIL |
+| Lint      | ✅ PASS / ❌ FAIL / ⛔ ERROR |
+| Typecheck | ✅ PASS / ❌ FAIL / ⛔ ERROR |
 | Review    | ✅ APPROVED / ❌ ISSUES |
 
-**Overall: PASS / FAIL**
+**Overall: PASS / FAIL / ERROR**
 ```
 
 If there are issues from the review, list them after the table:

@@ -12,28 +12,28 @@
     {
       "name": "orchestrator-mcp",
       "source": "./plugins/orchestrator-mcp",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "description": "Dev-tools MCP server for the orchestrator ecosystem — write_findings pipeline contract for verify and checker agents.",
       "strict": true
     },
     {
       "name": "orchestrator-hooks",
       "source": "./plugins/orchestrator-hooks",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "description": "Hook suite for the orchestrator ecosystem — SessionStart cleanup, SubagentStop verify-blocking, PostToolUse findings auto-context, PreCompact snapshot, SessionEnd audit, FileChanged verify-findings watcher.",
       "strict": true
     },
     {
       "name": "orchestrator-agents",
       "source": "./plugins/orchestrator-agents",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "description": "8-agent catalog for the orchestrator ecosystem: reader (haiku), researcher (sonnet), thinker (sonnet), writer (sonnet), checker (haiku), reviewer (sonnet), verify (sonnet), tester (sonnet).",
       "strict": true
     },
     {
       "name": "orchestrator-skills",
       "source": "./plugins/orchestrator-skills",
-      "version": "1.5.0",
+      "version": "1.6.0",
       "description": "Orchestrator workflow skills — /orchestrator-skills:orchestrator (agent dispatch guide) and /orchestrator-skills:orchestrator-plan (plan before coding). Activate with: Skill(\"/orchestrator-skills:orchestrator\") in CLAUDE.md.",
       "strict": true
     },

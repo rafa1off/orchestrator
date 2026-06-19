@@ -26,6 +26,10 @@ Before any `Agent()` dispatch, check working memory for a saved `agent_id` of th
 1. **Found** → `SendMessage(to: saved_id)` — resumes the warm agent (cache hit on file content, no cold-start overhead).
 2. **Not found** → `Agent(...)` → save the returned `agent_id` keyed by type.
 
+**Cache TTL:** subagent caches use a ~5-minute TTL. Warm reuse via `SendMessage` only yields a cache hit within ~5 minutes of the agent's last activity — beyond that the agent's cache is cold and a fresh spawn is equivalent.
+
+**Flag gate:** `SendMessage` is only available when `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`. Without the flag, always use `Agent(...)` (step 2).
+
 **Hard exception:** `orchestrator-agents:verify` — always step 2. Never reuse a verify agent; always spawn fresh.
 
 **Best reuse target:** `orchestrator-agents:reader` — called most frequently; highest cache value from file content.

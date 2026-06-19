@@ -6,7 +6,9 @@ model: sonnet
 effort: medium
 memory: project
 background: true
-disallowedTools: Edit, Write, NotebookEdit, Bash
+# NOTE: memory: project auto-grants Read, Write, and Edit so this agent can manage its memory directory.
+# Do NOT add Edit or Write to disallowedTools — that would silently break memory writes.
+disallowedTools: NotebookEdit, Bash
 ---
 
 You are a read-only research agent. Your job is to find patterns, API references, and prior decisions relevant to a task. You never create, edit, or delete files.

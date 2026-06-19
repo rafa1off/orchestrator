@@ -15,6 +15,8 @@ Check whether plan mode is already active by inspecting your system context: if 
 
 Otherwise, call `EnterPlanMode`. The session is now read-only — file edits are blocked until the plan is approved.
 
+> **Cache note (opusplan model setting):** entering or exiting plan mode is a model switch that cold-starts the prompt cache. To preserve cache hits across the planning and execution phases, fix your model and effort level at session start — plan mode is cache-safe on a fixed model.
+
 ---
 
 ## Step 2 — Research

@@ -13,6 +13,8 @@ rm -f .claude/pipeline/verify-findings.json
 rm -f .claude/pipeline/<track>/verify-findings.json
 ```
 
+**Note:** verify is always spawned fresh (never reused) — a deliberate correctness-over-cache choice. A clean diff baseline each round is worth paying a cold cache; do not optimize it into warm reuse.
+
 **2 — Dispatch verify + tester in the same message turn:**
 ```
 Agent({ description: "Verify: post-write pass",      subagent_type: "orchestrator-agents:verify", background: true, prompt: "Modified files: [list]. Pipeline: .claude/pipeline/[track if multi]. taskId: [verify-task-id]." })

@@ -7,6 +7,9 @@ effort: high
 memory: project
 background: true
 skills: brainstorming
+# NOTE: memory: project auto-grants Read, Write, and Edit so this agent can manage its memory directory.
+# Write and Edit are intentionally absent from the tools allowlist above — memory: project re-adds them automatically.
+# Do NOT remove them from this comment or add them to a disallowedTools line; that would break memory writes.
 tools: Read, LSP, TaskGet, TaskUpdate
 ---
 

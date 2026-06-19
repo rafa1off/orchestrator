@@ -99,7 +99,61 @@ Add one line to your project's `CLAUDE.md`:
 Skill("/orchestrator-skills:orchestrator")
 ```
 
-That's it. No other setup required.
+### 4. Required settings & permissions
+
+Add the following to your project's `.claude/settings.json` (or user settings at `~/.claude/settings.json`).
+
+#### Agent teams flag
+
+The L3b TeamCreate dispatch level and SendMessage warm-agent reuse require the experimental teams feature. Add it to the `env` block:
+
+```json
+{
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  }
+}
+```
+
+> **Note:** This flag enables an experimental Claude Code feature. Behaviour may change across releases.
+
+#### Permissions allow-rules
+
+Background subagents (verify, tester, reader, researcher) auto-deny any tool that would prompt for permission — without allow-rules they silently skip lint, typecheck, and test runs. Add these entries to the `permissions.allow` block so backgrounded agents can execute their checks:
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv *)",
+      "Bash(pytest *)",
+      "Bash(ruff *)",
+      "Bash(mypy *)",
+      "Bash(npx *)",
+      "mcp__plugin_orchestrator-mcp_dev-tools__write_findings"
+    ]
+  }
+}
+```
+
+Adjust the `Bash(...)` patterns to match your project's actual toolchain. The `mcp__plugin_orchestrator-mcp_dev-tools__write_findings` entry allows the verify agent to write structured findings to the pipeline without prompting.
+
+#### Cache configuration
+
+To avoid cold-starting the prompt cache mid-session:
+
+- Fix the model and effort level at session start — switching models resets the cache.
+- Keep the MCP server connected for the entire session; disconnecting and reconnecting can invalidate cached context.
+- API-key users: set `ENABLE_PROMPT_CACHING_1H=1` in `env` for a 1-hour TTL. Subscription users get extended TTL automatically.
+
+```json
+{
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
+    "ENABLE_PROMPT_CACHING_1H": "1"
+  }
+}
+```
 
 ---
 

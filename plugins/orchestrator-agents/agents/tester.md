@@ -71,6 +71,22 @@ uv run pytest -x tests/test_specific_module.py
 
 ## Output
 
+**If the test suite cannot run** (Bash permission denied, test runner missing, environment error, or any other execution failure), you MUST report an explicit error state in your text output — do NOT silently report PASS. Use this format:
+
+```
+## Test Results
+
+**ERROR — could not run suite**
+
+Reason: [describe exactly why the suite could not execute — e.g. "Bash tool permission denied", "pytest not found", etc.]
+
+No tests were executed. The orchestrator will treat this as a hard stop and not proceed.
+```
+
+This stops the orchestrator from treating a skipped run as a passing run.
+
+On successful runs:
+
 ```
 ## Test Results
 

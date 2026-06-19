@@ -20,23 +20,25 @@ def write_findings(
     source: str,
     status: str,
     pipeline: str | None = None,
-    errors: dict | None = None,
+    checks: list[dict] | None = None,
     issues: list[str] | None = None,
 ) -> str:
     """
-    Write checker or reviewer findings to .claude/pipeline/<source>-findings.json.
+    Write findings to .claude/pipeline/<source>-findings.json.
     Always call — even on PASS/APPROVED.
-    source: 'checker' | 'reviewer'
-    status: 'PASS'|'FAIL' (checker) or 'APPROVED'|'ISSUES' (reviewer)
+    source: 'verify' | 'checker' | 'reviewer'
+    status: 'PASS'|'FAIL'|'ERROR' (verify/checker) or 'APPROVED'|'ISSUES' (reviewer)
     pipeline: optional override for multi-track runs, e.g. '.claude/pipeline/track-a'
+    checks: list of {name, status, exit_code, output} dicts (used by verify)
+    issues: list of issue strings (used by reviewer)
     """
     pipeline_dir = PROJECT_DIR / (pipeline or DEFAULT_PIPELINE)
     pipeline_dir.mkdir(parents=True, exist_ok=True)
 
     findings: dict = {"source": source, "status": status}
-    if source == "checker" and errors:
-        findings["errors"] = errors
-    if source == "reviewer" and issues:
+    if checks:
+        findings["checks"] = checks
+    if issues:
         findings["issues"] = issues
 
     out_path = pipeline_dir / f"{source}-findings.json"

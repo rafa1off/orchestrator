@@ -1,5 +1,5 @@
 {
   "name": "orchestrator-hooks",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Hook suite for the orchestrator ecosystem — SessionStart cleanup, SubagentStop verify-blocking, PostToolUse findings auto-context, PreCompact snapshot, SessionEnd audit, FileChanged verify-findings watcher."
 }
