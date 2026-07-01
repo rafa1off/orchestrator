@@ -3,7 +3,6 @@ name: reader
 color: cyan
 description: "Map relevant code paths and return a structured context snapshot before writing or reviewing. Invoke before any write phase to capture files, interfaces, and conventions — never makes changes."
 model: haiku
-effort: low
 background: true
 tools: Read, LSP, TaskGet, TaskUpdate
 ---
