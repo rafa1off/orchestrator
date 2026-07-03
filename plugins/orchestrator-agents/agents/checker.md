@@ -3,7 +3,6 @@ name: checker
 color: blue
 description: "Run lint, typecheck, and build checks without code review. Lighter than verify — no diff review, no findings file. Use after refactors or before commits."
 model: haiku
-disallowedTools: Edit, Write, NotebookEdit
 tools: Bash, Read, TaskGet, TaskUpdate
 ---
 

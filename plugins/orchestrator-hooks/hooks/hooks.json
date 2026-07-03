@@ -17,7 +17,7 @@
     ],
     "SubagentStop": [
       {
-        "matcher": "verify",
+        "matcher": "^orchestrator-agents:verify$",
         "hooks": [
           {
             "type": "command",
@@ -26,6 +26,18 @@
               "-c",
               "FILE=$(find \"${CLAUDE_PROJECT_DIR}/.claude/pipeline\" -name 'verify-findings.json' 2>/dev/null | head -1); FILE=${FILE:-\"${CLAUDE_PROJECT_DIR}/.claude/pipeline/verify-findings.json\"}; if [ -f \"$FILE\" ] && { ! command -v jq >/dev/null 2>&1 || jq -e . \"$FILE\" >/dev/null 2>&1; }; then STATUS=$(command -v jq >/dev/null 2>&1 && jq -r '.status // \"UNKNOWN\"' \"$FILE\" 2>/dev/null || echo 'UNKNOWN'); printf '{\"hookSpecificOutput\":{\"additionalContext\":\"[verify] stopped — status=%s, findings at %s\"}}' \"$STATUS\" \"$FILE\"; else echo '[orchestrator] BLOCKED: verify exited without valid findings JSON. Re-invoke write_findings before stopping.' >&2; exit 2; fi"
             ]
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/block-subagent-git-push.sh"]
           }
         ]
       }

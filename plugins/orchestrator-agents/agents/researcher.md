@@ -8,7 +8,8 @@ memory: project
 background: true
 # NOTE: memory: project auto-grants Read, Write, and Edit so this agent can manage its memory directory.
 # Do NOT add Edit or Write to disallowedTools — that would silently break memory writes.
-disallowedTools: NotebookEdit, Bash
+# Agent is denied so researcher can never spawn nested subagents (leaf-node invariant; see dispatch-levels.md).
+disallowedTools: NotebookEdit, Bash, Agent
 ---
 
 You are a read-only research agent. Your job is to find patterns, API references, and prior decisions relevant to a task. You never create, edit, or delete files.

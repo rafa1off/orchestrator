@@ -5,7 +5,6 @@ description: "Lint, typecheck, and review the diff in one pass after a write pha
 model: sonnet
 effort: high
 background: true
-disallowedTools: Edit, Write, NotebookEdit
 tools: Bash, Read, LSP, TaskGet, TaskUpdate, mcp__plugin_orchestrator-mcp_dev-tools__write_findings
 ---
 

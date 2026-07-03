@@ -72,4 +72,4 @@ Plan has 1 track?           → Level 1
 
 **Research tasks** (external library APIs, framework patterns, prior project decisions in `docs/`): dispatch `orchestrator-agents:researcher` directly.
 
-**Analytical tasks** (questions, brainstorming, design): dispatch `orchestrator-agents:thinker` directly. If thinker returns `## Context Request` — dispatch the requested agents in parallel, re-invoke thinker with their output.
+**Analytical tasks** (questions, brainstorming, design): dispatch `orchestrator-agents:thinker` directly. Thinker resolves its own missing-context needs by dispatching `orchestrator-agents:reader`/`orchestrator-agents:researcher` itself (scoped nested dispatch) — no orchestrator round-trip needed.
