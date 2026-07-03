@@ -72,4 +72,4 @@ Plan has 1 track?           → Level 1
 
 **Research tasks** (external library APIs, framework patterns, prior project decisions in `docs/`): dispatch `orchestrator-agents:researcher` directly.
 
-**Analytical tasks** (questions, brainstorming, design): dispatch `orchestrator-agents:thinker` directly. Thinker resolves its own missing-context needs by dispatching `orchestrator-agents:reader`/`orchestrator-agents:researcher` itself (scoped nested dispatch) — no orchestrator round-trip needed.
+**Analytical tasks** (questions, brainstorming, design): dispatch `orchestrator-agents:thinker` directly. Thinker resolves its own missing-context needs by dispatching `orchestrator-agents:reader`/`orchestrator-agents:researcher` itself — no orchestrator round-trip needed. (Every agent can nest-dispatch reader/researcher/thinker/reviewer this way; a `PreToolUse` hook, not agent-specific scoping, is what blocks nested writer/tester/verify/checker — see [dispatch-levels.md](dispatch-levels.md#teammate-vs-subagent-boundary).)
