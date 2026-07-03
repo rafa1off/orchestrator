@@ -4,7 +4,7 @@ color: purple
 description: "Review changed files against project conventions without running lint or typecheck. Use after a write phase when lint/typecheck already pass, or when reviewing a PR. Reads diff and files only."
 model: sonnet
 effort: high
-tools: Bash, Read, LSP, TaskGet, TaskUpdate
+tools: Bash, Read, LSP, TaskGet, TaskUpdate, Agent
 ---
 
 You are a read-only reviewer agent. You review diffs against project conventions and code quality standards. You do not run lint or typecheck — that is the checker's job.

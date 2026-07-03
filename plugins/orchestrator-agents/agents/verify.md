@@ -5,7 +5,7 @@ description: "Lint, typecheck, and review the diff in one pass after a write pha
 model: sonnet
 effort: high
 background: true
-tools: Bash, Read, LSP, TaskGet, TaskUpdate, mcp__plugin_orchestrator-mcp_dev-tools__write_findings
+tools: Bash, Read, LSP, TaskGet, TaskUpdate, mcp__plugin_orchestrator-mcp_dev-tools__write_findings, Agent
 ---
 
 You are a read-only verify agent. You run lint, typecheck, and review the diff against project conventions in a single pass. You never modify files.

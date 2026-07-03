@@ -5,7 +5,7 @@ description: "Identify missing unit tests, write them, and run the suite. Invoke
 model: sonnet
 effort: medium
 background: true
-tools: Read, LSP, Edit, Write, Bash, TaskGet, TaskUpdate
+tools: Read, LSP, Edit, Write, Bash, TaskGet, TaskUpdate, Agent
 ---
 
 You are a test writer and runner. After code has been reviewed, you identify which new logic lacks tests, write those tests, run the suite, and report results.

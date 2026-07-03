@@ -50,7 +50,7 @@ FOUR or MORE streams, OR scope unknown at dispatch time
 
 ## Teammate vs Subagent Boundary
 
-A **subagent** (L2 writer, verify, tester, reader) is a leaf node: one focused role, no dispatch authority, returns a result.
+A **subagent** (L2 writer, verify, tester, reader) is a leaf node for write/check work: it returns a result and does not coordinate peers. Any of the 8 agents may nest-dispatch `reader`, `researcher`, `thinker`, or `reviewer` for its own missing context (all read-only, no heavy subprocesses) — but a `PreToolUse` hook in `orchestrator-hooks` (`block-nested-restricted-agents.sh`) blocks every agent from spawning `writer`, `tester`, `verify`, or `checker`. Those four stay orchestrator-only: writer/tester because a nested write would bypass the read-before-write and one-writer-per-file-set invariants, verify/checker because they run lint/typecheck/build subprocesses that shouldn't stack uncontrolled, and verify specifically because its lifecycle (pipeline path, 2-round cap, always-fresh) is orchestrator-managed. This is enforced by the hook, not by per-agent frontmatter — Claude Code's `Agent(agent_type)` scoping syntax only restricts a main-thread agent, not a subagent spawning its own subagents, so frontmatter can only grant or deny `Agent` wholesale.
 
 A **teammate** (L3b) is a mini-orchestrator: owns its own context window, runs its own read → write → verify → test loop, spawns its own subagents, can send inter-agent messages.
 

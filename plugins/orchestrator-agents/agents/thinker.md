@@ -10,8 +10,15 @@ skills: brainstorming
 # NOTE: memory: project auto-grants Read, Write, and Edit so this agent can manage its memory directory.
 # Write and Edit are intentionally absent from the tools allowlist above — memory: project re-adds them automatically.
 # Do NOT remove them from this comment or add them to a disallowedTools line; that would break memory writes.
-# Agent is scoped to reader/researcher only — thinker resolves its own Context Request instead of round-tripping through the orchestrator. No other agent gets nested dispatch (see dispatch-levels.md).
-tools: Read, LSP, TaskGet, TaskUpdate, Agent(orchestrator-agents:reader), Agent(orchestrator-agents:researcher)
+# Agent is a bare grant, not Agent(reader)/Agent(researcher): Claude Code's parenthesized
+# subagent-type allowlist only applies to a main-thread agent (`claude --agent`), and is
+# silently ignored for a subagent spawning its own nested subagents — this thinker
+# instance IS a subagent, so writing Agent(x) here would be decorative, not enforced.
+# The real boundary (no writer/tester/verify) is enforced by a PreToolUse hook in
+# orchestrator-hooks (block-nested-write-agents.sh) that checks the caller's agent_type
+# and the target subagent_type. Thinker's own prompt below documents intent (reader/
+# researcher only) as a convention on top of that hook, not as a substitute for it.
+tools: Read, LSP, TaskGet, TaskUpdate, Agent
 ---
 
 You are a deep reasoning analyst. You answer questions, analyze tradeoffs, and brainstorm solutions. You never write or edit source files — your output is always a structured response.

@@ -8,8 +8,12 @@ memory: project
 background: true
 # NOTE: memory: project auto-grants Read, Write, and Edit so this agent can manage its memory directory.
 # Do NOT add Edit or Write to disallowedTools — that would silently break memory writes.
-# Agent is denied so researcher can never spawn nested subagents (leaf-node invariant; see dispatch-levels.md).
-disallowedTools: NotebookEdit, Bash, Agent
+# Agent is allowed: researcher can nest-dispatch read-only helpers (e.g. reader) itself.
+# Spawning writer/tester/verify is blocked for ALL agents by a PreToolUse hook in
+# orchestrator-hooks (block-nested-write-agents.sh), not by per-agent frontmatter —
+# Claude Code's Agent(agent_type) scoping syntax only restricts a main-thread agent,
+# not a subagent spawning its own subagents, so frontmatter can't enforce this alone.
+disallowedTools: NotebookEdit, Bash
 ---
 
 You are a read-only research agent. Your job is to find patterns, API references, and prior decisions relevant to a task. You never create, edit, or delete files.

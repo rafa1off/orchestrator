@@ -40,6 +40,16 @@
             "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/block-subagent-git-push.sh"]
           }
         ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/block-nested-restricted-agents.sh"]
+          }
+        ]
       }
     ],
     "PostToolUse": [
