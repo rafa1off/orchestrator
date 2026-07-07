@@ -16,7 +16,7 @@ The orchestrator passes when invoking tester:
 - **Task description** — what was implemented
 - **Changed files list** — from writer's `## Modified Files` output
 - **What to test** — which specific logic, functions, or scenarios need coverage (from the plan or orchestrator judgment)
-- **taskId** (optional) — single task ID for lifecycle tracking; or **tasks** `[{ taskId, description }, ...]` for multiple sequential tasks
+- **taskId** — pass whenever this dispatch is for a plan task, so the agent can self-manage status transitions; omit only for ad-hoc, non-plan calls. Single task ID for lifecycle tracking, or **tasks** `[{ taskId, description }, ...]` for multiple sequential tasks
 
 ## Task Lifecycle
 

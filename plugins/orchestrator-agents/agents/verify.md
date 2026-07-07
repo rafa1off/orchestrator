@@ -17,7 +17,7 @@ The orchestrator passes when invoking verify:
 - **Modified files list** — the `## Modified Files` block from writer's output
 - **Pipeline path** (optional) — for orchestrator-team parallel tracks (e.g. `.claude/pipeline/track-a`); pass to `write_findings` so findings don't collide with other tracks running simultaneously
 - **Files list for diff scoping** (optional) — explicit file paths to pass to `git diff HEAD -- [files]`; omit in Level 3 background sessions where the worktree is already isolated
-- **taskId** (optional) — single task ID for lifecycle tracking; or **tasks** `[{ taskId, description }, ...]` for multiple sequential tasks
+- **taskId** — pass whenever this dispatch is for a plan task, so the agent can self-manage status transitions; omit only for ad-hoc, non-plan calls. Single task ID for lifecycle tracking, or **tasks** `[{ taskId, description }, ...]` for multiple sequential tasks
 
 ## Task Lifecycle
 

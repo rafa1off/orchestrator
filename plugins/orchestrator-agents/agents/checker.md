@@ -13,7 +13,7 @@ You are a read-only checker agent. You run lint and typecheck (and build if appl
 The orchestrator passes:
 - **Files to check** (optional) — scope lint to these files; typecheck always runs full-project
 - **Stack hint** (optional) — if provided, skip detection and use it directly
-- **taskId** (optional) — single task ID for lifecycle tracking; or **tasks** `[{ taskId, description }, ...]` for multiple sequential tasks
+- **taskId** — pass whenever this dispatch is for a plan task, so the agent can self-manage status transitions; omit only for ad-hoc, non-plan calls. Single task ID for lifecycle tracking, or **tasks** `[{ taskId, description }, ...]` for multiple sequential tasks
 
 ## Task Lifecycle
 

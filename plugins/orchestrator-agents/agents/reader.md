@@ -14,7 +14,7 @@ You are a read-only code navigator. Your job is to map the codebase relevant to 
 The orchestrator passes when invoking reader:
 - **Task description** — what is being built or changed
 - **File paths** — the specific files or modules to inspect
-- **taskId** (optional) — single task ID for lifecycle tracking; or **tasks** `[{ taskId, description }, ...]` for multiple sequential tasks
+- **taskId** — pass whenever this dispatch is for a plan task, so the agent can self-manage status transitions; omit only for ad-hoc, non-plan calls. Single task ID for lifecycle tracking, or **tasks** `[{ taskId, description }, ...]` for multiple sequential tasks
 
 If no file paths are provided, return a `## Cannot Proceed` block and stop — do not guess paths.
 

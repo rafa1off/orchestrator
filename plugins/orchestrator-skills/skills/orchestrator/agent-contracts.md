@@ -8,14 +8,14 @@ Read this file when you need the full input/output contract for a specific agent
 
 | Agent | Invoke with | Returns |
 |-------|------------|---------|
-| orchestrator-agents:reader | task + file paths + taskId / tasks (optional) | `Relevant Files / Interfaces / Conventions / Entry Points / Test Files` — or `## Cannot Proceed` |
-| orchestrator-agents:researcher | task + research question + taskId / tasks (optional) | `Prior Decisions / API Reference / Approach / Caveats` |
-| orchestrator-agents:thinker | context block + question + taskId / tasks (optional) | `Analysis / Brainstorming / Q&A` (dispatches its own reader/researcher for missing context — no `## Context Request` round-trip) |
-| orchestrator-agents:writer | `## Context` + `## Task` + `## Files to modify` + taskId / tasks (optional) (initial); `## Batch Fixes Required` (retry) | `## Modified Files` with exact paths |
-| orchestrator-agents:checker | files to check (optional) + taskId / tasks (optional) | `## Check Results` table; raw output on failure |
-| orchestrator-agents:reviewer | task context + modified files list + taskId / tasks (optional) | `## Review Results`; issues list or APPROVED |
-| orchestrator-agents:verify | modified files list + pipeline path + taskId / tasks (optional) | `## Verify Results`; writes `<pipeline>/verify-findings.json` |
-| orchestrator-agents:tester | task + changed files + what to test + taskId / tasks (optional) | `## Test Results` with written files + pass/fail table |
+| orchestrator-agents:reader | task + file paths + taskId / tasks (for plan tasks) | `Relevant Files / Interfaces / Conventions / Entry Points / Test Files` — or `## Cannot Proceed` |
+| orchestrator-agents:researcher | task + research question + taskId / tasks (for plan tasks) | `Prior Decisions / API Reference / Approach / Caveats` |
+| orchestrator-agents:thinker | context block + question + taskId / tasks (for plan tasks) | `Analysis / Brainstorming / Q&A` (dispatches its own reader/researcher for missing context — no `## Context Request` round-trip) |
+| orchestrator-agents:writer | `## Context` + `## Task` + `## Files to modify` + taskId / tasks (for plan tasks) (initial); `## Batch Fixes Required` (retry) | `## Modified Files` with exact paths |
+| orchestrator-agents:checker | files to check (optional) + taskId / tasks (for plan tasks) | `## Check Results` table; raw output on failure |
+| orchestrator-agents:reviewer | task context + modified files list + taskId / tasks (for plan tasks) | `## Review Results`; issues list or APPROVED |
+| orchestrator-agents:verify | modified files list + pipeline path + taskId / tasks (for plan tasks) | `## Verify Results`; writes `<pipeline>/verify-findings.json` |
+| orchestrator-agents:tester | task + changed files + what to test + taskId / tasks (for plan tasks) | `## Test Results` with written files + pass/fail table |
 
 ---
 

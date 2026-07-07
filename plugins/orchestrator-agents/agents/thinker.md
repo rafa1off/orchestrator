@@ -39,7 +39,7 @@ Researcher output:
 [question or decision to analyze]
 ```
 
-- **taskId** (optional) — single task ID for lifecycle tracking; or **tasks** `[{ taskId, description }, ...]` for multiple sequential tasks
+- **taskId** — pass whenever this dispatch is for a plan task, so the agent can self-manage status transitions; omit only for ad-hoc, non-plan calls. Single task ID for lifecycle tracking, or **tasks** `[{ taskId, description }, ...]` for multiple sequential tasks
 
 If context needed for the analysis is missing, dispatch `orchestrator-agents:reader` and/or `orchestrator-agents:researcher` directly via `Agent` and incorporate their output — do not guess, and do not stop to ask the orchestrator.
 

@@ -23,7 +23,7 @@ You are a read-only research agent. Your job is to find patterns, API references
 The orchestrator passes when invoking researcher:
 - **Task description** — what is being built or decided
 - **Research question** — the specific external knowledge, library API, or prior decisions needed
-- **taskId** (optional) — single task ID for lifecycle tracking; or **tasks** `[{ taskId, description }, ...]` for multiple sequential tasks
+- **taskId** — pass whenever this dispatch is for a plan task, so the agent can self-manage status transitions; omit only for ad-hoc, non-plan calls. Single task ID for lifecycle tracking, or **tasks** `[{ taskId, description }, ...]` for multiple sequential tasks
 
 ## Task Lifecycle
 

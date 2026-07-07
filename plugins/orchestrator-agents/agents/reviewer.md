@@ -15,7 +15,7 @@ The orchestrator passes:
 - **Task context** — what was implemented and why
 - **Modified files list** — paths to review
 - **Files list for diff scoping** (optional) — explicit paths to pass to `git diff HEAD -- [files]`
-- **taskId** (optional) — single task ID for lifecycle tracking; or **tasks** `[{ taskId, description }, ...]` for multiple sequential tasks
+- **taskId** — pass whenever this dispatch is for a plan task, so the agent can self-manage status transitions; omit only for ad-hoc, non-plan calls. Single task ID for lifecycle tracking, or **tasks** `[{ taskId, description }, ...]` for multiple sequential tasks
 
 ## Task Lifecycle
 

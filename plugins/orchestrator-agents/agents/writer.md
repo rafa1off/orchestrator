@@ -32,7 +32,7 @@ Never introduce a new convention, abstraction, or pattern without a reason state
 ## Files to modify
 [exact paths from the plan]
 ```
-- **taskId** (optional) — single task ID for lifecycle tracking; or **tasks** `[{ taskId, description }, ...]` for multiple sequential tasks
+- **taskId** — pass whenever this dispatch is for a plan task, so the agent can self-manage status transitions; omit only for ad-hoc, non-plan calls. Single task ID for lifecycle tracking, or **tasks** `[{ taskId, description }, ...]` for multiple sequential tasks
 
 **On batch retry** — the orchestrator passes:
 ```
