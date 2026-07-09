@@ -15,9 +15,10 @@ FILE="${CLAUDE_PROJECT_DIR}/.claude/pipeline/${SOURCE}-findings.json"
 STATUS=$(jq -r '.status // "unknown"' "$FILE" 2>/dev/null || echo "unknown")
 CONTENT=$(cat "$FILE")
 
-# Proof-of-execution guard: block verify findings that indicate checks could not run.
-# Backgrounded verify agents can have Bash auto-denied; this catches silent skips.
-if [ "$SOURCE" = "verify" ]; then
+# Proof-of-execution guard: block verify/tester findings that indicate checks could not run.
+# Backgrounded verify and tester agents can have Bash auto-denied (lint/typecheck or the
+# test suite); this catches a silent skip being reported as a false PASS.
+if [ "$SOURCE" = "verify" ] || [ "$SOURCE" = "tester" ]; then
   # Trigger if overall status is ERROR
   IS_ERROR=false
   if [ "$STATUS" = "ERROR" ]; then
@@ -41,7 +42,7 @@ if [ "$SOURCE" = "verify" ]; then
   fi
 
   if [ "$IS_ERROR" = "true" ]; then
-    echo "[orchestrator] BLOCKED: verify findings contain ERROR status or unproven PASS (exit_code null). The backgrounded verify agent likely had a Bash check auto-denied. Add the required Bash allow-rules documented in the README so lint/typecheck can execute, then re-run verify." >&2
+    echo "[orchestrator] BLOCKED: ${SOURCE} findings contain ERROR status or unproven PASS (exit_code null). The backgrounded ${SOURCE} agent likely had a Bash command auto-denied. Add the required Bash allow-rules documented in the README so lint/typecheck/tests can execute, then re-run ${SOURCE}." >&2
     exit 2
   fi
 fi
