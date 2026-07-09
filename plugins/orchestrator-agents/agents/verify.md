@@ -3,7 +3,7 @@ name: verify
 color: yellow
 description: "Lint, typecheck, and review the diff in one pass after a write phase. Always dispatch with tester in the same message turn. Accepts an optional pipeline path for parallel track isolation."
 model: sonnet
-effort: high
+effort: medium
 background: true
 tools: Bash, Read, LSP, TaskGet, TaskUpdate, mcp__plugin_orchestrator-mcp_dev-tools__write_findings, Agent
 ---
@@ -121,6 +121,8 @@ Read relevant files for context if needed, but focus on the diff.
 ### 1. Write findings via `write_findings`
 
 Always call — even on PASS.
+
+> **Shared writer:** `write_findings` is used by both verify (`source: "verify"`) and tester (`source: "tester"`), writing to distinct files (`verify-findings.json`, `tester-findings.json`). The schema gained an additive `failures` field that only tester populates — verify's payload (`checks` + `issues`) is unchanged. The proof-of-execution guard now covers both sources, so verify's exit-code rule below applies identically to tester. Keep verify's calls exactly as documented here.
 
 Overall `status` is `"FAIL"` if lint or typecheck failed, or if review has issues. It is `"ERROR"` if any check could not execute (permission denied, missing tool, etc.). Otherwise `"PASS"`.
 

@@ -21,7 +21,7 @@ The main Claude Code session acts as orchestrator. Agents are tools — call the
 | orchestrator-agents:checker | haiku | readonly | Lint + typecheck + build checks only — no diff review. Ad-hoc quality gate; call any time. |
 | orchestrator-agents:reviewer | sonnet | readonly | Diff review only — no lint/typecheck. Use for PR reviews or reviewing a change set after checker passes. |
 | orchestrator-agents:verify | sonnet | readonly | Lint + typecheck + diff review in one pass. Post-write loop only. Always `background: true`. Never reused — always spawn fresh. |
-| orchestrator-agents:tester | sonnet | read+write | Write and run tests after verify approves. |
+| orchestrator-agents:tester | sonnet | readonly | Run the suite and diagnose each failure (regression vs stale test vs flaky). Never writes or fixes tests. |
 
 > **Task tracking:** pass task context when dispatching any agent — `taskId: [id]` for a single plan task, or `tasks: [{taskId, description}, ...]` when delegating multiple sequential plan items. Agents self-manage all status transitions.
 
@@ -34,7 +34,7 @@ The main Claude Code session acts as orchestrator. Agents are tools — call the
 These rules hold regardless of task size or route. Never violate them.
 
 1. **Read before write** — invoke reader before calling writer on those files. Direct inline reads are for single known files only — anything broader warrants a reader agent.
-2. **Verify after write, max 2 rounds** — after any write phase, dispatch verify + tester together. If findings remain after 2 rounds: escalate to user. Read [verify-loop.md](verify-loop.md) for the step-by-step protocol.
+2. **Verify after write, max 2 rounds** — after any write phase, dispatch verify + tester together. Verify findings (lint/typecheck/diff) auto-loop to writer; if they remain after 2 rounds, escalate. Tester failures are readonly diagnoses (REGRESSION / STALE_TEST / FLAKY / UNCLEAR) — never auto-fixed: surface them to the user and dispatch a writer only on the user's decision. Read [verify-loop.md](verify-loop.md) for the step-by-step protocol.
 3. **Serialize writers on overlapping files** — one active writer per overlapping file set. Writers with fully disjoint file sets may run in parallel.
 
 ---

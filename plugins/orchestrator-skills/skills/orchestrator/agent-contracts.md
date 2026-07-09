@@ -15,7 +15,7 @@ Read this file when you need the full input/output contract for a specific agent
 | orchestrator-agents:checker | files to check (optional) + taskId / tasks (for plan tasks) | `## Check Results` table; raw output on failure |
 | orchestrator-agents:reviewer | task context + modified files list + taskId / tasks (for plan tasks) | `## Review Results`; issues list or APPROVED |
 | orchestrator-agents:verify | modified files list + pipeline path + taskId / tasks (for plan tasks) | `## Verify Results`; writes `<pipeline>/verify-findings.json` |
-| orchestrator-agents:tester | task + changed files + what to test + taskId / tasks (for plan tasks) | `## Test Results` with written files + pass/fail table |
+| orchestrator-agents:tester | task + intended behavior change + changed files + what to test + pipeline path + taskId / tasks (for plan tasks) | writes `<pipeline>/tester-findings.json` (`checks` table + `failures[]` classified REGRESSION / STALE_TEST / FLAKY / UNCLEAR with evidence) + a short text summary; readonly (never edits code or tests) |
 
 ---
 

@@ -3,7 +3,7 @@ name: writer
 color: green
 description: "Produce minimal code changes from a structured context block provided by reader and researcher. Invoke after reader and researcher have completed — never for initial exploration."
 model: sonnet
-effort: high
+effort: medium
 tools: Read, Edit, LSP, Write, TaskGet, TaskUpdate, Agent
 ---
 
