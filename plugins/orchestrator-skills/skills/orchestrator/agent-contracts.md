@@ -28,8 +28,19 @@ Before any `Agent()` dispatch, check working memory for a saved `agent_id` of th
 
 **Cache TTL:** subagent caches use a ~5-minute TTL. Warm reuse via `SendMessage` only yields a cache hit within ~5 minutes of the agent's last activity — beyond that the agent's cache is cold and a fresh spawn is equivalent.
 
-**Flag gate:** `SendMessage` is only available when `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`. Without the flag, always use `Agent(...)` (step 2).
+**Availability:** `SendMessage` does **not** require agent teams — resuming a stopped subagent by its `agent_id` or name works in normal dispatch (the stopped agent auto-resumes in the background on receipt). Only structured team-protocol messages (`shutdown_request`, `plan_approval_response`) need `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`. If a name has since been reused by a newer agent, address the earlier one by its `agent_id`.
 
 **Hard exception:** `orchestrator-agents:verify` — always step 2. Never reuse a verify agent; always spawn fresh.
 
 **Best reuse target:** `orchestrator-agents:reader` — called most frequently; highest cache value from file content.
+
+---
+
+## Context Requests
+
+A leaf agent that needs more than it can reach with its own read tools returns a `## Context Request` (e.g. thinker needing external/web research, which it has no tools for) and stops. To fulfil one:
+
+1. Run the reader/researcher (or other agent) that produces the missing context.
+2. Resume the **same** requesting agent via `SendMessage(to: its agent_id)` with the findings — it continues warm, retaining its prior reasoning, rather than restarting cold from a fresh `Agent()` dispatch.
+
+This is the sanctioned replacement for the removed nested-dispatch path: agents no longer spawn helpers themselves, so a context gap becomes one orchestrator-visible round-trip instead of a hidden nested subagent.
