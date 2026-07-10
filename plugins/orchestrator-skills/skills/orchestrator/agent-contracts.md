@@ -10,7 +10,7 @@ Read this file when you need the full input/output contract for a specific agent
 |-------|------------|---------|
 | orchestrator-agents:reader | task + file paths + taskId / tasks (for plan tasks) | `Relevant Files / Interfaces / Conventions / Entry Points / Test Files` — or `## Cannot Proceed` |
 | orchestrator-agents:researcher | task + research question + taskId / tasks (for plan tasks) | `Prior Decisions / API Reference / Approach / Caveats` |
-| orchestrator-agents:thinker | context block + question + taskId / tasks (for plan tasks) | `Analysis / Brainstorming / Q&A` (dispatches its own reader/researcher for missing context — no `## Context Request` round-trip) |
+| orchestrator-agents:thinker | context block + question + taskId / tasks (for plan tasks) | `Analysis / Brainstorming / Q&A`; reads its own context via `Read`/`LSP` and emits a `## Context Request` when it needs broad mapping or external research |
 | orchestrator-agents:writer | `## Context` + `## Task` + `## Files to modify` + taskId / tasks (for plan tasks) (initial); `## Batch Fixes Required` (retry) | `## Modified Files` with exact paths |
 | orchestrator-agents:checker | files to check (optional) + taskId / tasks (for plan tasks) | `## Check Results` table; raw output on failure |
 | orchestrator-agents:reviewer | task context + modified files list + taskId / tasks (for plan tasks) | `## Review Results`; issues list or APPROVED |
