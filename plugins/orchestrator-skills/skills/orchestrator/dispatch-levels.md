@@ -120,6 +120,8 @@ Choose based on whether tracks need to coordinate with each other:
 
 Use when tracks are fully independent — no cross-track coordination or peer messaging needed. Workflow moves orchestration into a script outside Claude's context, making runs resumable and context-free.
 
+> **Opt-in (required before calling `Workflow`):** the `Workflow` tool refuses to run without explicit user opt-in. Loading the orchestrator skill authorizes it for L3a — but still confirm the scale with the user in one line before spawning ("L3 task, N tracks — run as a Workflow (~N agents)?"). Their go-ahead is the explicit request the tool wants. **If they decline, or `Workflow` is unavailable, fall back to batched parallel `Agent()` dispatch** — run the tracks as L2-style parallel writer subagents in waves (no opt-in needed). You forgo resumability and per-track context isolation, but the work still parallelizes.
+
 `pipeline()` runs all tracks in parallel up to a **single barrier** before the serial integration pass. The integration pass legitimately needs all tracks done; no other barriers are needed between independent per-track stages.
 
 ```javascript

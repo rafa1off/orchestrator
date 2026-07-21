@@ -49,6 +49,8 @@ Plan has 1 track?           → Level 1
 
 > Read [dispatch-levels.md](dispatch-levels.md) before dispatching writers for L2 or L3 tasks.
 
+> **L3a runs on the `Workflow` tool** (dynamic `pipeline()`/`parallel()`), which requires explicit user opt-in before it can be called. **Invoking this skill authorizes Workflow for L3a-scale dispatch** — that is the opt-in. Because a workflow spawns many agents, confirm the scale with the user in one line before spawning (e.g. "L3 task, N tracks — run it as a Workflow (~N agents)?"). If the user declines or Workflow is otherwise unavailable, fall back to batched parallel `Agent()` calls (L2-style, no opt-in needed) — you lose resumability and context isolation but the tracks still run.
+
 ---
 
 ## Dispatch Rules

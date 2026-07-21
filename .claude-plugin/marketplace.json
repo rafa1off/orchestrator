@@ -33,7 +33,7 @@
     {
       "name": "orchestrator-skills",
       "source": "./plugins/orchestrator-skills",
-      "version": "1.11.0",
+      "version": "1.12.0",
       "description": "Orchestrator workflow skills — /orchestrator-skills:orchestrator (agent dispatch guide) and /orchestrator-skills:orchestrator-plan (plan before coding). Activate with: Skill(\"/orchestrator-skills:orchestrator\") in CLAUDE.md.",
       "strict": true
     },
