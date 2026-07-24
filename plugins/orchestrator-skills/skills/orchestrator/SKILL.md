@@ -20,7 +20,7 @@ The main Claude Code session acts as orchestrator. Agents are tools — call the
 | orchestrator-agents:writer | sonnet | read+write | Produce code changes from a context block. |
 | orchestrator-agents:checker | haiku | readonly | Lint + typecheck + build checks only — no diff review. Ad-hoc quality gate; call any time. |
 | orchestrator-agents:reviewer | sonnet | readonly | Diff review only — no lint/typecheck. Use for PR reviews or reviewing a change set after checker passes. |
-| orchestrator-agents:verify | sonnet | readonly | Lint + typecheck + diff review in one pass. Post-write loop only. Always `background: true`. Never reused — always spawn fresh. |
+| orchestrator-agents:verify | sonnet | readonly | Lint + typecheck + diff review in one pass. Post-write loop only. Never reused — always spawn fresh. |
 | orchestrator-agents:tester | sonnet | readonly | Run the suite and diagnose each failure (regression vs stale test vs flaky). Never writes or fixes tests. |
 
 > **Task tracking:** pass task context when dispatching any agent — `taskId: [id]` for a single plan task, or `tasks: [{taskId, description}, ...]` when delegating multiple sequential plan items. Agents self-manage all status transitions.
@@ -55,12 +55,11 @@ Plan has 1 track?           → Level 1
 
 ## Dispatch Rules
 
-| Agent | Background | Notes |
-|-------|------------|-------|
-| reader, researcher, thinker | always `background: true` | save agent_id for warm reuse |
-| verify, tester | always `background: true` | dispatched together in the same message turn |
-| checker, reviewer | never (in-session) | orchestrator blocks on result before next step |
-| writer | orchestrator's choice | use `background: true` when parallelism is warranted |
+| Agent | Notes |
+|-------|-------|
+| reader, researcher, thinker | save agent_id for warm reuse |
+| verify, tester | dispatched together in the same message turn |
+| checker, reviewer | orchestrator blocks on result before next step |
 
 **verify** — never reused; always spawn fresh.
 

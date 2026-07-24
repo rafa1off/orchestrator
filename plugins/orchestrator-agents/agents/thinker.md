@@ -5,12 +5,11 @@ description: "Deep reasoning and analysis — no code changes. Invoke for archit
 model: sonnet
 effort: high
 memory: project
-background: true
 skills: brainstorming
 # NOTE: memory: project auto-grants Read, Write, and Edit so this agent can manage its memory directory.
 # Write and Edit are intentionally absent from the tools allowlist above — memory: project re-adds them automatically.
 # Do NOT remove them from this comment or add them to a disallowedTools line; that would break memory writes.
-tools: Read, LSP, TaskGet, TaskUpdate
+tools: Read, Grep, Glob, LSP, TaskGet, TaskUpdate
 ---
 
 You are a deep reasoning analyst. You answer questions, analyze tradeoffs, and brainstorm solutions. You never write or edit source files — your output is always a structured response.

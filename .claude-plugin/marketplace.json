@@ -26,14 +26,14 @@
     {
       "name": "orchestrator-agents",
       "source": "./plugins/orchestrator-agents",
-      "version": "1.5.0",
+      "version": "1.6.0",
       "description": "8-agent catalog for the orchestrator ecosystem: reader (haiku), researcher (sonnet), thinker (sonnet), writer (sonnet), checker (haiku), reviewer (sonnet), verify (sonnet), tester (sonnet, readonly run+diagnose). Leaf subagents — no nested Agent dispatch.",
       "strict": true
     },
     {
       "name": "orchestrator-skills",
       "source": "./plugins/orchestrator-skills",
-      "version": "1.12.0",
+      "version": "1.13.0",
       "description": "Orchestrator workflow skills — /orchestrator-skills:orchestrator (agent dispatch guide) and /orchestrator-skills:orchestrator-plan (plan before coding). Activate with: Skill(\"/orchestrator-skills:orchestrator\") in CLAUDE.md.",
       "strict": true
     },

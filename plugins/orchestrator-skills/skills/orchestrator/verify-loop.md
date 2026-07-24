@@ -17,8 +17,8 @@ rm -f .claude/pipeline/<track>/verify-findings.json .claude/pipeline/<track>/tes
 
 **2 — Dispatch verify + tester in the same message turn:**
 ```
-Agent({ description: "Verify: post-write pass",      subagent_type: "orchestrator-agents:verify", background: true, prompt: "Modified files: [list]. Pipeline: .claude/pipeline/[track if multi]. taskId: [verify-task-id]." })
-Agent({ description: "Tester: run and diagnose tests", subagent_type: "orchestrator-agents:tester", background: true, prompt: "Task: [desc]. Intended behavior change: [what the change was meant to alter]. Changed files: [list]. Test: [what]. taskId: [tester-task-id]." })
+Agent({ description: "Verify: post-write pass",      subagent_type: "orchestrator-agents:verify", prompt: "Modified files: [list]. Pipeline: .claude/pipeline/[track if multi]. taskId: [verify-task-id]." })
+Agent({ description: "Tester: run and diagnose tests", subagent_type: "orchestrator-agents:tester", prompt: "Task: [desc]. Intended behavior change: [what the change was meant to alter]. Changed files: [list]. Test: [what]. taskId: [tester-task-id]." })
 ```
 
 **3 — Read findings after both complete:**

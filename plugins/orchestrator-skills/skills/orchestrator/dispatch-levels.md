@@ -80,7 +80,7 @@ A **teammate** (L3b) is a Claude Code team-mode agent (gated by `CLAUDE_CODE_EXP
 ```
 Wave 1 (parallel):  reader [+ researcher if external APIs needed] [+ thinker if design question]
 Wave 2 (inline):    orchestrator synthesizes → presents plan → user approves
-Wave 3:             writer [background: true if parallelism is warranted]
+Wave 3:             writer
 Wave 4 (parallel):  verify + tester
 Wave 5 (if needed): writer fixes → verify reruns (once max)
 ```
@@ -88,8 +88,8 @@ Wave 5 (if needed): writer fixes → verify reruns (once max)
 **Reader fan-out:** for tasks spanning multiple disjoint modules, dispatch multiple reader agents in ONE message (concurrent) — one per module or logical grouping — then synthesize their outputs before writing. Keeps each reader's context focused and cuts wall time.
 
 ```
-Agent({ description: "Reader: map module X", subagent_type: "orchestrator-agents:reader", background: true, prompt: "..." })
-Agent({ description: "Reader: map module Y", subagent_type: "orchestrator-agents:reader", background: true, prompt: "..." })
+Agent({ description: "Reader: map module X", subagent_type: "orchestrator-agents:reader", prompt: "..." })
+Agent({ description: "Reader: map module Y", subagent_type: "orchestrator-agents:reader", prompt: "..." })
 ```
 
 ---
@@ -97,10 +97,10 @@ Agent({ description: "Reader: map module Y", subagent_type: "orchestrator-agents
 ## Level 2 — Multi-track (2–3 independent file sets, ≤15 files total)
 
 - Assign each track a pipeline path: `.claude/pipeline/track-a/`, `.claude/pipeline/track-b/`, etc.
-- Dispatch all writers simultaneously with `background: true`:
+- Dispatch all writers simultaneously:
   ```
-  Agent({ description: "Writer: track-a — [task]", subagent_type: "orchestrator-agents:writer", background: true, prompt: "## Context\n...\ntaskId: [track-a-task-id]." })
-  Agent({ description: "Writer: track-b — [task]", subagent_type: "orchestrator-agents:writer", background: true, prompt: "## Context\n...\ntaskId: [track-b-task-id]." })
+  Agent({ description: "Writer: track-a — [task]", subagent_type: "orchestrator-agents:writer", prompt: "## Context\n...\ntaskId: [track-a-task-id]." })
+  Agent({ description: "Writer: track-b — [task]", subagent_type: "orchestrator-agents:writer", prompt: "## Context\n...\ntaskId: [track-b-task-id]." })
   ```
 - Each writer edits its disjoint file set directly in the working tree. Wait for all to complete.
 - Dispatch verify + tester per track in parallel (4 agents at once for 2 tracks), each scoped to its pipeline path.
@@ -190,9 +190,9 @@ Use when teammates need to share findings, challenge each other's work, or coord
 
 **Parallel readonly agents (any level):**
 ```
-Agent({ description: "Reader: map module X",               subagent_type: "orchestrator-agents:reader",     background: true, prompt: "Task: [desc]. Files: [paths]. taskId: [id]." })
-Agent({ description: "Researcher: find library pattern Y", subagent_type: "orchestrator-agents:researcher", background: true, prompt: "Task: [desc]. Research question: [question]. taskId: [id]." })
-Agent({ description: "Thinker: analyze tradeoff Z",        subagent_type: "orchestrator-agents:thinker",   background: true, prompt: "Task: [desc]. Question: [question]. taskId: [id]." })
+Agent({ description: "Reader: map module X",               subagent_type: "orchestrator-agents:reader",     prompt: "Task: [desc]. Files: [paths]. taskId: [id]." })
+Agent({ description: "Researcher: find library pattern Y", subagent_type: "orchestrator-agents:researcher", prompt: "Task: [desc]. Research question: [question]. taskId: [id]." })
+Agent({ description: "Thinker: analyze tradeoff Z",        subagent_type: "orchestrator-agents:thinker",   prompt: "Task: [desc]. Question: [question]. taskId: [id]." })
 ```
 
 **Writer handling multiple plan tasks in one call:**

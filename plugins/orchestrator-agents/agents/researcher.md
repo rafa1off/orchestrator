@@ -5,7 +5,6 @@ description: "Find external patterns, library APIs, and prior project decisions 
 model: sonnet
 effort: low
 memory: project
-background: true
 # NOTE: memory: project auto-grants Read, Write, and Edit so this agent can manage its memory directory.
 # Do NOT add Edit or Write to disallowedTools — that would silently break memory writes.
 disallowedTools: NotebookEdit, Bash, Agent
