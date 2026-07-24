@@ -5,11 +5,10 @@
         "hooks": [
           {
             "type": "command",
-            "command": "rm",
+            "command": "bash",
             "args": [
-              "-f",
-              "${CLAUDE_PROJECT_DIR}/.claude/pipeline/verify-findings.json",
-              "${CLAUDE_PROJECT_DIR}/.claude/pipeline/pre-compact-snapshot.md"
+              "-c",
+              "rm -f \"${CLAUDE_PROJECT_DIR}/.claude/pipeline/verify-findings.json\" \"${CLAUDE_PROJECT_DIR}/.claude/pipeline/tester-findings.json\" \"${CLAUDE_PROJECT_DIR}/.claude/pipeline/pre-compact-snapshot.md\" \"${CLAUDE_PROJECT_DIR}/.claude/pipeline\"/*/verify-findings.json \"${CLAUDE_PROJECT_DIR}/.claude/pipeline\"/*/tester-findings.json 2>/dev/null || true"
             ]
           }
         ]
@@ -72,7 +71,7 @@
             "command": "bash",
             "args": [
               "-c",
-              "P=\"${CLAUDE_PROJECT_DIR}/.claude/pipeline\"; { printf '# Pipeline Snapshot — %s\\n' \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"; for f in verify-findings.json; do [ -f \"$P/$f\" ] && { printf '## %s\\n' \"$f\"; cat \"$P/$f\"; echo; }; done; [ -f \"$P/progress.md\" ] && { printf '## progress.md\\n'; cat \"$P/progress.md\"; echo; }; } > \"$P/pre-compact-snapshot.md\" 2>/dev/null || true"
+              "P=\"${CLAUDE_PROJECT_DIR}/.claude/pipeline\"; { printf '# Pipeline Snapshot — %s\\n' \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"; for f in verify-findings.json tester-findings.json; do [ -f \"$P/$f\" ] && { printf '## %s\\n' \"$f\"; cat \"$P/$f\"; echo; }; done; [ -f \"$P/progress.md\" ] && { printf '## progress.md\\n'; cat \"$P/progress.md\"; echo; }; } > \"$P/pre-compact-snapshot.md\" 2>/dev/null || true"
             ]
           }
         ]
@@ -86,7 +85,7 @@
             "command": "bash",
             "args": [
               "-c",
-              "L=\"${CLAUDE_PROJECT_DIR}/.claude/pipeline/session-log.txt\"; mkdir -p \"$(dirname \"$L\")\"; printf '%s session-end\\n' \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\" >> \"$L\"; rm -f \"${CLAUDE_PROJECT_DIR}/.claude/pipeline/verify-findings.json\" \"${CLAUDE_PROJECT_DIR}/.claude/pipeline/pre-compact-snapshot.md\""
+              "L=\"${CLAUDE_PROJECT_DIR}/.claude/pipeline/session-log.txt\"; mkdir -p \"$(dirname \"$L\")\"; printf '%s session-end\\n' \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\" >> \"$L\"; rm -f \"${CLAUDE_PROJECT_DIR}/.claude/pipeline/verify-findings.json\" \"${CLAUDE_PROJECT_DIR}/.claude/pipeline/tester-findings.json\" \"${CLAUDE_PROJECT_DIR}/.claude/pipeline/pre-compact-snapshot.md\" \"${CLAUDE_PROJECT_DIR}/.claude/pipeline\"/*/verify-findings.json \"${CLAUDE_PROJECT_DIR}/.claude/pipeline\"/*/tester-findings.json"
             ]
           }
         ]

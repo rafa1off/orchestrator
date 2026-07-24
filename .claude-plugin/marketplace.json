@@ -19,7 +19,7 @@
     {
       "name": "orchestrator-hooks",
       "source": "./plugins/orchestrator-hooks",
-      "version": "1.4.0",
+      "version": "1.5.0",
       "description": "Hook suite for the orchestrator ecosystem — SessionStart cleanup, SubagentStop verify-blocking, PostToolUse findings auto-context + verify/tester proof-of-execution guard, PreCompact snapshot, SessionEnd audit, FileChanged verify-findings watcher.",
       "strict": true
     },

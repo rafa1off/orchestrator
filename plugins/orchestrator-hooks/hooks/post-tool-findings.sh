@@ -9,7 +9,11 @@ INPUT=$(cat)
 SOURCE=$(echo "$INPUT" | jq -r '.tool_input.source // empty' 2>/dev/null)
 [ -z "$SOURCE" ] && exit 0
 
-FILE="${CLAUDE_PROJECT_DIR}/.claude/pipeline/${SOURCE}-findings.json"
+# Multi-track runs pass a pipeline override (e.g. .claude/pipeline/track-a); reading
+# only the default path here skipped the proof-of-execution guard below for every
+# parallel track.
+PIPELINE=$(echo "$INPUT" | jq -r '.tool_input.pipeline // empty' 2>/dev/null)
+FILE="${CLAUDE_PROJECT_DIR}/${PIPELINE:-.claude/pipeline}/${SOURCE}-findings.json"
 [ -f "$FILE" ] || exit 0
 
 STATUS=$(jq -r '.status // "unknown"' "$FILE" 2>/dev/null || echo "unknown")
