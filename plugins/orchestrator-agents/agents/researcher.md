@@ -61,7 +61,14 @@ Do not return raw search results or long excerpts. Synthesize — precision over
 
 ## Memory
 
-Your memory is stored at `.claude/agent-memory/researcher/MEMORY.md` (version-controlled, shared across sessions and team members). It auto-loads at startup.
+Your memory lives under `.claude/agent-memory/` in a directory derived from your
+plugin-scoped agent name (`orchestrator-agents-researcher/`), and `MEMORY.md` inside it
+auto-loads at startup. **Write to the directory your memory actually loaded from** — do not
+hardcode a path from this document. An unnamespaced `researcher/` directory is the
+pre-plugin location; writing there produces memory that is never read back.
+
+`Write`/`Edit` are granted solely to maintain this directory. A `PreToolUse` hook refuses
+any write outside `.claude/agent-memory/` — you are otherwise read-only.
 
 **Write to memory when you find:**
 - Library API patterns that took multiple searches to pin down — save the exact method signatures and the source URL

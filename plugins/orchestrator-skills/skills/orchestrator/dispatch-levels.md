@@ -112,7 +112,7 @@ Agent({ description: "Reader: map module Y", subagent_type: "orchestrator-agents
 
 ---
 
-## Level 3 — Large scale (3+ tracks OR >15 files total)
+## Level 3 — Large scale (4+ tracks OR >15 files total)
 
 Choose based on whether tracks need to coordinate with each other:
 

@@ -8,23 +8,32 @@
             "command": "bash",
             "args": [
               "-c",
-              "rm -f \"${CLAUDE_PROJECT_DIR}/.claude/pipeline/verify-findings.json\" \"${CLAUDE_PROJECT_DIR}/.claude/pipeline/tester-findings.json\" \"${CLAUDE_PROJECT_DIR}/.claude/pipeline/pre-compact-snapshot.md\" \"${CLAUDE_PROJECT_DIR}/.claude/pipeline\"/*/verify-findings.json \"${CLAUDE_PROJECT_DIR}/.claude/pipeline\"/*/tester-findings.json 2>/dev/null || true"
+              "P=\"${CLAUDE_PROJECT_DIR}/.claude/pipeline\"; rm -f \"$P/verify-findings.json\" \"$P/tester-findings.json\" \"$P/pre-compact-snapshot.md\" \"$P/write-log.tsv\" \"$P\"/*/verify-findings.json \"$P\"/*/tester-findings.json 2>/dev/null; rm -rf \"$P/.starts\" 2>/dev/null; true"
             ]
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "matcher": "^orchestrator-agents:(verify|tester)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/subagent-start-stamp.sh"]
           }
         ]
       }
     ],
     "SubagentStop": [
       {
-        "matcher": "^orchestrator-agents:verify$",
+        "matcher": "^orchestrator-agents:(verify|tester)$",
         "hooks": [
           {
             "type": "command",
             "command": "bash",
-            "args": [
-              "-c",
-              "FILE=$(find \"${CLAUDE_PROJECT_DIR}/.claude/pipeline\" -name 'verify-findings.json' 2>/dev/null | head -1); FILE=${FILE:-\"${CLAUDE_PROJECT_DIR}/.claude/pipeline/verify-findings.json\"}; if [ -f \"$FILE\" ] && { ! command -v jq >/dev/null 2>&1 || jq -e . \"$FILE\" >/dev/null 2>&1; }; then STATUS=$(command -v jq >/dev/null 2>&1 && jq -r '.status // \"UNKNOWN\"' \"$FILE\" 2>/dev/null || echo 'UNKNOWN'); printf '{\"hookSpecificOutput\":{\"additionalContext\":\"[verify] stopped — status=%s, findings at %s\"}}' \"$STATUS\" \"$FILE\"; else echo '[orchestrator] BLOCKED: verify exited without valid findings JSON. Re-invoke write_findings before stopping.' >&2; exit 2; fi"
-            ]
+            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/subagent-stop-findings-guard.sh"]
           }
         ]
       }
@@ -49,6 +58,16 @@
             "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/block-nested-restricted-agents.sh"]
           }
         ]
+      },
+      {
+        "matcher": "Write|Edit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/block-readonly-agent-writes.sh"]
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -59,6 +78,16 @@
             "type": "command",
             "command": "bash",
             "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/post-tool-findings.sh"]
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/track-writer-overlap.sh"]
           }
         ]
       }
@@ -85,22 +114,7 @@
             "command": "bash",
             "args": [
               "-c",
-              "L=\"${CLAUDE_PROJECT_DIR}/.claude/pipeline/session-log.txt\"; mkdir -p \"$(dirname \"$L\")\"; printf '%s session-end\\n' \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\" >> \"$L\"; rm -f \"${CLAUDE_PROJECT_DIR}/.claude/pipeline/verify-findings.json\" \"${CLAUDE_PROJECT_DIR}/.claude/pipeline/tester-findings.json\" \"${CLAUDE_PROJECT_DIR}/.claude/pipeline/pre-compact-snapshot.md\" \"${CLAUDE_PROJECT_DIR}/.claude/pipeline\"/*/verify-findings.json \"${CLAUDE_PROJECT_DIR}/.claude/pipeline\"/*/tester-findings.json"
-            ]
-          }
-        ]
-      }
-    ],
-    "FileChanged": [
-      {
-        "matcher": "verify-findings.json",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash",
-            "args": [
-              "-c",
-              "FILE=$(find \"${CLAUDE_PROJECT_DIR}/.claude/pipeline\" -name 'verify-findings.json' 2>/dev/null | head -1); [ -f \"$FILE\" ] && command -v jq >/dev/null 2>&1 && STATUS=$(jq -r '.status // \"UNKNOWN\"' \"$FILE\" 2>/dev/null) && PIPELINE=$(jq -r 'if .pipeline then .pipeline else \"default\" end' \"$FILE\" 2>/dev/null) && printf '{\"hookSpecificOutput\":{\"additionalContext\":\"[verify-findings] status=%s pipeline=%s — findings ready at %s\"}}' \"$STATUS\" \"$PIPELINE\" \"$FILE\" || true"
+              "P=\"${CLAUDE_PROJECT_DIR}/.claude/pipeline\"; L=\"$P/session-log.txt\"; mkdir -p \"$P\"; printf '%s session-end\\n' \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\" >> \"$L\"; tail -n 500 \"$L\" > \"$L.tmp\" 2>/dev/null && mv \"$L.tmp\" \"$L\"; rm -f \"$P/verify-findings.json\" \"$P/tester-findings.json\" \"$P/pre-compact-snapshot.md\" \"$P/write-log.tsv\" \"$P\"/*/verify-findings.json \"$P\"/*/tester-findings.json 2>/dev/null; rm -rf \"$P/.starts\" 2>/dev/null; true"
             ]
           }
         ]

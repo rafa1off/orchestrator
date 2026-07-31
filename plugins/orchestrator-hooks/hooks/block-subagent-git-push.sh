@@ -19,7 +19,14 @@ case "$AGENT" in
   *) exit 0 ;;
 esac
 
-if echo "$CMD" | grep -qE '(^|&&|;|\|)[[:space:]]*(git push|gh pr (create|merge|edit))'; then
+# Separators include newlines, subshells, and command substitution — not just && ; | —
+# and `git` accepts global options before its subcommand, so matching a literal
+# "git push" let `git -C /path push`, `git --no-pager -C /r push`, `env git push`,
+# `$(git push)` and any newline-separated line all through. Newlines are normalised to
+# `;` so a multi-line script is scanned per command; the option group also consumes a
+# flag's argument (`-C /repo`) so `push` is still recognised as the subcommand.
+# Verified not to fire on git status/commit/log/remote, including `git log --grep push`.
+if echo "$CMD" | tr '\n' ';' | grep -qE '(^|&&|;|\||\(|`)[[:space:]]*(env[[:space:]]+)?git([[:space:]]+-[^[:space:]]+([[:space:]]+[^-[:space:]][^[:space:]]*)?)*[[:space:]]+push|(^|&&|;|\||\(|`)[[:space:]]*gh[[:space:]]+pr[[:space:]]+(create|merge|edit)'; then
   echo "[orchestrator-hooks] BLOCKED: $AGENT attempted a remote-facing operation ($CMD). Subagents may not push, open, or merge PRs — return the result to the orchestrator instead." >&2
   exit 2
 fi

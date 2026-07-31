@@ -12,43 +12,43 @@
     {
       "name": "orchestrator-mcp",
       "source": "./plugins/orchestrator-mcp",
-      "version": "1.2.0",
-      "description": "Dev-tools MCP server for the orchestrator ecosystem — write_findings pipeline contract (checks + issues + failures schema) for the verify and tester agents.",
+      "version": "1.3.0",
+      "description": "Dev-tools MCP server for the orchestrator ecosystem \u2014 write_findings pipeline contract (checks + issues + failures schema) for the verify and tester agents. Rejects verify/tester findings with no checks[], and stamps written_at for freshness checks.",
       "strict": true
     },
     {
       "name": "orchestrator-hooks",
       "source": "./plugins/orchestrator-hooks",
-      "version": "1.5.0",
-      "description": "Hook suite for the orchestrator ecosystem — SessionStart cleanup, SubagentStop verify-blocking, PostToolUse findings auto-context + verify/tester proof-of-execution guard, PreCompact snapshot, SessionEnd audit, FileChanged verify-findings watcher.",
+      "version": "1.6.0",
+      "description": "Hook suite for the orchestrator ecosystem \u2014 SessionStart/SessionEnd cleanup, SubagentStart start-stamps, SubagentStop findings guard for verify AND tester (freshness + substantiation, blocks with a retry reason), PostToolUse findings auto-context + proof-of-execution guard, readonly-agent write confinement, writer-overlap detection, PreCompact snapshot.",
       "strict": true
     },
     {
       "name": "orchestrator-agents",
       "source": "./plugins/orchestrator-agents",
-      "version": "1.6.0",
-      "description": "8-agent catalog for the orchestrator ecosystem: reader (haiku), researcher (sonnet), thinker (sonnet), writer (sonnet), checker (haiku), reviewer (sonnet), verify (sonnet), tester (sonnet, readonly run+diagnose). Leaf subagents — no nested Agent dispatch.",
+      "version": "1.7.0",
+      "description": "8-agent catalog for the orchestrator ecosystem: reader (haiku), researcher (sonnet), thinker (sonnet), writer (sonnet), checker (haiku), reviewer (sonnet), verify (sonnet), tester (sonnet, readonly run+diagnose). Leaf subagents \u2014 no nested Agent dispatch; readonly agents confined to their memory dir.",
       "strict": true
     },
     {
       "name": "orchestrator-skills",
       "source": "./plugins/orchestrator-skills",
-      "version": "1.13.0",
-      "description": "Orchestrator workflow skills — /orchestrator-skills:orchestrator (agent dispatch guide) and /orchestrator-skills:orchestrator-plan (plan before coding). Activate with: Skill(\"/orchestrator-skills:orchestrator\") in CLAUDE.md.",
+      "version": "1.14.0",
+      "description": "Orchestrator workflow skills \u2014 /orchestrator-skills:orchestrator (agent dispatch guide) and /orchestrator-skills:orchestrator-plan (plan before coding). Activate with: Skill(\"/orchestrator-skills:orchestrator\") in CLAUDE.md.",
       "strict": true
     },
     {
       "name": "ty-lsp",
       "source": "./plugins/ty-lsp",
       "version": "1.0.0",
-      "description": "Python LSP via Astral ty — go-to-definition, find-references, document-symbol on Python files. Requires: uv tool install ty",
+      "description": "Python LSP via Astral ty \u2014 go-to-definition, find-references, document-symbol on Python files. Requires: uv tool install ty",
       "strict": true
     },
     {
       "name": "vtsls-lsp",
       "source": "./plugins/vtsls-lsp",
       "version": "1.0.0",
-      "description": "TypeScript/JavaScript LSP via vtsls — go-to-definition, find-references, document-symbol on .ts/.tsx/.js files. Requires: npm install -g @vtsls/language-server",
+      "description": "TypeScript/JavaScript LSP via vtsls \u2014 go-to-definition, find-references, document-symbol on .ts/.tsx/.js files. Requires: npm install -g @vtsls/language-server",
       "strict": true
     }
   ]

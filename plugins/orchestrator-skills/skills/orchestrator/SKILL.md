@@ -25,6 +25,14 @@ The main Claude Code session acts as orchestrator. Agents are tools — call the
 
 > **Task tracking:** pass task context when dispatching any agent — `taskId: [id]` for a single plan task, or `tasks: [{taskId, description}, ...]` when delegating multiple sequential plan items. Agents self-manage all status transitions.
 
+> **Trust asymmetry — checker and reviewer are unverified.** Only verify and tester write
+> findings through `write_findings`, and only they are covered by the proof-of-execution
+> guard (every check must carry a real process exit code) and the `SubagentStop` guard
+> (they cannot finish without fresh, substantiated findings). checker and reviewer return
+> prose: a `PASS` from either is an unfalsifiable claim, with nothing proving a command ran.
+> Use them as convenience gates mid-task. **They never substitute for the invariant-2
+> verify + tester pass**, and a green checker is not evidence a write phase is sound.
+
 > Read [agent-contracts.md](agent-contracts.md) for full input/output contracts and session registry (warm agent reuse).
 
 ---
@@ -42,9 +50,9 @@ These rules hold regardless of task size or route. Never violate them.
 ## Dispatch Levels
 
 ```
-Plan has 1 track?           → Level 1
-2–3 tracks AND ≤15 files?   → Level 2
-3+ tracks OR >15 files?     → Level 3
+1 track                     → Level 1
+2–3 tracks AND ≤15 files    → Level 2
+4+ tracks OR >15 files      → Level 3
 ```
 
 > Read [dispatch-levels.md](dispatch-levels.md) before dispatching writers for L2 or L3 tasks.

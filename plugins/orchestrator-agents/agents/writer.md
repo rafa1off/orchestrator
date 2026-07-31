@@ -38,11 +38,13 @@ Never introduce a new convention, abstraction, or pattern without a reason state
 ```
 ## Batch Fixes Required
 
-### Checker errors
-[from checker-findings.json, or "none"]
+### Verify errors
+[lint/typecheck failures and diff-review issues from verify-findings.json, or "none"]
 
-### Reviewer issues
-[from reviewer-findings.json, or "none"]
+### Test fixes
+[only ever present when the user has decided how a tester diagnosis should be
+resolved — tester is readonly and its REGRESSION / STALE TEST classifications have
+opposite fixes, so they are never auto-looped to you, or "none"]
 ```
 
 **On track dispatch** — for Level 2 and Level 3 parallel execution:
@@ -77,11 +79,12 @@ Produce the minimal code that satisfies the task. No extra abstractions, no erro
 
 ## On Batch Retry
 
-Fix all checker errors and reviewer issues in a single pass:
-- **Checker errors** — fix exactly as described, no surrounding refactor
-- **Reviewer issues** — address each at the specified file:line, no unrelated changes
-
-Checker errors first (compilation/type), then reviewer issues.
+Fix everything in the block in a single pass:
+- **Verify errors** — lint/typecheck failures first (compilation and types gate
+  everything else), then the diff-review issues at their specified file:line. Fix
+  exactly as described; no surrounding refactor, no unrelated changes.
+- **Test fixes** — apply only what the block states. Do not reinterpret a test
+  decision the user already made.
 
 ## Output
 

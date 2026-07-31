@@ -39,8 +39,14 @@ cat .claude/pipeline/verify-findings.json .claude/pipeline/tester-findings.json
 ## Batch Fixes Required
 
 ### Verify errors
-[from verify-findings.json]
+[lint/typecheck failures and review issues from verify-findings.json]
+
+### Test fixes
+none
 ```
+
+`### Test fixes` stays `none` on the auto-loop. It carries content only after the user has
+decided how a tester diagnosis should be resolved (step 4 below).
 
 *Tester diagnoses (test failures)* — **do NOT auto-fix.** Tester is readonly and classifies each failure as REGRESSION / STALE TEST / FLAKY / UNCLEAR. Because REGRESSION (fix the code) and STALE TEST (update the test) have opposite fixes, the orchestrator **presents the diagnoses to the user and asks them to decide** what to do. Only after the user decides do you dispatch a writer to act on that decision. Never guess which side a failure falls on, and never dispatch a test-authoring or test-fixing writer without a user decision.
 

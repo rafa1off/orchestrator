@@ -26,7 +26,12 @@ Before any `Agent()` dispatch, check working memory for a saved `agent_id` of th
 1. **Found** → `SendMessage(to: saved_id)` — resumes the warm agent (cache hit on file content, no cold-start overhead).
 2. **Not found** → `Agent(...)` → save the returned `agent_id` keyed by type.
 
-**Cache TTL:** subagent caches use a ~5-minute TTL. Warm reuse via `SendMessage` only yields a cache hit within ~5 minutes of the agent's last activity — beyond that the agent's cache is cold and a fresh spawn is equivalent.
+**Cache TTL:** prompt-cache TTL is a session property, not a fixed 5 minutes — sessions
+commonly run a 1-hour TTL, and usage overage can drop later requests to 5 minutes. Treat
+the window as unknown rather than assuming the short one: `SendMessage` reuse costs nothing
+extra when the cache has already expired (it is equivalent to a fresh spawn), so prefer
+warm reuse whenever the agent is still relevant and do not skip it on the assumption that
+minutes have passed. Measure before optimising against a specific number.
 
 **Availability:** `SendMessage` does **not** require agent teams — resuming a stopped subagent by its `agent_id` or name works in normal dispatch (the stopped agent auto-resumes in the background on receipt). Only structured team-protocol messages (`shutdown_request`, `plan_approval_response`) need `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`. If a name has since been reused by a newer agent, address the earlier one by its `agent_id`.
 

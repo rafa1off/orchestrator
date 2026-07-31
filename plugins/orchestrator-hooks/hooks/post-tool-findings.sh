@@ -19,34 +19,32 @@ FILE="${CLAUDE_PROJECT_DIR}/${PIPELINE:-.claude/pipeline}/${SOURCE}-findings.jso
 STATUS=$(jq -r '.status // "unknown"' "$FILE" 2>/dev/null || echo "unknown")
 CONTENT=$(cat "$FILE")
 
-# Proof-of-execution guard: block verify/tester findings that indicate checks could not run.
-# Backgrounded verify and tester agents can have Bash auto-denied (lint/typecheck or the
-# test suite); this catches a silent skip being reported as a false PASS.
+# Proof-of-execution guard: block verify/tester findings that do not substantiate their
+# own claim. Backgrounded verify and tester agents can have Bash auto-denied (lint/
+# typecheck or the test suite); this catches a silent skip reported as a false PASS.
+#
+# The guard asserts positive evidence, not just well-formed failure reporting. Checking
+# only `.checks[]?` let `{"source":"verify","status":"PASS"}` — no checks at all — through
+# as a green result, because an empty iteration satisfies every "no bad entry" test. An
+# absent or empty `checks` list is now the first thing rejected.
 if [ "$SOURCE" = "verify" ] || [ "$SOURCE" = "tester" ]; then
-  # Trigger if overall status is ERROR
-  IS_ERROR=false
-  if [ "$STATUS" = "ERROR" ]; then
-    IS_ERROR=true
-  fi
+  REASON=$(jq -r '
+    if (.checks | type) != "array" or (.checks | length) == 0 then
+      "no checks[] recorded — nothing proves any check ran"
+    elif .status == "ERROR" then
+      "overall status is ERROR"
+    elif ([.checks[] | select(.status == "ERROR")] | length) > 0 then
+      "a checks[] entry has status ERROR"
+    elif ([.checks[] | select(.status == "PASS" and (.exit_code == null or .exit_code == ""))] | length) > 0 then
+      # An absent exit_code key compares equal to null in jq, so this covers both
+      # "reported null" and "omitted the field entirely".
+      "a checks[] entry claims PASS with no real exit_code"
+    else
+      ""
+    end' "$FILE" 2>/dev/null || echo "findings file is not readable as JSON")
 
-  # Trigger if any checks[] entry has status ERROR
-  if [ "$IS_ERROR" = "false" ]; then
-    HAS_CHECK_ERROR=$(jq -r '[.checks[]? | select(.status == "ERROR")] | length > 0' "$FILE" 2>/dev/null || echo "false")
-    if [ "$HAS_CHECK_ERROR" = "true" ]; then
-      IS_ERROR=true
-    fi
-  fi
-
-  # Trigger if any checks[] entry has status PASS with null or missing exit_code
-  if [ "$IS_ERROR" = "false" ]; then
-    HAS_UNPROVEN_PASS=$(jq -r '[.checks[]? | select(.status == "PASS" and (.exit_code == null or .exit_code == ""))] | length > 0' "$FILE" 2>/dev/null || echo "false")
-    if [ "$HAS_UNPROVEN_PASS" = "true" ]; then
-      IS_ERROR=true
-    fi
-  fi
-
-  if [ "$IS_ERROR" = "true" ]; then
-    echo "[orchestrator] BLOCKED: ${SOURCE} findings contain ERROR status or unproven PASS (exit_code null). The backgrounded ${SOURCE} agent likely had a Bash command auto-denied. Add the required Bash allow-rules documented in the README so lint/typecheck/tests can execute, then re-run ${SOURCE}." >&2
+  if [ -n "$REASON" ]; then
+    echo "[orchestrator] BLOCKED: ${SOURCE} findings are unproven — ${REASON}. A ${SOURCE} result is only trustworthy when every checks[] entry carries the real process exit_code. Likely cause: a Bash command was auto-denied (check the README Bash allow-rules), the agent ran out of turns, or it reported without running anything. Re-run ${SOURCE} and report the actual exit codes." >&2
     exit 2
   fi
 fi

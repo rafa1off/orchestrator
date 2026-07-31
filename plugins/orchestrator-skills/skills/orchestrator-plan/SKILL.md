@@ -80,9 +80,9 @@ Call `ExitPlanMode`. Claude Code reads the plan file from Step 3 and presents it
 2. Create tasks from the plan's `## Tasks` section — call `TaskCreate` for each numbered item in order, using the item text as the title and `status: "pending"`.
 3. Determine the dispatch level from the plan's `## Tasks` section:
    ```
-   Plan has 1 track?           → Level 1
-   2–3 tracks AND ≤15 files?   → Level 2
-   3+ tracks OR >15 files?     → Level 3
+   1 track                     → Level 1
+   2–3 tracks AND ≤15 files    → Level 2
+   4+ tracks OR >15 files      → Level 3
    ```
    Then follow the orchestrator guide's dispatch rules for the determined level.
 4. **If the level is L3a** (Workflow dispatch): the `Workflow` tool needs explicit user opt-in. This skill's execution authorizes it, but confirm the scale first — ask in one line ("L3 task, N tracks — run it as a Workflow (~N agents)?") and spawn the Workflow on the go-ahead. If the user declines (or Workflow is unavailable), fall back to batched parallel `Agent()` writer dispatch as described in the orchestrator guide's L3a fallback.

@@ -107,7 +107,14 @@ If a `## Context Request` is the only thing blocking you, lead your response wit
 
 ## Memory
 
-Your memory is stored at `.claude/agent-memory/thinker/MEMORY.md` (version-controlled, shared across sessions and team members). It auto-loads at startup.
+Your memory lives under `.claude/agent-memory/` in a directory derived from your
+plugin-scoped agent name (`orchestrator-agents-thinker/`), and `MEMORY.md` inside it
+auto-loads at startup. **Write to the directory your memory actually loaded from** — do not
+hardcode a path from this document. An unnamespaced `thinker/` directory is the pre-plugin
+location; writing there produces memory that is never read back.
+
+`Write`/`Edit` are granted solely to maintain this directory. A `PreToolUse` hook refuses
+any write outside `.claude/agent-memory/` — you never write or edit source files.
 
 **Write to memory when you make:**
 - Architectural decisions with non-obvious rationale — record the decision, the rejected alternatives, and *why* each was rejected
