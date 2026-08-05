@@ -1,7 +1,11 @@
 {
   "name": "orchestrator-skills",
-  "version": "1.14.0",
+  "version": "1.15.0",
   "description": "Orchestrator workflow skills \u2014 /orchestrator-skills:orchestrator (agent dispatch guide) and /orchestrator-skills:orchestrator-plan (plan before coding). Activate with: Skill(\"/orchestrator-skills:orchestrator\") in CLAUDE.md.",
+  "author": {
+    "name": "Rafael Giuriatto",
+    "email": "rafael.giuriatto@resolva.ai"
+  },
   "dependencies": [
     "orchestrator-agents",
     "orchestrator-hooks"

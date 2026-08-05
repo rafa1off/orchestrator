@@ -1,6 +1,8 @@
 ---
 name: orchestrator-plan
-description: "Use this skill when the user wants to plan out a multi-step coding task before writing any code. Triggers on: \"plan this out\", \"write up a plan\", \"map out how we'd\", \"let's plan\", \"before we start\", or any request to design/outline an implementation spanning multiple files, schema changes, API additions, or refactors. Creates a structured plan saved to .claude/plans/ for later execution. After approval, determine dispatch following the orchestrator L1/L2/L3 pattern. Use when the user is thinking ahead — not yet implementing, but scoping what needs to change and in what order."
+description: "Creates a structured multi-step implementation plan saved to .claude/plans/ before any code is written. After approval, determines dispatch following the orchestrator L1/L2/L3 pattern."
+when_to_use: "Use when the user is thinking ahead — scoping what needs to change and in what order, not yet implementing. Triggers on: \"plan this out\", \"write up a plan\", \"map out how we'd\", \"let's plan\", \"before we start\", or any request to design/outline an implementation spanning multiple files, schema changes, API additions, or refactors."
+argument-hint: "[task description]"
 ---
 
 # Orchestrator Plan

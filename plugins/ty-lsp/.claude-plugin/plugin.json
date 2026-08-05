@@ -1,5 +1,9 @@
 {
   "name": "ty-lsp",
-  "version": "1.0.0",
-  "description": "Python LSP via Astral ty — go-to-definition, find-references, document-symbol on Python files. Requires: uv tool install ty"
+  "version": "1.0.1",
+  "description": "Python LSP via Astral ty — go-to-definition, find-references, document-symbol on Python files. Requires: uv tool install ty",
+  "author": {
+    "name": "Rafael Giuriatto",
+    "email": "rafael.giuriatto@resolva.ai"
+  }
 }

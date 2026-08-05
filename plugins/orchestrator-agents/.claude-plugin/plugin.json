@@ -1,7 +1,11 @@
 {
   "name": "orchestrator-agents",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "description": "8-agent catalog for the orchestrator ecosystem: reader (haiku), researcher (sonnet), thinker (sonnet), writer (sonnet), checker (haiku), reviewer (sonnet), verify (sonnet), tester (sonnet, readonly run+diagnose). Leaf subagents \u2014 no nested Agent dispatch; readonly agents confined to their memory dir.",
+  "author": {
+    "name": "Rafael Giuriatto",
+    "email": "rafael.giuriatto@resolva.ai"
+  },
   "dependencies": [
     "orchestrator-mcp"
   ]
