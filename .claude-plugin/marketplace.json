@@ -19,7 +19,7 @@
     {
       "name": "orchestrator-hooks",
       "source": "./plugins/orchestrator-hooks",
-      "version": "1.6.1",
+      "version": "1.7.0",
       "description": "Hook suite for the orchestrator ecosystem \u2014 SessionStart/SessionEnd cleanup, SubagentStart start-stamps, SubagentStop findings guard for verify AND tester (freshness + substantiation, blocks with a retry reason), PostToolUse findings auto-context + proof-of-execution guard, readonly-agent write confinement, writer-overlap detection, PreCompact snapshot.",
       "strict": true
     },

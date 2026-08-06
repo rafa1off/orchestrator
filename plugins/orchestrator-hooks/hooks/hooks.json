@@ -16,7 +16,7 @@
     ],
     "SubagentStart": [
       {
-        "matcher": "^orchestrator-agents:(verify|tester)$",
+        "matcher": "^orchestrator-agents:(verify|tester|writer)$",
         "hooks": [
           {
             "type": "command",
@@ -34,6 +34,16 @@
             "type": "command",
             "command": "bash",
             "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/subagent-stop-findings-guard.sh"]
+          }
+        ]
+      },
+      {
+        "matcher": "^orchestrator-agents:(verify|tester|writer)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/subagent-stop-clear-stamp.sh"]
           }
         ]
       }

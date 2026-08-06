@@ -27,14 +27,21 @@ CONTENT=$(cat "$FILE")
 # only `.checks[]?` let `{"source":"verify","status":"PASS"}` — no checks at all — through
 # as a green result, because an empty iteration satisfies every "no bad entry" test. An
 # absent or empty `checks` list is now the first thing rejected.
+#
+# ERROR is NOT blocked, and that is deliberate. Blocking it made honest failure
+# unreportable: an agent that cannot write "this check could not run" is left with only
+# PASS and FAIL, both of which are false, so the guard was pushing toward the exact lie it
+# exists to catch. An ERROR is not an unproven claim — it is the claim being withdrawn.
+# It passes through, loudly flagged, and the orchestrator decides.
+#
+# What still blocks is an unproven *green*: no checks at all, a PASS entry with no real
+# exit code, or an overall PASS sitting on top of a check that errored.
 if [ "$SOURCE" = "verify" ] || [ "$SOURCE" = "tester" ]; then
   REASON=$(jq -r '
     if (.checks | type) != "array" or (.checks | length) == 0 then
       "no checks[] recorded — nothing proves any check ran"
-    elif .status == "ERROR" then
-      "overall status is ERROR"
-    elif ([.checks[] | select(.status == "ERROR")] | length) > 0 then
-      "a checks[] entry has status ERROR"
+    elif (.status == "PASS" and ([.checks[] | select(.status == "ERROR")] | length) > 0) then
+      "overall status is PASS but a checks[] entry is ERROR — a check that did not run cannot be part of a pass"
     elif ([.checks[] | select(.status == "PASS" and (.exit_code == null or .exit_code == ""))] | length) > 0 then
       # An absent exit_code key compares equal to null in jq, so this covers both
       # "reported null" and "omitted the field entirely".
@@ -44,8 +51,14 @@ if [ "$SOURCE" = "verify" ] || [ "$SOURCE" = "tester" ]; then
     end' "$FILE" 2>/dev/null || echo "findings file is not readable as JSON")
 
   if [ -n "$REASON" ]; then
-    echo "[orchestrator] BLOCKED: ${SOURCE} findings are unproven — ${REASON}. A ${SOURCE} result is only trustworthy when every checks[] entry carries the real process exit_code. Likely cause: a Bash command was auto-denied (check the README Bash allow-rules), the agent ran out of turns, or it reported without running anything. Re-run ${SOURCE} and report the actual exit codes." >&2
+    echo "[orchestrator] BLOCKED: ${SOURCE} findings are unproven — ${REASON}. A ${SOURCE} result is only trustworthy when every checks[] entry carries the real process exit_code. Likely cause: a Bash command was auto-denied (check the README Bash allow-rules), the agent ran out of turns, or it reported without running anything. Re-run ${SOURCE} and report the actual exit codes. If a check genuinely could not execute, report it as status=\"ERROR\" — that is accepted." >&2
     exit 2
+  fi
+
+  # Not blocked, but an errored check must not slide past as ordinary output.
+  ERRORED=$(jq -r '[.checks[]? | select(.status == "ERROR") | .name] | join(", ")' "$FILE" 2>/dev/null || echo "")
+  if [ -n "$ERRORED" ]; then
+    STATUS="${STATUS} — ERRORED CHECKS: ${ERRORED} (did not run; not covered by this result)"
   fi
 fi
 

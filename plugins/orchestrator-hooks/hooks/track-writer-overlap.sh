@@ -13,6 +13,14 @@
 # concurrent DIFFERENT writers are the bug, and the hook cannot know the orchestrator's
 # intent — so it reports rather than refuses. The log is left at
 # .claude/pipeline/write-log.tsv for the orchestrator to inspect.
+#
+# Concurrency is decided by the start stamp, not by the log alone. Originally any prior
+# writer on a path was reported, which flagged every serialized second writer — the
+# invariant being *honoured* — as a violation of it. A warning that fires on correct
+# behaviour is quickly ignored, taking the real signal with it. A stamp under
+# .claude/pipeline/.starts/<agent_id> exists only while that agent is running
+# (subagent-start-stamp.sh writes it, subagent-stop-clear-stamp.sh removes it), so a prior
+# writer with no stamp has finished and is not an overlap.
 set -euo pipefail
 
 command -v jq >/dev/null 2>&1 || exit 0
@@ -37,18 +45,26 @@ mkdir -p "$(dirname "$LOG")" 2>/dev/null || exit 0
 
 AGENT_ID="${AGENT_ID:-unknown}"
 
-# Any prior writer on this path that is not this agent.
+STAMP_DIR="$PROJECT_DIR/.claude/pipeline/.starts"
+
+# Any prior writer on this path that is not this agent AND is still running. A prior
+# writer that has already stopped is serialization, not overlap.
 OTHER=""
 if [ -f "$LOG" ]; then
-  OTHER=$(awk -F'\t' -v path="$REL" -v self="$AGENT_ID" \
-    '$2 == path && $1 != self { print $1; exit }' "$LOG" 2>/dev/null || true)
+  for prior in $(awk -F'\t' -v path="$REL" -v self="$AGENT_ID" \
+    '$2 == path && $1 != self { print $1 }' "$LOG" 2>/dev/null | sort -u); do
+    if [ -f "$STAMP_DIR/$prior" ]; then
+      OTHER="$prior"
+      break
+    fi
+  done
 fi
 
 printf '%s\t%s\t%s\n' "$AGENT_ID" "$REL" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$LOG" 2>/dev/null || true
 
 if [ -n "$OTHER" ]; then
   jq -nc --arg path "$REL" --arg other "$OTHER" --arg log "$LOG" \
-    '{hookSpecificOutput: {hookEventName: "PostToolUse", additionalContext: ("[orchestrator] WRITER OVERLAP: \($path) was already modified by a different writer agent (\($other)) this session. If both writers are running in parallel, the disjoint-file invariant was violated and one set of edits may be lost — report this path and both agents to the orchestrator instead of continuing silently. Write log: \($log)")}}'
+    '{hookSpecificOutput: {hookEventName: "PostToolUse", additionalContext: ("[orchestrator] WRITER OVERLAP: \($path) is also being modified by writer agent \($other), which is still running. The disjoint-file invariant is violated and one set of edits may be lost — report this path and both agents to the orchestrator instead of continuing silently. Write log: \($log)")}}'
 fi
 
 exit 0
