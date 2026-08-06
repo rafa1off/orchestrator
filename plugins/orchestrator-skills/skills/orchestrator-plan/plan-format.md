@@ -118,7 +118,7 @@ research rather than reasoning — call sites are **enumerated from `LSP` find-r
 |---|---|---|---|
 | `complete_task` signature gains a param | `api.py:88`, `main.py:41` | both call sites updated | task 2 |
 | Existing rows lack `archived` | live `tasks.db` | DDL default backfills | task 1 |
-| `test_tasks.py::test_row_shape` asserts column count | `tests/test_tasks.py:120` | will fail — STALE TEST, update in task 4 | task 4 |
+| `test_row_shape` asserts column count | `tests/test_tasks.py:120` (also `:121`, `:122` — same function) | 1 failing test — STALE TEST, update in task 4 | task 4 |
 | Writer touches two overlapping files | `tasks.py` | tasks 1 and 2 serialized | dispatch |
 ```
 
@@ -128,6 +128,11 @@ Answer each category explicitly:
 - **Behavior visible to existing tests** — which current tests will change result, and
   whether that is a regression or an expected update. Predicting this here is what lets
   you read the tester's REGRESSION / STALE TEST classification later instead of guessing.
+  **Count failing test *functions*, not failing assertions.** A test aborts at its first
+  failing `assert`, so three broken assertions inside one function are one reported
+  failure. Name the function, and list its assertion lines beneath it. Predicting in the
+  wrong unit turns a correct prediction into a phantom miss — the plan says five, the
+  tester says three, and two predictions look unfulfilled when nothing is actually wrong.
 - **Persisted state** — schema, migrations, data already on disk, and whether it survives.
 - **Runtime effects** — filesystem writes, network calls, subprocesses, background work.
 - **Backward compatibility** — public API, CLI flags, config keys, serialized formats.
@@ -215,8 +220,12 @@ change with no rollback path is a risk that has to be stated, not one to leave i
 Do not call `ExitPlanMode` until every line is true. Each one maps to a failure this
 format exists to prevent.
 
-- [ ] Every path in Artifacts (§4) appears in exactly one task's file set (§7), and every
-      path in a file set appears in Artifacts.
+- [ ] Every **authored** path in Artifacts (§4) — anything a task creates or edits —
+      appears in exactly one task's file set (§7), and every path in a file set appears in
+      Artifacts. Artifacts no task authors are exempt: a directory an agent writes at
+      runtime, a generated database, a build output. Mark each one `not authored by this
+      plan` in its Notes column, so the exemption is a decision on the page rather than a
+      silent gap.
 - [ ] Every changed signature in Change Contracts (§6) has its call sites enumerated in
       Blast Radius (§5), sourced from `LSP`/`rg` output — not recalled.
 - [ ] Every rule in Conventions in Force (§3) cites a `file:line` that was actually read.

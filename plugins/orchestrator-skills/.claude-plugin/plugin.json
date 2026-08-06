@@ -1,6 +1,6 @@
 {
   "name": "orchestrator-skills",
-  "version": "1.16.0",
+  "version": "1.16.1",
   "description": "Orchestrator workflow skills \u2014 /orchestrator-skills:orchestrator (agent dispatch guide) and /orchestrator-skills:orchestrator-plan (plan before coding). Activate with: Skill(\"/orchestrator-skills:orchestrator\") in CLAUDE.md.",
   "author": {
     "name": "Rafael Giuriatto",
