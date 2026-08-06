@@ -88,9 +88,8 @@ Fix everything in the block in a single pass:
 
 ## Output
 
-> The example uses Python/SQLite because that is this repo's sample app. **The shape is
-> the point, not the language** — exact path, one line, what changed. Mirror the target
-> repo's language and idioms.
+> The example is illustrative. **The shape is the point, not the language** — exact path,
+> one line, what changed. Mirror the target repo's language and idioms.
 
 ```
 ## Modified Files

@@ -59,9 +59,8 @@ Non-obvious constraints, deprecations, or version-specific behaviors.
 
 Do not return raw search results or long excerpts. Synthesize — precision over completeness.
 
-A worked answer, compressed. It uses SQLite because that is this repo's sample app —
-**the shape is the point, not the subject**: every factual claim carries where it came
-from and the version it was true for.
+A worked answer, compressed and illustrative — **the shape is the point, not the
+subject**: every factual claim carries where it came from and the version it was true for.
 
 ```
 ### Relevant Prior Decisions

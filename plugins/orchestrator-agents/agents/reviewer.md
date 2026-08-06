@@ -111,9 +111,9 @@ introduced. When you fall back, say so on the first line of your output:
 
 If there are issues:
 
-> Examples below use Python/SQLite because that is this repo's sample app. **The shape is
-> the point, not the language** — exact `file:line`, what breaks, what to do instead.
-> Mirror the target repo's language and idioms.
+> Examples below are illustrative. **The shape is the point, not the language** — exact
+> `file:line`, what breaks, what to do instead. Mirror the target repo's language and
+> idioms.
 
 ```
 ### Issues

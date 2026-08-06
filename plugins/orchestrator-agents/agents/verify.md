@@ -160,9 +160,9 @@ insertions, deletions), so the size of what was reviewed is on the record. `stat
 `PASS` when the review found nothing and `FAIL` when `issues` is non-empty.
 
 > **What is binding here and what is not.** The payload's field names, `status` values,
-> and the exit-code rules ARE the schema — match them exactly. The Python/SQLite content
-> inside them is illustrative: `git diff HEAD -- src/foo.py`, the `--stat` line, the file
-> paths. Report whatever the project in front of you actually produced.
+> and the exit-code rules ARE the schema — match them exactly. Everything inside them is
+> illustrative: the commands, the `--stat` line, the file paths. Report whatever the
+> project in front of you actually produced.
 
 On PASS:
 ```
