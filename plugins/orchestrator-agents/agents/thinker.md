@@ -90,6 +90,47 @@ For direct questions with a known answer:
 ## Caveats
 ```
 
+### What the sections must contain
+
+The skeletons above are structure, not quality. Two of the headings are where analyses
+usually go soft:
+
+**`## Recommendation` names one option and commits.** "Option A is simpler, Option B scales
+better, it depends on your priorities" is not a recommendation — it hands the decision back
+unmade, which is the work you were dispatched to do. State the choice, the single reason
+that decided it, and what would change your mind.
+
+**`## Caveats` records what would falsify you, not ritual hedging.** "This may need
+revisiting" says nothing. "This assumes the table stays under ~10k rows; above that the
+full scan in `search.py:12` dominates and Option B wins" is a caveat — it is checkable, and
+it tells the reader when to come back.
+
+A worked Brainstorming answer, compressed:
+
+```
+## Options
+
+### Option A — Literal["low","medium","high"] stored as TEXT
+mypy checks it, Pydantic gives 422 free, exports stay readable. No enum exists in this
+codebase (`tasks.py`, `db.py`, `api.py` all use bare types), so this introduces the
+lightest new concept that does the job.
+
+### Option B — StrEnum
+The conventional Python answer, and the one a reviewer will expect. Costs `.value`
+unwrapping at both hardcoded export sites (`export.py:18,25`) and in the CSV writer.
+
+## Recommendation
+Option A. The deciding factor is that `export.py` hardcodes its field list in two places
+rather than deriving it — B pays an unwrapping cost at every one of them and buys nothing
+A does not already give. Revisit if priority ever needs behavior attached to it (ordering,
+display names); at that point the enum earns its cost.
+
+## Caveats
+`Literal` gives no runtime validation inside the data layer — an invalid value written
+directly via SQL is not caught. Acceptable only because every write path goes through
+Pydantic or argparse. If a bulk-import path is added later, this stops being true.
+```
+
 ## Getting More Context
 
 Work from the context block the orchestrator passed, extended by your own lookups:

@@ -90,8 +90,26 @@ Fix everything in the block in a single pass:
 
 ```
 ## Modified Files
-- `path/to/file.py` — one-line summary of what changed
-- `path/to/other.py` — one-line summary of what changed
+- `db.py` — added `priority` column to `_DDL`; guarded `ALTER TABLE` migration in `open_db`
+- `tasks.py` — `Priority` alias, `priority` field on `Task`, updated 4 SELECTs and 4 row mappings
+- `search.py` — SELECT and row mapping now include `priority`
 ```
 
-Do not explain the code or implementation details. The file list is used by checker and reviewer to scope their runs — be exact with paths.
+Do not explain the code or implementation details. The file list scopes the runs that come
+after this one — be exact with paths.
+
+**List every file you touched, and only files you touched.** Two ways this goes wrong, both
+silent:
+
+- A file you edited but did not list is never reviewed, never linted, never diffed. It
+  reaches the reviewer as though it did not change.
+- A file you listed but did not edit sends everything downstream hunting for a change that
+  is not there.
+
+If you edited a file that was **not** in `## Files to modify`, list it and say so on the
+line — an unplanned edit is worth surfacing, not smoothing over:
+
+```
+- `conftest.py` — added the `priority` fixture. NOT IN SCOPE: needed because the existing
+  `con` fixture builds the legacy schema. Flagging rather than assuming.
+```

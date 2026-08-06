@@ -114,7 +114,32 @@ If there are issues:
 ```
 ### Issues
 
-1. `path/to/file:42` — [specific issue and what to do instead]
+1. `tasks.py:41` — SELECT names `id, title, completed` but the row is mapped into a
+   4-field `Task`; `row["priority"]` will raise `KeyError` at runtime. Add `priority`
+   to the column list, as at `tasks.py:22`.
+2. `db.py:18` — `ALTER TABLE` runs unguarded, so the second `open_db` call on the same
+   file raises `duplicate column name`. `open_db` runs per request (`api.py:18`).
+   Guard on `PRAGMA table_info(tasks)`.
+3. `[SECURITY]` `api.py:52` — task title is interpolated into the SQL string rather
+   than parameterized. Use a `?` placeholder, as at `tasks.py:38`.
 ```
 
-Each issue must have an exact file path and line number. Do not list style nitpicks — only actionable problems that affect correctness, maintainability, or security.
+Each issue carries an exact `file:line`, what goes wrong, and what to do instead. The
+useful test: **could someone fix this without opening a conversation with you?** An issue
+that names a symptom but not a remedy fails it.
+
+**Only report what changes behavior, maintainability, or security.** The difference is not
+severity — it is whether anything is actually wrong:
+
+| Report | Do not report |
+|---|---|
+| `search.py:12` — missed the new column; runtime `KeyError` | `search.py:12` — this query could be a constant |
+| `api.py:44` — 404 raised in the data layer, not the handler (`api.py:57`) | `api.py:44` — prefer `HTTPStatus.NOT_FOUND` over `404` |
+| `export.py:20` — field order differs from the CSV header on the line above | `export.py:20` — could use a list comprehension |
+
+The right-hand column is not wrong, and that is the point: it is preference dressed as
+review. Every line of it costs the reader attention that the left-hand column needs.
+
+If the diff is clean, say `**Overall: APPROVED**` and stop. Do not manufacture an issue to
+look thorough — an empty issue list is a real result, and padding it teaches the next
+reader to skim.

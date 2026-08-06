@@ -56,10 +56,25 @@ Do not dump raw file contents — summarize and extract only what is relevant.
 ## Output Format
 
 ### Relevant Files
-List each file that will likely need to be read or modified, with a one-line description.
+Each file that will likely be read or modified, with a one-line description of its role —
+what it *is*, not what you did to it.
+
+```
+- `tasks.py` — Task dataclass + CRUD; every row→object mapping lives here
+- `db.py` — `open_db`; runs the DDL on every call, no migration path
+- `search.py` — one SELECT that also builds a Task, easy to miss
+```
 
 ### Key Interfaces & Types
-Extract function signatures, class definitions, and type aliases most relevant to the task. Show only signatures.
+Signatures only, with line numbers. No bodies, no prose restatement of what a function
+obviously does.
+
+```
+tasks.py:10  @dataclass class Task: id: int; title: str; completed: bool
+tasks.py:17  def load_tasks(con: sqlite3.Connection | None = None) -> list[Task]
+tasks.py:33  def add_task(title: str, con: sqlite3.Connection | None = None) -> Task
+tasks.py:49  def complete_task(task_id: int, con: ... = None) -> Task | None
+```
 
 ### Conventions Observed
 The rules this code actually follows, **each with the `file:line` where you saw it**. A
@@ -81,9 +96,25 @@ If a rule holds in some files and not others, say so and cite both sides — a s
 convention is a decision someone has to make, and hiding it forces a guess.
 
 ### Entry Points
-Exact files and approximate line numbers where the change lands.
+Exact files and line numbers where the change lands. Count the sites — "four SELECTs" is
+checkable, "the SELECT statements" is not.
+
+```
+- `db.py:4-10` — the DDL string
+- `tasks.py:22,41,58,75` — four SELECT column lists, all naming columns explicitly
+- `tasks.py:24,43,60,77` + `search.py:15` — five Task(...) construction sites
+```
 
 ### Test Files to Update
-List existing test files that will need new or modified test cases.
+Existing test files that will need new or changed cases. Where you can see a specific
+assertion that couples to what is changing, cite it — a shape-coupled assertion found now
+costs one line, and found later costs a debugging session.
 
-Do not add commentary outside these sections.
+```
+- `tests/test_export.py` — `:32`, `:44` assert the exact field list; both encode the current shape
+- `tests/test_tasks.py` — `:52` compares against a whole constructed `Task(...)`
+- `tests/test_search.py` — no shape coupling found; add cases only
+```
+
+Do not add commentary outside these sections. If something important does not fit any
+section, it belongs in `Conventions Observed` with its citation — not in a preamble.

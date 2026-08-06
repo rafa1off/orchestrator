@@ -59,6 +59,38 @@ Non-obvious constraints, deprecations, or version-specific behaviors.
 
 Do not return raw search results or long excerpts. Synthesize — precision over completeness.
 
+A worked answer, compressed. Note that every factual claim carries where it came from, and
+the version it was true for:
+
+```
+### Relevant Prior Decisions
+- `docs/adr/004-no-orm.md` — raw `sqlite3` is deliberate; do not introduce SQLAlchemy
+  to solve the migration problem.
+
+### API / Pattern Reference
+- SQLite has no `ADD COLUMN IF NOT EXISTS`. The supported idempotent pattern is to read
+  `PRAGMA table_info(<table>)` and compare names before issuing the ALTER.
+  Source: https://sqlite.org/lang_altertable.html (checked 2026-08-06)
+- `ALTER TABLE ... ADD COLUMN` with a non-constant DEFAULT is rejected; `DEFAULT 'medium'`
+  is a literal and is fine. Same source, §2.
+
+### Recommended Approach
+Guard the ALTER with a `PRAGMA table_info` check inside `open_db`, before the existing
+commit. It is the only idempotent option without a version table, and a version table is
+more machinery than one column justifies.
+
+### Caveats & Gotchas
+- `DROP COLUMN` requires SQLite 3.35+ (2021) and is still unsupported in some bundled
+  builds — treat this migration as one-way.
+- `PRAGMA table_info` returns an empty result rather than erroring for a missing table,
+  so "no priority column" and "no table at all" look identical. Order the DDL first.
+```
+
+**Every claim gets a source.** An API detail with no URL or doc path is indistinguishable
+from a recollection, and recollections about library behavior are how the wrong version's
+API ends up in the code. When you could not find a source, say that explicitly rather than
+stating the claim bare.
+
 ## Memory
 
 Your memory lives under `.claude/agent-memory/` in a directory derived from your

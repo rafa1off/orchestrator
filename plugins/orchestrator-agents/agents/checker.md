@@ -99,4 +99,44 @@ than from the project's declared dependencies, say so: it may not exist on anoth
 > only. Report the exit codes exactly as the commands returned them; the orchestrator has
 > no independent way to catch an error here.
 
+A worked example — lint clean, typecheck failing, no build step, reported together:
+
+```
+## Check Results
+
+| Check     | Status  | Exit |
+|-----------|---------|------|
+| Lint      | ✅ PASS | 0 |
+| Typecheck | ❌ FAIL | 1 |
+| Build     | — N/A   | — |
+
+**Overall: FAIL**
+
+### Output
+uv run mypy .
+tasks.py:43: error: Argument "priority" to "Task" has incompatible type "str";
+             expected "Literal['low', 'medium', 'high']"  [arg-type]
+Found 1 error in 1 file (checked 22 source files)
+```
+
+And the same run where lint could not execute at all — note that this is `ERROR`, not
+`FAIL`, and that typecheck still reports its real result:
+
+```
+## Check Results
+
+| Check     | Status   | Exit |
+|-----------|----------|------|
+| Lint      | ⛔ ERROR | — |
+| Typecheck | ✅ PASS  | 0 |
+| Build     | — N/A    | — |
+
+**Overall: ERROR**
+
+### Output
+uv run ruff check tasks.py
+error: Failed to spawn: `ruff` — No such file or directory
+(ruff is not in pyproject.toml [dependency-groups].dev; it was not found on PATH either)
+```
+
 On failure, append the raw command output under a `### Output` heading so the orchestrator can send it to writer as a `## Batch Fixes Required` block.
