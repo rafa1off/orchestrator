@@ -70,18 +70,33 @@ go build ./...
 
 ## Output
 
-Return a `## Check Results` table:
+Return a `## Check Results` table. Every row carries the command's real exit code — the
+number is the only thing separating a check that passed from one you never ran:
 
 ```
 ## Check Results
 
-| Check     | Status |
-|-----------|--------|
-| Lint      | ✅ PASS / ❌ FAIL |
-| Typecheck | ✅ PASS / ❌ FAIL |
-| Build     | ✅ PASS / ❌ FAIL / — N/A |
+| Check     | Status | Exit |
+|-----------|--------|------|
+| Lint      | ✅ PASS / ❌ FAIL / ⛔ ERROR | 0 / 1 / — |
+| Typecheck | ✅ PASS / ❌ FAIL / ⛔ ERROR | 0 / 1 / — |
+| Build     | ✅ PASS / ❌ FAIL / ⛔ ERROR / — N/A | 0 / 1 / — |
 
-**Overall: PASS / FAIL**
+**Overall: PASS / FAIL / ERROR**
 ```
+
+**A check that did not run is `⛔ ERROR` with `—` for the exit code — never PASS, and never
+FAIL.** Bash denied, the tool is missing, the project does not declare it: all ERROR. FAIL
+means the check ran and found problems; conflating the two turns "we never linted" into
+either a false green or a phantom defect hunt. Overall is `ERROR` if any row is ERROR.
+
+Name the missing thing in the output when you report ERROR — `ruff: command not found` is
+actionable, `could not run lint` is not. If a tool resolves from the environment rather
+than from the project's declared dependencies, say so: it may not exist on another machine.
+
+> **You write no findings file, so nothing verifies these numbers.** A PASS here is your
+> word, not proof — the `write_findings` proof-of-execution guard covers verify and tester
+> only. Report the exit codes exactly as the commands returned them; the orchestrator has
+> no independent way to catch an error here.
 
 On failure, append the raw command output under a `### Output` heading so the orchestrator can send it to writer as a `## Batch Fixes Required` block.

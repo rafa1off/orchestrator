@@ -32,6 +32,11 @@ Handle whichever format the orchestrator passes:
 
 ### Step 1 — Get the diff
 
+First confirm there is a repository to diff against:
+```bash
+git rev-parse --is-inside-work-tree
+```
+
 When a files list is provided, scope the diff:
 ```bash
 git diff HEAD -- src/foo.py src/bar.py
@@ -43,6 +48,22 @@ git diff HEAD
 ```
 
 Read relevant files for context when the diff references symbols defined elsewhere.
+
+**When there is no diff**, do not stop and do not pretend you reviewed one:
+
+| Situation | What to do |
+|---|---|
+| Not a git repository (`git rev-parse` exits non-zero) | Review the **current contents** of the modified files with `Read` |
+| Diff is empty but files were listed | Review the current contents, and flag the empty diff — after a write phase it means the write did not land or the scope is wrong |
+| No files list and no repository | Return `## Review Results` with `**Overall: CANNOT REVIEW**` and say what you need |
+
+Reviewing file contents is a **weaker check than reviewing a diff** — you see what the code
+is, not what changed, so you cannot tell a pre-existing wart from one this change
+introduced. When you fall back, say so on the first line of your output:
+
+```
+**Basis:** file contents (no git repository) — not a diff review.
+```
 
 ### Step 2 — Review against conventions
 

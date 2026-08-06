@@ -66,8 +66,14 @@ uv run mypy .
 
 ### Step 3 — Get diff
 
+First confirm there is a repository to diff against:
+```bash
+git rev-parse --is-inside-work-tree
+```
+
 When a files list is provided (Level 2 multi-track), scope the diff:
 ```bash
+git diff --stat HEAD -- src/foo.py src/bar.py   # shape, for the review check's output
 git diff HEAD -- src/foo.py src/bar.py
 ```
 
@@ -77,6 +83,19 @@ git diff HEAD
 ```
 
 Read relevant files for context if needed, but focus on the diff.
+
+**If no diff can be obtained, the review cannot run — say so, do not substitute.** Two cases,
+both reported as `status: "ERROR"`, `exit_code: null` on the `review` check (which makes the
+overall status `ERROR`):
+
+- **Not a git repository** — `git rev-parse --is-inside-work-tree` exits non-zero. Reviewing
+  current file contents instead is a different, weaker check; reporting it as a diff review
+  would be a false claim.
+- **Empty diff** — `git diff HEAD` produced nothing after a write phase. Either the write did
+  not land or you are diffing the wrong scope. Both are worth surfacing, neither is a PASS.
+
+Reporting `ERROR` here is the correct outcome, not a failure of the run. Lint and typecheck
+still report their real results alongside it.
 
 ### Step 4 — Review diff against conventions
 
@@ -127,6 +146,19 @@ Overall `status` is `"FAIL"` if lint or typecheck failed, or if review has issue
 
 **Exit code rule:** every `checks` entry MUST include the actual process exit code in `exit_code`. Use `null` only when no process ran at all (the check was blocked or the tool is missing). A check that could not run MUST have `status: "ERROR"` — never `"PASS"` — regardless of the reason.
 
+**Review is a check, not a side note.** `checks` MUST carry three entries — `lint`,
+`typecheck`, and `review` — because `checks[]` is the only part of the payload the
+proof-of-execution guard inspects. A payload listing lint and typecheck alone is
+indistinguishable from a run that skipped the diff review entirely, and the diff review is
+the one thing that separates verify from checker: leaving it out of `checks[]` means the
+guard covers everything except your reason for existing.
+
+The `review` entry's `exit_code` is **the exit code of the diff command that produced the
+material you reviewed** — that is what proves a real diff was obtained rather than
+imagined. Its `output` names the diff's shape (the `git diff --stat` line: files touched,
+insertions, deletions), so the size of what was reviewed is on the record. `status` is
+`PASS` when the review found nothing and `FAIL` when `issues` is non-empty.
+
 On PASS:
 ```
 write_findings({
@@ -134,7 +166,8 @@ write_findings({
   status: "PASS",
   checks: [
     { name: "lint",      status: "PASS", exit_code: 0, output: "" },
-    { name: "typecheck", status: "PASS", exit_code: 0, output: "" }
+    { name: "typecheck", status: "PASS", exit_code: 0, output: "" },
+    { name: "review",    status: "PASS", exit_code: 0, output: "git diff HEAD -- src/foo.py src/bar.py -> 2 files changed, 34 insertions(+), 6 deletions(-)" }
   ],
   issues: []
 })
@@ -148,7 +181,8 @@ write_findings({
   pipeline: ".claude/pipeline/track-a",
   checks: [
     { name: "lint",      status: "PASS", exit_code: 0, output: "" },
-    { name: "typecheck", status: "PASS", exit_code: 0, output: "" }
+    { name: "typecheck", status: "PASS", exit_code: 0, output: "" },
+    { name: "review",    status: "PASS", exit_code: 0, output: "git diff HEAD -- src/foo.py -> 1 file changed, 12 insertions(+)" }
   ],
   issues: []
 })
@@ -162,7 +196,8 @@ write_findings({
   pipeline: "<path>",              // omit if using default .claude/pipeline/
   checks: [
     { name: "lint",      status: "FAIL", exit_code: 1, output: "<full lint output>" },
-    { name: "typecheck", status: "PASS", exit_code: 0, output: "" }
+    { name: "typecheck", status: "PASS", exit_code: 0, output: "" },
+    { name: "review",    status: "FAIL", exit_code: 0, output: "git diff HEAD -> 3 files changed, 81 insertions(+), 4 deletions(-); 1 issue" }
   ],
   issues: [
     "path/to/file:42 — specific issue and what to do instead"
@@ -170,14 +205,31 @@ write_findings({
 })
 ```
 
-On ERROR (check could not execute):
+On ERROR (a check could not execute):
 ```
 write_findings({
   source: "verify",
   status: "ERROR",
   checks: [
     { name: "lint",      status: "ERROR", exit_code: null, output: "Bash tool permission denied" },
-    { name: "typecheck", status: "ERROR", exit_code: null, output: "Bash tool permission denied" }
+    { name: "typecheck", status: "ERROR", exit_code: null, output: "Bash tool permission denied" },
+    { name: "review",    status: "ERROR", exit_code: null, output: "Bash tool permission denied — no diff obtained" }
+  ],
+  issues: []
+})
+```
+
+On ERROR (lint and typecheck ran, but there was no diff to review) — report the real
+results next to the honest failure; do not let two green checks carry a run whose review
+never happened:
+```
+write_findings({
+  source: "verify",
+  status: "ERROR",
+  checks: [
+    { name: "lint",      status: "PASS",  exit_code: 0,    output: "" },
+    { name: "typecheck", status: "PASS",  exit_code: 0,    output: "" },
+    { name: "review",    status: "ERROR", exit_code: null, output: "not a git repository (git rev-parse --is-inside-work-tree exited 128) — no diff to review" }
   ],
   issues: []
 })
