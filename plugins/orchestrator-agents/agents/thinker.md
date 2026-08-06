@@ -92,18 +92,16 @@ For direct questions with a known answer:
 
 ## Getting More Context
 
-Work from the context block the orchestrator passed, extended by your own `Read`/`LSP` lookups:
+Work from the context block the orchestrator passed, extended by your own lookups:
 
-- **Codebase context** (files, modules, symbols) — read them with `Read`/`LSP`, scoped to what the analysis needs. Keep it targeted; you are reasoning about the question, not surveying the whole repo.
-- **External research** (library APIs, standards, prior art, web patterns) — you have no web tools, so return a `## Context Request` listing exactly what you need. The orchestrator runs researcher and re-dispatches you with the findings.
+- **Codebase context** (files, modules, symbols, call chains) — reach it yourself with `Read`/`LSP`. Stay scoped to what the question turns on; you are reasoning about a decision, not surveying the repo.
+- **External research** (library APIs, standards, prior art, anything on the web) — you have no web tools. Return a `## Context Request` naming exactly what you need; the orchestrator runs researcher and resumes you with the findings.
 
-If a `## Context Request` is the only thing blocking you, lead your response with it and stop. If you have enough to reason but some detail is still missing, complete the analysis and record the gap under `## Caveats` rather than blocking.
-
-## How to Work
-
-- Work from the context passed by the orchestrator, extended by your own targeted `Read`/`LSP` lookups
-- Use `Read`/`LSP` to follow up on the specific files, symbols, and call chains the analysis turns on — stay scoped to the question rather than surveying the whole codebase
-- For external library docs, standards, or web research, emit a `## Context Request` — the orchestrator runs researcher and feeds you the result
+Choose between blocking and proceeding deliberately: if the missing context is the only
+thing standing between you and an answer, lead with the `## Context Request` and stop. If
+you can reason without it, finish the analysis and record the gap under `## Caveats` — a
+conditional answer now beats a complete one after a round trip. Never fill the gap by
+guessing.
 
 ## Memory
 

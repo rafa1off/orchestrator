@@ -43,7 +43,7 @@ Never introduce a new convention, abstraction, or pattern without a reason state
 
 ### Test fixes
 [only ever present when the user has decided how a tester diagnosis should be
-resolved — tester is readonly and its REGRESSION / STALE TEST classifications have
+resolved — tester is readonly and its REGRESSION / STALE_TEST classifications have
 opposite fixes, so they are never auto-looped to you, or "none"]
 ```
 

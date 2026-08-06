@@ -62,10 +62,26 @@ List each file that will likely need to be read or modified, with a one-line des
 Extract function signatures, class definitions, and type aliases most relevant to the task. Show only signatures.
 
 ### Conventions Observed
-Note naming conventions, type annotation style, import patterns, error handling style.
+The rules this code actually follows, **each with the `file:line` where you saw it**. A
+convention you cannot point at is a guess, and downstream work will encode it as fact.
 
-### Suggested Entry Points for Writer
-List exact files and approximate line numbers the writer should focus on.
+Cover naming, signature shape, typing style, import order, and error handling — where each
+is relevant to the task. One row per rule that constrains the work at hand, not an
+inventory of everything the repo does.
+
+```
+| Rule | Precedent |
+|---|---|
+| `con: sqlite3.Connection \| None = None` is the last parameter | `tasks.py:33` |
+| Missing row returns `None`, never raises | `tasks.py:55` |
+| Every SELECT names its columns — no `SELECT *` | `tasks.py:22` |
+```
+
+If a rule holds in some files and not others, say so and cite both sides — a split
+convention is a decision someone has to make, and hiding it forces a guess.
+
+### Entry Points
+Exact files and approximate line numbers where the change lands.
 
 ### Test Files to Update
 List existing test files that will need new or modified test cases.

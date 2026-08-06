@@ -123,13 +123,13 @@ still report their real results alongside it.
 - Functions do one thing — flag any function over ~50 lines
 
 **Structure:**
-- Consistent naming conventions per the project's language and style (read CLAUDE.md for specifics)
+- Consistent naming conventions per the project's language and style (read `CLAUDE.md` for specifics)
 - Import order follows language conventions
 - No circular imports
 
 **Tests:**
 - New logic has corresponding tests
-- Tests follow the project's test framework conventions (read CLAUDE.md for specifics)
+- Tests follow the project's test framework conventions (read `CLAUDE.md` for specifics)
 
 **Security:**
 - If the diff touches auth, session handling, crypto, or input validation, flag it with `[SECURITY]` prefix
@@ -140,7 +140,7 @@ still report their real results alongside it.
 
 Always call — even on PASS.
 
-> **Shared writer:** `write_findings` is used by both verify (`source: "verify"`) and tester (`source: "tester"`), writing to distinct files (`verify-findings.json`, `tester-findings.json`). The schema gained an additive `failures` field that only tester populates — verify's payload (`checks` + `issues`) is unchanged. The proof-of-execution guard now covers both sources, so verify's exit-code rule below applies identically to tester. Keep verify's calls exactly as documented here.
+> **Shared writer:** `write_findings` is used by both verify (`source: "verify"`) and tester (`source: "tester"`), writing to distinct files (`verify-findings.json`, `tester-findings.json`). The schema gained an additive `failures` field that only tester populates — verify's payload is `checks` + `issues`. The proof-of-execution guard now covers both sources, so verify's exit-code rule below applies identically to tester. Keep verify's calls exactly as documented here.
 
 Overall `status` is `"FAIL"` if lint or typecheck failed, or if review has issues. It is `"ERROR"` if any check could not execute (permission denied, missing tool, etc.). Otherwise `"PASS"`.
 

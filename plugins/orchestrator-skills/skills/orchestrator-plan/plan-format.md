@@ -123,7 +123,7 @@ research rather than reasoning — call sites are **enumerated from `LSP` find-r
 |---|---|---|---|
 | `complete_task` signature gains a param | `api.py:88`, `main.py:41` | both call sites updated | task 2 |
 | Existing rows lack `archived` | live `tasks.db` | DDL default backfills | task 1 |
-| `test_row_shape` asserts column count | `tests/test_tasks.py:120` (also `:121`, `:122` — same function) | 1 failing test — STALE TEST, update in task 4 | task 4 |
+| `test_row_shape` asserts column count | `tests/test_tasks.py:120` (also `:121`, `:122` — same function) | 1 failing test — STALE_TEST, update in task 4 | task 4 |
 ```
 
 Answer each category explicitly:
@@ -215,7 +215,7 @@ is far cheaper to check than one that did not.
 
 - `archive_task` returns `False` for an unknown id (not an exception).
 - Archived tasks are absent from `GET /tasks` and present with `?include_archived=1`.
-- Expected test churn: `test_row_shape` — STALE TEST, updated in task 4. Any *other*
+- Expected test churn: `test_row_shape` — STALE_TEST, updated in task 4. Any *other*
   failure in `test_tasks.py` is a regression.
 ```
 

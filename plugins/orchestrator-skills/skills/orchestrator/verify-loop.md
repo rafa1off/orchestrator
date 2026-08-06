@@ -48,7 +48,7 @@ none
 `### Test fixes` stays `none` on the auto-loop. It carries content only after the user has
 decided how a tester diagnosis should be resolved (step 4 below).
 
-*Tester diagnoses (test failures)* — **do NOT auto-fix.** Tester is readonly and classifies each failure as REGRESSION / STALE TEST / FLAKY / UNCLEAR. Because REGRESSION (fix the code) and STALE TEST (update the test) have opposite fixes, the orchestrator **presents the diagnoses to the user and asks them to decide** what to do. Only after the user decides do you dispatch a writer to act on that decision. Never guess which side a failure falls on, and never dispatch a test-authoring or test-fixing writer without a user decision.
+*Tester diagnoses (test failures)* — **do NOT auto-fix.** Tester is readonly and classifies each failure as REGRESSION / STALE_TEST / FLAKY / UNCLEAR. Because REGRESSION (fix the code) and STALE_TEST (update the test) have opposite fixes, the orchestrator **presents the diagnoses to the user and asks them to decide** what to do. Only after the user decides do you dispatch a writer to act on that decision. Never guess which side a failure falls on, and never dispatch a test-authoring or test-fixing writer without a user decision.
 
 **5 — Re-verify:** loop the verify side back to step 1. After **2 full rounds** with remaining verify findings, or on **any** tester failure, surface everything to the user and ask for direction.
 
