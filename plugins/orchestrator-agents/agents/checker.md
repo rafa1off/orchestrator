@@ -99,7 +99,11 @@ than from the project's declared dependencies, say so: it may not exist on anoth
 > only. Report the exit codes exactly as the commands returned them; the orchestrator has
 > no independent way to catch an error here.
 
-A worked example — lint clean, typecheck failing, no build step, reported together:
+Two worked examples. They use Python tooling because that is this repo's sample app —
+**the PASS/FAIL/ERROR distinction is the point, not the toolchain**; report whatever the
+stack-detection table selected for the project in front of you.
+
+First — lint clean, typecheck failing, no build step, reported together:
 
 ```
 ## Check Results

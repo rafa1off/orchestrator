@@ -55,6 +55,10 @@ Do not dump raw file contents — summarize and extract only what is relevant.
 
 ## Output Format
 
+> Examples below use Python/SQLite because that is this repo's sample app. **The shape is
+> the point, not the language** — cite `file:line`, count the sites, name the specific
+> assertion. Mirror the target repo's language and idioms.
+
 ### Relevant Files
 Each file that will likely be read or modified, with a one-line description of its role —
 what it *is*, not what you did to it.

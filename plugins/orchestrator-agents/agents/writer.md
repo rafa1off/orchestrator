@@ -88,6 +88,10 @@ Fix everything in the block in a single pass:
 
 ## Output
 
+> The example uses Python/SQLite because that is this repo's sample app. **The shape is
+> the point, not the language** — exact path, one line, what changed. Mirror the target
+> repo's language and idioms.
+
 ```
 ## Modified Files
 - `db.py` — added `priority` column to `_DDL`; guarded `ALTER TABLE` migration in `open_db`

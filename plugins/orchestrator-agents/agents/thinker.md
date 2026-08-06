@@ -105,7 +105,10 @@ revisiting" says nothing. "This assumes the table stays under ~10k rows; above t
 full scan in `search.py:12` dominates and Option B wins" is a caveat — it is checkable, and
 it tells the reader when to come back.
 
-A worked Brainstorming answer, compressed:
+A worked Brainstorming answer, compressed. It uses Python/SQLite because that is this
+repo's sample app — **the reasoning shape is the point, not the language**: options
+grounded in cited code, one recommendation with the deciding factor named, a caveat that
+could actually be checked.
 
 ```
 ## Options

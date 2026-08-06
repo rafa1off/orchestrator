@@ -90,6 +90,11 @@ Shared pipeline writer (same tool and file convention verify uses). Fields:
 
 **Exit-code rule (proof of execution):** every `checks` entry MUST carry the real process `exit_code`. Use `null` ONLY when no process ran (Bash denied, runner missing). A suite that could not run MUST have `status: "ERROR"` and `exit_code: null` — never `"PASS"`. A PostToolUse guard blocks a `tester` PASS whose `exit_code` is null, because a `PASS` carrying no real process exit code is indistinguishable from a check that never executed, whichever mode the agent ran in.
 
+> **What is binding here and what is not.** The field names, the `status` values, the
+> `classification` enum, and the exit-code rule ARE the schema — match them exactly. The
+> Python/pytest content is illustrative: test ids, file paths, the evidence wording.
+> Report what the suite in front of you actually produced.
+
 ```
 write_findings({
   source: "tester",
