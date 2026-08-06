@@ -1,6 +1,6 @@
 ---
 name: orchestrator-plan
-description: "Creates a structured multi-step implementation plan saved to .claude/plans/ before any code is written. After approval, determines dispatch following the orchestrator L1/L2/L3 pattern."
+description: "Designs the implementation before any code is written: previews every artifact and side effect the change produces, pins the exact interface contracts against discovered project conventions, and saves the plan to .claude/plans/. After approval, feeds those contracts to writers via the orchestrator L1/L2/L3 dispatch pattern."
 when_to_use: "Use when the user is thinking ahead — scoping what needs to change and in what order, not yet implementing. Triggers on: \"plan this out\", \"write up a plan\", \"map out how we'd\", \"let's plan\", \"before we start\", or any request to design/outline an implementation spanning multiple files, schema changes, API additions, or refactors."
 argument-hint: "[task description]"
 ---
@@ -23,68 +23,107 @@ Otherwise, call `EnterPlanMode`. The session is now read-only — file edits are
 
 ## Step 2 — Research
 
-Gather context by reading relevant files directly or by spawning agents. Run them in parallel when possible. Skip external docs research if the task is purely internal (no external library APIs, no prior decisions in `docs/`).
+**The plan is the design.** Every decision a writer could otherwise make on its own gets
+made here, so the research has to be good enough to make them — the writer receives the
+plan's contracts and supplies bodies, not judgment.
+
+Dispatch readonly agents rather than reading inline; they are readonly, so plan mode
+permits them. Run them in one turn so they go in parallel.
+
+| Need | Dispatch | Ask for |
+|---|---|---|
+| Which files are even involved | `Explore` | the paths, when the target set is unknown |
+| The files themselves | `orchestrator-agents:reader` | interfaces, **conventions with `file:line`**, entry points, test files |
+| A precedent to mirror | `orchestrator-agents:reader` | the closest existing feature of the same shape, in full |
+| External library API, prior decisions | `orchestrator-agents:researcher` | API reference + caveats; skip if the task is purely internal |
+| A genuinely open design question | `orchestrator-agents:thinker` | the tradeoff analysis, before you commit to an approach |
+
+Two demands are non-negotiable, because the plan's later sections cannot be written
+honestly without them:
+
+- **Conventions must arrive with line references.** Ask reader for the `file:line` behind
+  each one. A convention you cannot cite is a preference, and it will not survive review.
+- **Call sites must be enumerated, not recalled.** For every symbol whose signature the
+  change touches, get its references from `LSP` (or `rg` as fallback) and keep the
+  `file:line` list. This is the raw material for the blast-radius section.
 
 ---
 
-## Step 3 — Write the Plan
+## Step 3 — Trace the Blast Radius
 
-Using the research from Step 2, reason directly and write the plan. Synthesize the gathered context into the format below.
+Research tells you what exists; this step tells you what the change disturbs. Work through
+the side-effect categories in [plan-format.md](plan-format.md) §5 and answer each one from
+evidence you now hold — call sites, persisted state, tests that will change result,
+runtime effects, backward compatibility, hooks and CI, concurrency.
 
-Write the plan to **the file path specified in the plan mode system message** — that is the path ExitPlanMode will read. Do not write to `.claude/plans/` here; Write is blocked in plan mode.
-
-Use this content format:
-
-```markdown
-# [Feature Name] — Orchestrator Plan
-
-**Goal:** [one sentence]
-**Date:** YYYY-MM-DD
+Where an answer is missing, go back to Step 2 for it. Filling one from memory is how a
+plan produces a confidently wrong writer.
 
 ---
 
-## Explanation
+## Step 4 — Write the Plan
 
-[Claude writes a prose explanation of this specific plan: what was found during research, what the implementation approach is, why it's structured this way, what dependencies or constraints matter, and any tradeoffs made. This is the plan's own rationale — written for a human reviewer to understand what's being done and why before approving.]
+Write the plan to **the file path specified in the plan mode system message** — that is the
+path ExitPlanMode will read. Do not write to `.claude/plans/` here; Write is blocked in
+plan mode.
 
-## Files
+Follow the nine-section format in **[plan-format.md](plan-format.md)** — read it now if
+you have not. In brief:
 
-| Action | Path | Purpose |
-|--------|------|---------|
-| Create | `path/to/file.py` | ... |
-| Modify | `path/to/existing.py` | ... |
+| § | Section | Carries |
+|---|---|---|
+| 1 | Header | goal, date, in scope, **out of scope** |
+| 2 | Explanation | rationale and the rejected alternative, for the human approving |
+| 3 | Conventions in Force | discovered rules, each with a `file:line` precedent |
+| 4 | Artifacts | everything that will exist afterwards — source, tests, deps, schema, config, env, generated output, docs, versions, CI |
+| 5 | Side Effects & Blast Radius | call sites, data, test churn, compat, hooks, concurrency |
+| 6 | Change Contracts | per file: exact signatures, types, error behavior, precedent to mirror — **no bodies** |
+| 7 | Tasks | deliverables, each with its file set and the contracts it implements |
+| 8 | Acceptance & Verification | what done means; which test failures are expected |
+| 9 | Risks & Rollback | what could go wrong and how to undo it |
 
-## Tasks
-
-List every deliverable — what needs to be built, changed, or tested. Name them after *what changes*, not *who makes the change*. Each numbered item becomes one `TaskCreate` call at the start of execution.
-
-1. [what to build/change] — `file1.py`
-2. [what to build/change] — `file2.py`
-3. verify [scope] — review + lint/type/runtime check (or build check too)
-4. [what to test] — `tests/test_foo.py`
-```
-
----
-
-## Step 4 — Present for Approval
-
-Call `ExitPlanMode`. Claude Code reads the plan file from Step 3 and presents it to the user. The user chooses to approve (and picks a permission mode) or keep planning.
-
-> **When approval arrives — whether in the same turn (hook path) or as a new turn (dialog path) — proceed immediately to Step 5. Do not wait for further user input.**
+Then run the **Completeness Gate** at the end of plan-format.md. It is a real gate — do not
+proceed to Step 5 with a failing line.
 
 ---
 
-## Step 5 — Archive and Execute
+## Step 5 — Present for Approval
+
+Call `ExitPlanMode`. Claude Code reads the plan file from Step 4 and presents it to the user. The user chooses to approve (and picks a permission mode) or keep planning.
+
+> **When approval arrives — whether in the same turn (hook path) or as a new turn (dialog path) — proceed immediately to Step 6. Do not wait for further user input.**
+
+---
+
+## Step 6 — Archive and Execute
 
 **The plan was just approved. Execute this step now — no further user input is needed.**
 
-1. Write the plan to `.claude/plans/YYYY-MM-DD-<feature-name>.md`. The system plan file from Step 3 is session-scoped and will not survive a new session — this archive is what makes deferred or repeated execution possible, and what gets committed to git as a decision record.
+1. Write the plan to `.claude/plans/YYYY-MM-DD-<feature-name>.md`. The system plan file from Step 4 is session-scoped and will not survive a new session — this archive is what makes deferred or repeated execution possible, and what gets committed to git as a decision record.
 2. Create tasks from the plan's `## Tasks` section — call `TaskCreate` for each numbered item in order, using the item text as the title and `status: "pending"`.
-3. Determine the dispatch level from the plan's `## Tasks` section:
+3. Determine the dispatch level from the plan's task **file sets** (§7) — sets that intersect are one serialized track, disjoint sets are separate tracks:
    ```
    1 track                     → Level 1
    2–3 tracks AND ≤15 files    → Level 2
    4+ tracks OR >15 files      → Level 3
    ```
    Then follow the orchestrator guide's dispatch rules for the determined level.
-4. **If the level is L3a** (Workflow dispatch): the `Workflow` tool needs explicit user opt-in. This skill's execution authorizes it, but confirm the scale first — ask in one line ("L3 task, N tracks — run it as a Workflow (~N agents)?") and spawn the Workflow on the go-ahead. If the user declines (or Workflow is unavailable), fall back to batched parallel `Agent()` writer dispatch as described in the orchestrator guide's L3a fallback.
+4. **Compose each writer dispatch from the plan, not from memory.** The plan's sections map
+   onto the writer's input contract directly:
+
+   | Writer input | Comes from |
+   |---|---|
+   | `## Context` | §3 Conventions in Force + the relevant §5 rows (call sites it must update) |
+   | `## Task` | §6 Change Contracts for this task's files, **verbatim** |
+   | `## Files to modify` | the task's file set from §7 |
+   | `taskId` / `tasks` | the `TaskCreate` ids from step 2 |
+
+   Copy the contracts through unedited. Paraphrasing a signature is how a writer ends up
+   inventing one. If §6 has a `New convention introduced` block covering these files,
+   include it — it is the stated reason the writer needs before departing from precedent.
+
+   > **Invariant 1 (read before write) is satisfied by Step 2** for the files the plan
+   > covers: reader ran on them, and its output is in §3 and §6. Any file that surfaces
+   > *after* approval was never planned — dispatch reader on it before a writer touches it.
+
+5. **If the level is L3a** (Workflow dispatch): the `Workflow` tool needs explicit user opt-in. This skill's execution authorizes it, but confirm the scale first — ask in one line ("L3 task, N tracks — run it as a Workflow (~N agents)?") and spawn the Workflow on the go-ahead. If the user declines (or Workflow is unavailable), fall back to batched parallel `Agent()` writer dispatch as described in the orchestrator guide's L3a fallback.
