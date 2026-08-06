@@ -1,9 +1,14 @@
 # Plan Format — Reference
 
-The plan is the design. By the time it is approved, every decision a writer could
-otherwise make on its own has already been made here: what will exist afterwards, what
-breaks, and what each changed interface looks like. The writer supplies bodies, not
-judgment.
+The plan is the design. By the time it is approved, every decision the implementation
+could otherwise resolve on its own has already been made here: what will exist afterwards,
+what breaks, and what each changed interface looks like. What is left is writing bodies
+against a settled specification.
+
+The plan describes **the code**, never the work of producing it. It names no agents,
+assigns no dispatch, and prescribes no parallelism — those belong to the orchestrator
+routing guide, which reads the plan and decides. A section that starts describing who does
+something has drifted; rewrite it as a property the code must have.
 
 Read this file before writing the plan document in Step 4.
 
@@ -25,8 +30,8 @@ report says so explicitly — an omitted section reads as "not considered".
 **Out of scope:** [adjacent things it deliberately will not touch]
 ```
 
-`Out of scope` is not filler. It is what stops a writer from "while I was in here" edits,
-and what tells the reviewer that an untouched neighbour was a decision, not an oversight.
+`Out of scope` is not filler. It is what rules out "while I was in here" edits, and what
+tells a reviewer that an untouched neighbour was a decision, not an oversight.
 
 ### 2. Explanation
 
@@ -67,9 +72,9 @@ If the change genuinely needs something with no precedent, it goes in a separate
 - [what is new] — **Why:** [reason]. Nearest existing pattern: `file.py:NN`.
 ```
 
-This block is load-bearing: the writer agent is forbidden from introducing a new pattern
-*without a reason stated in the task*. This is where that reason gets stated. If the block
-is empty, the writer has no licence to invent.
+This block is load-bearing. A new pattern may only enter the codebase with a stated
+reason, and this is where the reason is stated. An empty block means the change introduces
+nothing new — every line of it follows an existing precedent.
 
 ### 4. Artifacts
 
@@ -119,20 +124,20 @@ research rather than reasoning — call sites are **enumerated from `LSP` find-r
 | `complete_task` signature gains a param | `api.py:88`, `main.py:41` | both call sites updated | task 2 |
 | Existing rows lack `archived` | live `tasks.db` | DDL default backfills | task 1 |
 | `test_row_shape` asserts column count | `tests/test_tasks.py:120` (also `:121`, `:122` — same function) | 1 failing test — STALE TEST, update in task 4 | task 4 |
-| Writer touches two overlapping files | `tasks.py` | tasks 1 and 2 serialized | dispatch |
 ```
 
 Answer each category explicitly:
 
 - **Call sites** — every caller of every signature that changes, listed by `file:line`.
 - **Behavior visible to existing tests** — which current tests will change result, and
-  whether that is a regression or an expected update. Predicting this here is what lets
-  you read the tester's REGRESSION / STALE TEST classification later instead of guessing.
+  whether that is a regression or an expected update. Committing to that split in advance
+  is what makes a later test run readable: a failure the plan predicted is an update, and
+  one it did not is a defect.
   **Count failing test *functions*, not failing assertions.** A test aborts at its first
   failing `assert`, so three broken assertions inside one function are one reported
   failure. Name the function, and list its assertion lines beneath it. Predicting in the
-  wrong unit turns a correct prediction into a phantom miss — the plan says five, the
-  tester says three, and two predictions look unfulfilled when nothing is actually wrong.
+  wrong unit turns a correct prediction into a phantom miss — the plan says five, the test
+  run reports three, and two predictions look unfulfilled when nothing is actually wrong.
 - **Persisted state** — schema, migrations, data already on disk, and whether it survives.
 - **Runtime effects** — filesystem writes, network calls, subprocesses, background work.
 - **Backward compatibility** — public API, CLI flags, config keys, serialized formats.
@@ -141,9 +146,10 @@ Answer each category explicitly:
 
 ### 6. Change Contracts
 
-Per file, the exact interface after the change. This block is copied **verbatim** into the
-writer dispatch, so it must be complete enough to write against without re-deriving
-anything.
+Per file, the exact interface after the change. This is the specification the code is
+built against, so it must be complete enough to implement from without re-deriving
+anything — assume whoever implements it has this section and the precedents it cites, and
+nothing else.
 
 ```markdown
 ## Change Contracts
@@ -168,9 +174,9 @@ What belongs here: signatures with full type annotations, return values, error a
 exception behavior, the "mirrors X" pointer that anchors it to an existing precedent, and
 any constant or literal whose value is a decision.
 
-What does not: function bodies, algorithm walkthroughs, or code the writer can derive from
-the contract plus the precedent. Pinning a body in the plan makes the plan rot the moment
-the file moves, and it duplicates work the writer does better with the file open.
+What does not: function bodies, algorithm walkthroughs, or anything derivable from the
+contract plus its precedent. Pinning a body makes the plan rot the moment the file moves,
+and it duplicates work that is better done with the file open.
 
 **One exception** — inline literal code when the contract cannot express the requirement:
 an exact SQL DDL statement, a regex, a precise error string other code matches on, or a
@@ -178,26 +184,31 @@ data structure whose shape *is* the specification.
 
 ### 7. Tasks
 
-Deliverables, named after *what changes*, never after who changes it. Each becomes one
-`TaskCreate` call.
+Deliverables, named after *what changes* — never after who changes it, and never after the
+agent that would do it. Each becomes one `TaskCreate` call.
 
 ```markdown
 ## Tasks
 
 1. `archive_task` + schema column — files: `tasks.py`, `db.py` — contracts: §6 `tasks.py`
 2. archive route + CLI flag — files: `api.py`, `main.py` — contracts: §6 `api.py`
-3. verify [scope] — review + lint/typecheck
+3. lint, typecheck, and diff review clean across the changed files
 4. archive tests + update `test_row_shape` — files: `tests/test_archive.py`, `tests/test_tasks.py`
 ```
 
-Every task carries its **file set** — this is the input to invariant 3, so overlap is
-visible on the page rather than discovered at dispatch. Tasks whose file sets intersect are
-serialized; disjoint sets are a parallel track.
+Every task carries its **file set** — the files that deliverable touches. Two tasks naming
+the same file are two changes to one file: a fact about the change, and one that belongs on
+the page rather than being discovered later.
+
+State any **dependency between tasks** explicitly, because file sets cannot express it:
+task B may call or import what task A creates while sharing no file with it. Nothing in the
+file lists reveals that ordering — only the contracts do, and only if you write it down.
 
 ### 8. Acceptance & Verification
 
-What "done" means, beyond a green suite. Tell verify and tester what specifically to look
-at — a plan that predicted its own failures is far cheaper to verify.
+What must be true of the code when it is done, beyond a green suite. State it as
+falsifiable claims about behavior — a change that predicted its own test churn in advance
+is far cheaper to check than one that did not.
 
 ```markdown
 ## Acceptance & Verification
@@ -235,4 +246,4 @@ format exists to prevent.
 - [ ] Nothing outside `In scope` is modified by any task.
 
 If a checkbox fails because research is missing, go back and research it. Filling it from
-memory is how a plan produces a confidently wrong writer.
+memory is how a plan comes out confident and wrong.
