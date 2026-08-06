@@ -1,6 +1,6 @@
 ---
 name: orchestrator-plan
-description: "Designs the implementation before any code is written: previews every artifact and side effect the change produces, pins the exact interface contracts against discovered project conventions, and saves the plan to .claude/plans/. After approval, feeds those contracts to writers via the orchestrator L1/L2/L3 dispatch pattern."
+description: "Designs the implementation before any code is written: previews every artifact and side effect the change produces, pins the exact interface contracts against discovered project conventions, and saves the plan to .claude/plans/. After approval, archives the plan, creates its tasks, and feeds the contracts to writers — handing dispatch to the orchestrator routing guide."
 when_to_use: "Use when the user is thinking ahead — scoping what needs to change and in what order, not yet implementing. Triggers on: \"plan this out\", \"write up a plan\", \"map out how we'd\", \"let's plan\", \"before we start\", or any request to design/outline an implementation spanning multiple files, schema changes, API additions, or refactors."
 argument-hint: "[task description]"
 ---
@@ -101,13 +101,22 @@ Call `ExitPlanMode`. Claude Code reads the plan file from Step 4 and presents it
 
 1. Write the plan to `.claude/plans/YYYY-MM-DD-<feature-name>.md`. The system plan file from Step 4 is session-scoped and will not survive a new session — this archive is what makes deferred or repeated execution possible, and what gets committed to git as a decision record.
 2. Create tasks from the plan's `## Tasks` section — call `TaskCreate` for each numbered item in order, using the item text as the title and `status: "pending"`.
-3. Determine the dispatch level from the plan's task **file sets** (§7) — sets that intersect are one serialized track, disjoint sets are separate tracks:
-   ```
-   1 track                     → Level 1
-   2–3 tracks AND ≤15 files    → Level 2
-   4+ tracks OR >15 files      → Level 3
-   ```
-   Then follow the orchestrator guide's dispatch rules for the determined level.
+3. **Hand dispatch to the orchestrator routing guide.** The plan does not choose a dispatch
+   level and never records one — a level depends on the thresholds in force, on whether
+   `Workflow` is available, and on the user's L3a opt-in, none of which are properties of
+   the change being planned. An archived plan re-executed in a later session must be free
+   to dispatch differently.
+
+   What the plan hands over is the **file sets in §7**: sets that intersect are one
+   serialized track, disjoint sets are separate tracks. Take those to the routing guide and
+   follow it for the level thresholds, the per-level dispatch rules, and the `Workflow`
+   opt-in. Do not restate any of them here. Executing an approved plan carries the same
+   L3a `Workflow` authorization the guide grants — the guide's scale-confirmation rule
+   still applies.
+
+   **One thing the plan does override:** §7 may record a *logical* dependency between tasks
+   whose file sets are disjoint — task B imports what task A creates. Invariant 3 permits
+   those to run in parallel; the plan does not. Sequence them as §7 says.
 4. **Compose each writer dispatch from the plan, not from memory.** The plan's sections map
    onto the writer's input contract directly:
 
@@ -125,5 +134,3 @@ Call `ExitPlanMode`. Claude Code reads the plan file from Step 4 and presents it
    > **Invariant 1 (read before write) is satisfied by Step 2** for the files the plan
    > covers: reader ran on them, and its output is in §3 and §6. Any file that surfaces
    > *after* approval was never planned — dispatch reader on it before a writer touches it.
-
-5. **If the level is L3a** (Workflow dispatch): the `Workflow` tool needs explicit user opt-in. This skill's execution authorizes it, but confirm the scale first — ask in one line ("L3 task, N tracks — run it as a Workflow (~N agents)?") and spawn the Workflow on the go-ahead. If the user declines (or Workflow is unavailable), fall back to batched parallel `Agent()` writer dispatch as described in the orchestrator guide's L3a fallback.
