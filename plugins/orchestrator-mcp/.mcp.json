@@ -1,6 +1,7 @@
 {
   "mcpServers": {
     "dev-tools": {
+      "alwaysLoad": true,
       "type": "stdio",
       "command": "uv",
       "args": [

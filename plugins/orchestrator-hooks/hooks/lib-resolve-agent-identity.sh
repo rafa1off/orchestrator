@@ -38,17 +38,41 @@ resolve_agent_identity() {
   # Otherwise treat it as a teammate name and resolve it through the team config. A
   # built-in subagent type (Explore, general-purpose) simply will not match a member name,
   # which is the correct outcome: it is not one of ours either.
-  [ -n "$session_id" ] || return 0
   command -v jq >/dev/null 2>&1 || return 0
 
-  team_config="${HOME}/.claude/teams/session-$(printf '%s' "$session_id" | cut -c1-8)/config.json"
-  [ -f "$team_config" ] || return 0
+  # Try the documented derivation first — the team directory is `session-` plus the first
+  # eight characters of the session id — then fall back to scanning every live team.
+  #
+  # The fallback is not belt-and-braces; the derivation alone is measurably wrong. Hook
+  # payloads can carry an earlier session id than the one the current team was created
+  # under: after a plugin reload, hooks reported 0923f7a5 while the live team was
+  # session-7d763fd2, so every lookup missed and all four guards went inert again. The scan
+  # stays bounded because a team's config directory is removed when its session ends.
+  if [ -n "$session_id" ]; then
+    team_config="${HOME}/.claude/teams/session-$(printf '%s' "$session_id" | cut -c1-8)/config.json"
+    resolved=$(_lookup_member "$team_config" "$agent_type")
+    [ -n "$resolved" ] && { printf '%s' "$resolved"; return 0; }
+  fi
 
-  resolved=$(jq -r --arg n "$agent_type" \
+  for team_config in "${HOME}"/.claude/teams/*/config.json; do
+    resolved=$(_lookup_member "$team_config" "$agent_type")
+    [ -n "$resolved" ] && { printf '%s' "$resolved"; return 0; }
+  done
+
+  # Callers run under `set -e` and assign this through a command substitution, so falling
+  # off the end on a failed test would abort the guard entirely rather than treating the
+  # call as "not one of ours".
+  return 0
+}
+
+# Read one member's agent type out of a team config, keeping only our own definitions.
+_lookup_member() {
+  local config="$1" name="$2" found
+  [ -f "$config" ] || return 0
+  found=$(jq -r --arg n "$name" \
     '((.members // []) | map(select(.name == $n)) | .[0] | .agentType) // ""' \
-    "$team_config" 2>/dev/null || printf '')
-
-  case "$resolved" in
-    orchestrator-agents:*) printf '%s' "$resolved" ;;
+    "$config" 2>/dev/null || printf '')
+  case "$found" in
+    orchestrator-agents:*) printf '%s' "$found" ;;
   esac
 }

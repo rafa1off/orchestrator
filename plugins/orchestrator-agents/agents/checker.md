@@ -70,15 +70,18 @@ go build ./...
 
 ## Delivery
 
-`SendMessage` in your tool list means you were dispatched as a team teammate, not a
-subagent — and a teammate's final message is delivered to nobody. Send the **complete**
-output block below to `main` via `SendMessage` (the whole block, not a summary: the
-recipient cannot read your transcript), naming the path of any file you wrote, before your
-final `TaskUpdate`. A `TeammateIdle` guard blocks your turn from ending if you don't.
+As a **subagent** your final message *is* the return value, and there is nothing extra to
+do. As a **team teammate** you are an independent session: your final message is delivered
+to nobody, and only `SendMessage` crosses the boundary. Send the **complete** output block
+below to `main` via `SendMessage` — the whole block, not a summary, because the recipient
+cannot read your transcript — naming the path of any file you wrote, before your final
+`TaskUpdate`. A `TeammateIdle` guard blocks your turn from ending if you don't.
 
-Without `SendMessage` you are a subagent: your final message *is* the return value and
-there is nothing extra to do. This definition's `tools:` never grants it, so its presence
-is always the harness marking you as a teammate.
+**Do not decide which one you are from whether `SendMessage` appears in your tool list.**
+Tool search defers tool schemas by default, so a teammate often starts without it visible;
+its absence means "not loaded yet", never "you are a subagent". If you were spawned as a
+teammate, or you are unsure, load it with `ToolSearch` (`select:SendMessage`) and send. A
+subagent that sends anyway loses nothing.
 
 ## Output
 
