@@ -29,6 +29,13 @@ mkdir -p "$(dirname "$LOG")" 2>/dev/null || exit 0
 AGENT_TYPE=$(printf '%s' "$INPUT" | jq -r '.agent_type // ""' 2>/dev/null || echo "")
 SESSION_ID=$(printf '%s' "$INPUT" | jq -r '.session_id // ""' 2>/dev/null || echo "")
 
+# On lifecycle events the actor is the subject of the event, not the caller. TeammateIdle
+# names it in `teammate_name` and carries no agent_type at all; falling back to it keeps
+# one identity column meaningful across every event this hook observes.
+if [ -z "$AGENT_TYPE" ]; then
+  AGENT_TYPE=$(printf '%s' "$INPUT" | jq -r '.teammate_name // ""' 2>/dev/null || echo "")
+fi
+
 # Which dispatch path this call came from. `agent_type` carries a different value shape
 # per path, which is the distinction the guards were missing:
 #   main      — agent_type empty; no guard should engage
@@ -63,12 +70,17 @@ fi
 printf '%s' "$INPUT" | jq -c \
   --arg enforcement "$ENFORCEMENT" \
   --arg team_match "$TEAM_MATCH" \
+  --arg actor "$AGENT_TYPE" \
   '{
      at: (now | todate),
      event: (.hook_event_name // ""),
      tool: (.tool_name // ""),
      enforcement: $enforcement,
      team_match: $team_match,
+     # `actor` is the identity this hook reasoned about; `agent_type` is the raw field.
+     # They differ on lifecycle events, where the subject is named elsewhere in the
+     # payload — recording only the raw field would make those rows look anonymous.
+     actor: (if $actor == "" then null else $actor end),
      agent_type: (.agent_type // null),
      agent_id: (.agent_id // null),
      session_id: (.session_id // null),

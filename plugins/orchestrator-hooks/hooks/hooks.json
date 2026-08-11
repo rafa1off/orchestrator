@@ -26,6 +26,17 @@
             ]
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/agent-identity-audit.sh"
+            ]
+          }
+        ]
       }
     ],
     "SubagentStop": [
@@ -52,6 +63,17 @@
             ]
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/agent-identity-audit.sh"
+            ]
+          }
+        ]
       }
     ],
     "TeammateIdle": [
@@ -62,6 +84,17 @@
             "command": "bash",
             "args": [
               "${CLAUDE_PLUGIN_ROOT}/hooks/teammate-idle-delivery-guard.sh"
+            ]
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/agent-identity-audit.sh"
             ]
           }
         ]
