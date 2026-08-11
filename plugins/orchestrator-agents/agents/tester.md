@@ -75,6 +75,18 @@ Rules:
 - You may re-run a single test once to confirm a FLAKY call. Do not "fix" anything to make it pass.
 - Cite concrete evidence: the assertion, the relevant line of changed code, and how they relate.
 
+## Delivery
+
+`SendMessage` in your tool list means you were dispatched as a team teammate, not a
+subagent — and a teammate's final message is delivered to nobody. Send the **complete**
+output block below to `main` via `SendMessage` (the whole block, not a summary: the
+recipient cannot read your transcript), naming the path of any file you wrote, before your
+final `TaskUpdate`. A `TeammateIdle` guard blocks your turn from ending if you don't.
+
+Without `SendMessage` you are a subagent: your final message *is* the return value and
+there is nothing extra to do. This definition's `tools:` never grants it, so its presence
+is always the harness marking you as a teammate.
+
 ## Output
 
 You report in two channels: a structured findings file (for the orchestrator, via `write_findings`) and a short human-readable summary (your text reply). **Always call `write_findings` — even on an all-green run.**

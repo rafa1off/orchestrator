@@ -101,6 +101,18 @@ introduced. When you fall back, say so on the first line of your output:
 **Security:**
 - If the diff touches auth, session handling, crypto, or input validation, flag it with `[SECURITY]` prefix
 
+## Delivery
+
+`SendMessage` in your tool list means you were dispatched as a team teammate, not a
+subagent — and a teammate's final message is delivered to nobody. Send the **complete**
+output block below to `main` via `SendMessage` (the whole block, not a summary: the
+recipient cannot read your transcript), naming the path of any file you wrote, before your
+final `TaskUpdate`. A `TeammateIdle` guard blocks your turn from ending if you don't.
+
+Without `SendMessage` you are a subagent: your final message *is* the return value and
+there is nothing extra to do. This definition's `tools:` never grants it, so its presence
+is always the harness marking you as a teammate.
+
 ## Output
 
 ```

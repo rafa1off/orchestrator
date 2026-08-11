@@ -43,6 +43,18 @@ When MCP documentation servers are configured (visible as `mcp__<server>__*` too
 
 To add a documentation server: configure it in `~/.claude/settings.json` (user-level, available across all projects) or `.mcp.json` (project-level). It will be automatically available to this agent.
 
+## Delivery
+
+`SendMessage` in your tool list means you were dispatched as a team teammate, not a
+subagent — and a teammate's final message is delivered to nobody. Send the **complete**
+output block below to `main` via `SendMessage` (the whole block, not a summary: the
+recipient cannot read your transcript), naming the path of any file you wrote, before your
+final `TaskUpdate`. A `TeammateIdle` guard blocks your turn from ending if you don't.
+
+Without `SendMessage` you are a subagent: your final message *is* the return value and
+there is nothing extra to do. This definition's `tools:` never grants it, so its presence
+is always the harness marking you as a teammate.
+
 ## Output Format
 
 ### Relevant Prior Decisions
