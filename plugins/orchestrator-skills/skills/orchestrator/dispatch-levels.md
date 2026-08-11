@@ -54,6 +54,8 @@ A **subagent** (the 8 agents: reader, researcher, thinker, writer, checker, revi
 
 A **teammate** (L3b) is a Claude Code team-mode agent (gated by `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`) — a mini-orchestrator that owns its own context window, runs its own read → write → verify → test loop, spawns its own subagents, and exchanges messages with peers. It is a distinct top-level role, **not** one of the 8 leaf subagent definitions: the no-`Agent` rule above governs those 8 when dispatched as subagents and does not constrain the team-mode orchestrator.
 
+Spawning one of the 8 as a teammate is a routing error with a specific cost, so it is worth knowing what breaks rather than only that it is forbidden. **The two dispatch modes have incompatible return channels.** A subagent's final message *is* the `Agent` tool result. A teammate is an independent session with no tool result: its final message is delivered to nobody, and only `SendMessage` crosses the boundary — so the `Teammate @x finished` line is a lifecycle event carrying no payload. Dispatched as teammates, the 8 do their work and report into the void. Each definition now carries a `## Delivery` section that sends over `SendMessage` when it detects it was dispatched as a teammate, and a `TeammateIdle` guard in `orchestrator-hooks` refuses the idle when it doesn't — but that pairing is defense-in-depth for a route this section already rules out, exactly as `block-nested-restricted-agents.sh` is for `Agent`. It converts a silent loss into a noisy one; it does not make the route correct.
+
 **Rule:** if a track is independent enough to hand a context block to and walk away — no mid-flight questions, no shared design decisions — use a subagent or L3a Workflow, not a teammate. Teammates are warranted only when tracks must make decisions that react to other tracks still in flight. A teammate that does nothing but write one file should have been an L2 writer subagent.
 
 ---
@@ -70,6 +72,7 @@ A **teammate** (L3b) is a Claude Code team-mode agent (gated by `CLAUDE_CODE_EXP
 | Budget loop on a write task | Budget loop | Fixed L1/verify loop | Writes need deterministic scope; depth-scaling is for analysis |
 | Orchestrator dispatching verify for files a teammate owns | Split ownership | Teammate owns its full loop | Double verification creates merge confusion |
 | Sharing one interface file justified L3b | L3b | L3a pipeline | File artifact sharing is a pipeline dependency, not inter-agent coordination |
+| Spawning any of the 8 leaf agents as teammates | L3b with reader/writer/etc. as teammates | Subagent (L1/L2) or L3a Workflow | The 8 are leaf definitions, not mini-orchestrators; and a teammate's final message reaches nobody, so their report is lost unless they `SendMessage` it |
 | Spawning verify/checker directly as teammates | L3b verify teammate | Each teammate runs its own verify loop internally | Top-level verify teammates muddy ownership; the teammate is already a mini-orchestrator |
 | Workflow-ifying the standard 2-round verify loop | L3a workflow | Inline verify loop | Wrong scale; the 2-round loop is inline and user-in-loop by design |
 
