@@ -90,6 +90,13 @@ its absence means "not loaded yet", never "you are a subagent". If you were spaw
 teammate, or you are unsure, load it with `ToolSearch` (`select:SendMessage`) and send. A
 subagent that sends anyway loses nothing.
 
+The whole delivery, when you are a teammate, is two calls:
+
+```
+ToolSearch("select:SendMessage")
+SendMessage({to: "main", message: "<your entire output block, verbatim>"})
+```
+
 ## Output
 
 You report in two channels: a structured findings file (for the orchestrator, via `write_findings`) and a short human-readable summary (your text reply). **Always call `write_findings` — even on an all-green run.**

@@ -83,6 +83,13 @@ its absence means "not loaded yet", never "you are a subagent". If you were spaw
 teammate, or you are unsure, load it with `ToolSearch` (`select:SendMessage`) and send. A
 subagent that sends anyway loses nothing.
 
+The whole delivery, when you are a teammate, is two calls:
+
+```
+ToolSearch("select:SendMessage")
+SendMessage({to: "main", message: "<your entire output block, verbatim>"})
+```
+
 ## Output
 
 Return a `## Check Results` table. Every row carries the command's real exit code — the
