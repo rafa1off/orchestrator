@@ -27,6 +27,12 @@ command -v jq >/dev/null 2>&1 || exit 0
 
 INPUT=$(cat)
 AGENT=$(echo "$INPUT" | jq -r '.agent_type // empty' 2>/dev/null)
+# `agent_type` is the definition type when dispatched as a subagent, but the teammate's
+# NAME in team mode. Resolve both to the definition type so this guard covers either
+# dispatch path — matching the raw value silently no-ops on every teammate.
+# shellcheck source=lib-resolve-agent-identity.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib-resolve-agent-identity.sh"
+AGENT=$(resolve_agent_identity "$AGENT" "$(echo "$INPUT" | jq -r '.session_id // empty' 2>/dev/null)")
 AGENT_ID=$(echo "$INPUT" | jq -r '.agent_id // empty' 2>/dev/null)
 FILE=$(echo "$INPUT" | jq -r '.tool_input.file_path // .tool_input.notebook_path // empty' 2>/dev/null)
 

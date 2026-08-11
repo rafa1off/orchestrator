@@ -78,15 +78,25 @@ fi
 [ -n "$TEAM_NAME" ] || TEAM_NAME="session-$(printf '%s' "$SESSION_ID" | cut -c1-8)"
 TEAM_CONFIG="${HOME}/.claude/teams/${TEAM_NAME}/config.json"
 
-AGENT_TYPE=""
-if [ -f "$TEAM_CONFIG" ]; then
-  AGENT_TYPE=$(jq -r --arg n "$TEAMMATE" \
-    '(.members // []) | map(select(.name == $n)) | .[0] | (.agentType // .agent_type // "")' \
-    "$TEAM_CONFIG" 2>/dev/null || echo "")
-fi
+# Same name-keyed resolution the PreToolUse guards use, so both paths agree on identity.
+# shellcheck source=lib-resolve-agent-identity.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib-resolve-agent-identity.sh"
+AGENT_TYPE=$(resolve_agent_identity "$TEAMMATE" "$SESSION_ID")
+[ -n "$AGENT_TYPE" ] || exit 0
+
+# verify and tester owe findings, not just a message. As subagents that is enforced at
+# SubagentStop; for a teammate it cannot be, because agent_type there is the teammate's
+# NAME and a name cannot contain a colon, so `^orchestrator-agents:(verify|tester)$` can
+# never match however that event fires. Without this branch the third layer of the
+# findings chain — the one covering "called nothing at all" — is simply absent in team
+# mode, which is the shape of fail-open this suite exists to prevent.
 case "$AGENT_TYPE" in
-  *orchestrator-agents:*) ;;
-  *) exit 0 ;;
+  *:verify|*:tester)
+    SOURCE="${AGENT_TYPE##*:}"
+    if ! find "$PROJECT_DIR/.claude/pipeline" -name "${SOURCE}-findings.json" 2>/dev/null | read -r _; then
+      nudge "[orchestrator] You are ${SOURCE} and you have written no ${SOURCE}-findings.json. Call write_findings now with source=\"${SOURCE}\", one checks[] entry per check or suite you actually ran, and the real process exit_code for each. A check that could not execute must be status=\"ERROR\" with exit_code=null, never PASS. Then deliver your summary via SendMessage and end your turn."
+    fi
+    ;;
 esac
 
 [ -f "$TRANSCRIPT" ] || exit 0

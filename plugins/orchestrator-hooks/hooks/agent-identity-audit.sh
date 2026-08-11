@@ -29,27 +29,32 @@ mkdir -p "$(dirname "$LOG")" 2>/dev/null || exit 0
 AGENT_TYPE=$(printf '%s' "$INPUT" | jq -r '.agent_type // ""' 2>/dev/null || echo "")
 SESSION_ID=$(printf '%s' "$INPUT" | jq -r '.session_id // ""' 2>/dev/null || echo "")
 
-# Which enforcement path applies to this call, as the existing guards would see it:
-#   subagent — agent_type present, so the agent_type-keyed guards engage
-#   session  — agent_type absent; either the main session or a teammate. The guards that
-#              key off agent_type do nothing here, whether or not that was intended.
-ENFORCEMENT="session"
-[ -n "$AGENT_TYPE" ] && ENFORCEMENT="subagent"
+# Which dispatch path this call came from. `agent_type` carries a different value shape
+# per path, which is the distinction the guards were missing:
+#   main      — agent_type empty; no guard should engage
+#   subagent  — agent_type is the definition type, e.g. orchestrator-agents:thinker
+#   teammate  — agent_type is the teammate's NAME, e.g. probe-thinker
+ENFORCEMENT="main"
+case "$AGENT_TYPE" in
+  "") ;;
+  orchestrator-agents:*) ENFORCEMENT="subagent" ;;
+  *) ENFORCEMENT="teammate-or-builtin" ;;
+esac
 
-# Can the actor be resolved to a team member without agent_type? This is the open design
-# question for teammate-mode enforcement: the team config records agentType per member but
-# no per-member session id, so a lookup keyed on session_id may well find nothing. Record
-# the outcome either way rather than assuming it.
+# Resolve a name-shaped agent_type to its definition type. The name is the key into the
+# team config, so this is exact — no session-level ambiguity.
+#
+# The first version of this hook keyed the lookup on session_id instead, and its very
+# first recorded row was a false positive: a teammate shares the lead's session id, so a
+# main-session call resolved to whichever teammate was in the team. Keying on the name is
+# what removed that, and main-session rows stay unattributed because agent_type is empty.
 TEAM_MATCH="not-attempted"
-if [ "$ENFORCEMENT" = "session" ] && [ -n "$SESSION_ID" ]; then
+if [ "$ENFORCEMENT" = "teammate-or-builtin" ] && [ -n "$SESSION_ID" ]; then
   TEAM_CONFIG="${HOME}/.claude/teams/session-$(printf '%s' "$SESSION_ID" | cut -c1-8)/config.json"
   if [ -f "$TEAM_CONFIG" ]; then
-    TEAM_MATCH=$(jq -r '
-      (.members // []) | map(select(.agentType != "team-lead"))
-      | if length == 0 then "team-exists-no-members"
-        elif length == 1 then "single-member:" + (.[0].agentType // "untyped")
-        else "ambiguous-" + (length | tostring) + "-members"
-        end' "$TEAM_CONFIG" 2>/dev/null || echo "config-unreadable")
+    TEAM_MATCH=$(jq -r --arg n "$AGENT_TYPE" '
+      ((.members // []) | map(select(.name == $n)) | .[0] | .agentType) // "name-not-in-team"
+      ' "$TEAM_CONFIG" 2>/dev/null || echo "config-unreadable")
   else
     TEAM_MATCH="no-team-config"
   fi
