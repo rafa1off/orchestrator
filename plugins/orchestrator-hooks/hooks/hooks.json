@@ -8,7 +8,7 @@
             "command": "bash",
             "args": [
               "-c",
-              "P=\"${CLAUDE_PROJECT_DIR}/.claude/pipeline\"; rm -f \"$P/verify-findings.json\" \"$P/tester-findings.json\" \"$P/pre-compact-snapshot.md\" \"$P/write-log.tsv\" \"$P\"/*/verify-findings.json \"$P\"/*/tester-findings.json 2>/dev/null; rm -rf \"$P/.starts\" \"$P/.idle-nudge\" 2>/dev/null; true"
+              "P=\"${CLAUDE_PROJECT_DIR}/.claude/pipeline\"; rm -f \"$P/verify-findings.json\" \"$P/tester-findings.json\" \"$P/pre-compact-snapshot.md\" \"$P/write-log.tsv\" \"$P/identity-audit.jsonl\" \"$P\"/*/verify-findings.json \"$P\"/*/tester-findings.json 2>/dev/null; rm -rf \"$P/.starts\" \"$P/.idle-nudge\" 2>/dev/null; true"
             ]
           }
         ]
@@ -21,7 +21,9 @@
           {
             "type": "command",
             "command": "bash",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/subagent-start-stamp.sh"]
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/subagent-start-stamp.sh"
+            ]
           }
         ]
       }
@@ -33,7 +35,9 @@
           {
             "type": "command",
             "command": "bash",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/subagent-stop-findings-guard.sh"]
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/subagent-stop-findings-guard.sh"
+            ]
           }
         ]
       },
@@ -43,7 +47,9 @@
           {
             "type": "command",
             "command": "bash",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/subagent-stop-clear-stamp.sh"]
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/subagent-stop-clear-stamp.sh"
+            ]
           }
         ]
       }
@@ -54,7 +60,9 @@
           {
             "type": "command",
             "command": "bash",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/teammate-idle-delivery-guard.sh"]
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/teammate-idle-delivery-guard.sh"
+            ]
           }
         ]
       }
@@ -66,7 +74,9 @@
           {
             "type": "command",
             "command": "bash",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/block-subagent-git-push.sh"]
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/block-subagent-git-push.sh"
+            ]
           }
         ]
       },
@@ -76,7 +86,9 @@
           {
             "type": "command",
             "command": "bash",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/block-nested-restricted-agents.sh"]
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/block-nested-restricted-agents.sh"
+            ]
           }
         ]
       },
@@ -86,7 +98,21 @@
           {
             "type": "command",
             "command": "bash",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/block-readonly-agent-writes.sh"]
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/block-readonly-agent-writes.sh"
+            ]
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|NotebookEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/agent-identity-audit.sh"
+            ]
           }
         ]
       }
@@ -98,7 +124,9 @@
           {
             "type": "command",
             "command": "bash",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/post-tool-findings.sh"]
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/post-tool-findings.sh"
+            ]
           }
         ]
       },
@@ -108,7 +136,9 @@
           {
             "type": "command",
             "command": "bash",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/track-writer-overlap.sh"]
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/track-writer-overlap.sh"
+            ]
           }
         ]
       }
@@ -121,7 +151,7 @@
             "command": "bash",
             "args": [
               "-c",
-              "P=\"${CLAUDE_PROJECT_DIR}/.claude/pipeline\"; { printf '# Pipeline Snapshot — %s\\n' \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"; for f in verify-findings.json tester-findings.json; do [ -f \"$P/$f\" ] && { printf '## %s\\n' \"$f\"; cat \"$P/$f\"; echo; }; done; [ -f \"$P/progress.md\" ] && { printf '## progress.md\\n'; cat \"$P/progress.md\"; echo; }; } > \"$P/pre-compact-snapshot.md\" 2>/dev/null || true"
+              "P=\"${CLAUDE_PROJECT_DIR}/.claude/pipeline\"; { printf '# Pipeline Snapshot \u2014 %s\\n' \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"; for f in verify-findings.json tester-findings.json; do [ -f \"$P/$f\" ] && { printf '## %s\\n' \"$f\"; cat \"$P/$f\"; echo; }; done; [ -f \"$P/progress.md\" ] && { printf '## progress.md\\n'; cat \"$P/progress.md\"; echo; }; } > \"$P/pre-compact-snapshot.md\" 2>/dev/null || true"
             ]
           }
         ]
@@ -135,7 +165,7 @@
             "command": "bash",
             "args": [
               "-c",
-              "P=\"${CLAUDE_PROJECT_DIR}/.claude/pipeline\"; L=\"$P/session-log.txt\"; mkdir -p \"$P\"; printf '%s session-end\\n' \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\" >> \"$L\"; tail -n 500 \"$L\" > \"$L.tmp\" 2>/dev/null && mv \"$L.tmp\" \"$L\"; rm -f \"$P/verify-findings.json\" \"$P/tester-findings.json\" \"$P/pre-compact-snapshot.md\" \"$P/write-log.tsv\" \"$P\"/*/verify-findings.json \"$P\"/*/tester-findings.json 2>/dev/null; rm -rf \"$P/.starts\" \"$P/.idle-nudge\" 2>/dev/null; true"
+              "P=\"${CLAUDE_PROJECT_DIR}/.claude/pipeline\"; L=\"$P/session-log.txt\"; mkdir -p \"$P\"; printf '%s session-end\\n' \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\" >> \"$L\"; tail -n 500 \"$L\" > \"$L.tmp\" 2>/dev/null && mv \"$L.tmp\" \"$L\"; rm -f \"$P/verify-findings.json\" \"$P/tester-findings.json\" \"$P/pre-compact-snapshot.md\" \"$P/write-log.tsv\" \"$P/identity-audit.jsonl\" \"$P\"/*/verify-findings.json \"$P\"/*/tester-findings.json 2>/dev/null; rm -rf \"$P/.starts\" \"$P/.idle-nudge\" 2>/dev/null; true"
             ]
           }
         ]
