@@ -36,6 +36,20 @@ esac
 
 # Normalise to a project-relative path so absolute and relative targets compare alike.
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
+
+# On Windows the tool payload carries backslash-separated paths, while CLAUDE_PROJECT_DIR
+# arrives with either separator depending on the hook's declaration form. The strip below
+# builds its pattern with a forward slash, so a mismatch makes it silently no-op and every
+# target then looks like it sits outside the project — which blocked legitimate memory
+# writes. A drive-letter prefix is the Windows signal, so POSIX paths, where a backslash is
+# a legal filename character, are left untouched.
+case "$PROJECT_DIR" in
+  [A-Za-z]:[/\\]*)
+    PROJECT_DIR="${PROJECT_DIR//\\//}"
+    FILE="${FILE//\\//}"
+    ;;
+esac
+
 REL="${FILE#"$PROJECT_DIR"/}"
 
 # Reject traversal before matching the prefix — `.claude/agent-memory/../../etc/x`

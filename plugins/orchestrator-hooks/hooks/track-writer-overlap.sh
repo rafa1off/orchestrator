@@ -45,6 +45,17 @@ case "$AGENT" in
 esac
 
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
+
+# See block-readonly-agent-writes.sh: on Windows the separators disagree, the strip below
+# no-ops, and REL stays absolute — so two writers on one file only collide when their
+# payloads happen to spell the path identically. Normalise before comparing.
+case "$PROJECT_DIR" in
+  [A-Za-z]:[/\\]*)
+    PROJECT_DIR="${PROJECT_DIR//\\//}"
+    FILE="${FILE//\\//}"
+    ;;
+esac
+
 REL="${FILE#"$PROJECT_DIR"/}"
 LOG="$PROJECT_DIR/.claude/pipeline/write-log.tsv"
 mkdir -p "$(dirname "$LOG")" 2>/dev/null || exit 0

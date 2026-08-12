@@ -1,0 +1,5 @@
+# This marketplace is consumed by bash: every plugin file lands in a version-keyed cache and
+# is read by hook scripts. Git for Windows installs with core.autocrlf=true at the *system*
+# level, so a Windows clone would otherwise get CRLF throughout. Pin LF for the whole tree
+# rather than rely on Git Bash's tolerance of stray carriage returns.
+* text=auto eol=lf

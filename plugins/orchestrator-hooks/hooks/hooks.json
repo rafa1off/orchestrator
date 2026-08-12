@@ -5,11 +5,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash",
-            "args": [
-              "-c",
-              "P=\"${CLAUDE_PROJECT_DIR}/.claude/pipeline\"; rm -f \"$P/verify-findings.json\" \"$P/tester-findings.json\" \"$P/pre-compact-snapshot.md\" \"$P/write-log.tsv\" \"$P/identity-audit.jsonl\" \"$P\"/*/verify-findings.json \"$P\"/*/tester-findings.json 2>/dev/null; rm -rf \"$P/.starts\" \"$P/.idle-nudge\" 2>/dev/null; true"
-            ]
+            "shell": "bash",
+            "command": "P=\"${CLAUDE_PROJECT_DIR}/.claude/pipeline\"; rm -f \"$P/verify-findings.json\" \"$P/tester-findings.json\" \"$P/pre-compact-snapshot.md\" \"$P/write-log.tsv\" \"$P/identity-audit.jsonl\" \"$P\"/*/verify-findings.json \"$P\"/*/tester-findings.json 2>/dev/null; rm -rf \"$P/.starts\" \"$P/.idle-nudge\" 2>/dev/null; true"
           }
         ]
       }
@@ -20,10 +17,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash",
-            "args": [
-              "${CLAUDE_PLUGIN_ROOT}/hooks/subagent-start-stamp.sh"
-            ]
+            "shell": "bash",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/subagent-start-stamp.sh\""
           }
         ]
       },
@@ -31,10 +26,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash",
-            "args": [
-              "${CLAUDE_PLUGIN_ROOT}/hooks/agent-identity-audit.sh"
-            ]
+            "shell": "bash",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/agent-identity-audit.sh\""
           }
         ]
       }
@@ -45,10 +38,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash",
-            "args": [
-              "${CLAUDE_PLUGIN_ROOT}/hooks/subagent-stop-findings-guard.sh"
-            ]
+            "shell": "bash",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/subagent-stop-findings-guard.sh\""
           }
         ]
       },
@@ -57,10 +48,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash",
-            "args": [
-              "${CLAUDE_PLUGIN_ROOT}/hooks/subagent-stop-clear-stamp.sh"
-            ]
+            "shell": "bash",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/subagent-stop-clear-stamp.sh\""
           }
         ]
       },
@@ -68,10 +57,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash",
-            "args": [
-              "${CLAUDE_PLUGIN_ROOT}/hooks/agent-identity-audit.sh"
-            ]
+            "shell": "bash",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/agent-identity-audit.sh\""
           }
         ]
       }
@@ -81,10 +68,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash",
-            "args": [
-              "${CLAUDE_PLUGIN_ROOT}/hooks/teammate-idle-delivery-guard.sh"
-            ]
+            "shell": "bash",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/teammate-idle-delivery-guard.sh\""
           }
         ]
       },
@@ -92,10 +77,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash",
-            "args": [
-              "${CLAUDE_PLUGIN_ROOT}/hooks/agent-identity-audit.sh"
-            ]
+            "shell": "bash",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/agent-identity-audit.sh\""
           }
         ]
       }
@@ -106,10 +89,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash",
-            "args": [
-              "${CLAUDE_PLUGIN_ROOT}/hooks/block-subagent-git-push.sh"
-            ]
+            "shell": "bash",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/block-subagent-git-push.sh\""
           }
         ]
       },
@@ -118,10 +99,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash",
-            "args": [
-              "${CLAUDE_PLUGIN_ROOT}/hooks/block-nested-restricted-agents.sh"
-            ]
+            "shell": "bash",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/block-nested-restricted-agents.sh\""
           }
         ]
       },
@@ -130,10 +109,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash",
-            "args": [
-              "${CLAUDE_PLUGIN_ROOT}/hooks/block-readonly-agent-writes.sh"
-            ]
+            "shell": "bash",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/block-readonly-agent-writes.sh\""
           }
         ]
       },
@@ -142,10 +119,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash",
-            "args": [
-              "${CLAUDE_PLUGIN_ROOT}/hooks/agent-identity-audit.sh"
-            ]
+            "shell": "bash",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/agent-identity-audit.sh\""
           }
         ]
       }
@@ -156,10 +131,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash",
-            "args": [
-              "${CLAUDE_PLUGIN_ROOT}/hooks/post-tool-findings.sh"
-            ]
+            "shell": "bash",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/post-tool-findings.sh\""
           }
         ]
       },
@@ -168,10 +141,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash",
-            "args": [
-              "${CLAUDE_PLUGIN_ROOT}/hooks/track-writer-overlap.sh"
-            ]
+            "shell": "bash",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/track-writer-overlap.sh\""
           }
         ]
       }
@@ -181,11 +152,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash",
-            "args": [
-              "-c",
-              "P=\"${CLAUDE_PROJECT_DIR}/.claude/pipeline\"; { printf '# Pipeline Snapshot \u2014 %s\\n' \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"; for f in verify-findings.json tester-findings.json; do [ -f \"$P/$f\" ] && { printf '## %s\\n' \"$f\"; cat \"$P/$f\"; echo; }; done; [ -f \"$P/progress.md\" ] && { printf '## progress.md\\n'; cat \"$P/progress.md\"; echo; }; } > \"$P/pre-compact-snapshot.md\" 2>/dev/null || true"
-            ]
+            "shell": "bash",
+            "command": "P=\"${CLAUDE_PROJECT_DIR}/.claude/pipeline\"; { printf '# Pipeline Snapshot — %s\\n' \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"; for f in verify-findings.json tester-findings.json; do [ -f \"$P/$f\" ] && { printf '## %s\\n' \"$f\"; cat \"$P/$f\"; echo; }; done; [ -f \"$P/progress.md\" ] && { printf '## progress.md\\n'; cat \"$P/progress.md\"; echo; }; } > \"$P/pre-compact-snapshot.md\" 2>/dev/null || true"
           }
         ]
       }
@@ -195,11 +163,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash",
-            "args": [
-              "-c",
-              "P=\"${CLAUDE_PROJECT_DIR}/.claude/pipeline\"; L=\"$P/session-log.txt\"; mkdir -p \"$P\"; printf '%s session-end\\n' \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\" >> \"$L\"; tail -n 500 \"$L\" > \"$L.tmp\" 2>/dev/null && mv \"$L.tmp\" \"$L\"; rm -f \"$P/verify-findings.json\" \"$P/tester-findings.json\" \"$P/pre-compact-snapshot.md\" \"$P/write-log.tsv\" \"$P/identity-audit.jsonl\" \"$P\"/*/verify-findings.json \"$P\"/*/tester-findings.json 2>/dev/null; rm -rf \"$P/.starts\" \"$P/.idle-nudge\" 2>/dev/null; true"
-            ]
+            "shell": "bash",
+            "command": "P=\"${CLAUDE_PROJECT_DIR}/.claude/pipeline\"; L=\"$P/session-log.txt\"; mkdir -p \"$P\"; printf '%s session-end\\n' \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\" >> \"$L\"; tail -n 500 \"$L\" > \"$L.tmp\" 2>/dev/null && mv \"$L.tmp\" \"$L\"; rm -f \"$P/verify-findings.json\" \"$P/tester-findings.json\" \"$P/pre-compact-snapshot.md\" \"$P/write-log.tsv\" \"$P/identity-audit.jsonl\" \"$P\"/*/verify-findings.json \"$P\"/*/tester-findings.json 2>/dev/null; rm -rf \"$P/.starts\" \"$P/.idle-nudge\" 2>/dev/null; true"
           }
         ]
       }
