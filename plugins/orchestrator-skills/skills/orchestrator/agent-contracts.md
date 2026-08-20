@@ -8,14 +8,15 @@ Read this file when you need the full input/output contract for a specific agent
 
 | Agent | Invoke with | Returns |
 |-------|------------|---------|
-| orchestrator-agents:reader | task + file paths + taskId / tasks (for plan tasks) | `Relevant Files / Interfaces / Conventions / Entry Points / Test Files` — or `## Cannot Proceed` |
-| orchestrator-agents:researcher | task + research question + taskId / tasks (for plan tasks) | `Prior Decisions / API Reference / Approach / Caveats` |
-| orchestrator-agents:thinker | context block + question + taskId / tasks (for plan tasks) | `Analysis / Brainstorming / Q&A`; reads its own context via `Read`/`LSP` and emits a `## Context Request` when it needs broad mapping or external research |
-| orchestrator-agents:writer | `## Context` + `## Task` + `## Files to modify` + taskId / tasks (for plan tasks) (initial); `## Batch Fixes Required` (retry) | `## Modified Files` with exact paths |
-| orchestrator-agents:checker | files to check (optional) + taskId / tasks (for plan tasks) | `## Check Results` table; raw output on failure |
-| orchestrator-agents:reviewer | task context + modified files list + taskId / tasks (for plan tasks) | `## Review Results`; issues list or APPROVED |
-| orchestrator-agents:verify | modified files list + pipeline path + taskId / tasks (for plan tasks) | `## Verify Results`; writes `<pipeline>/verify-findings.json` |
-| orchestrator-agents:tester | task + intended behavior change + changed files + what to test + pipeline path + taskId / tasks (for plan tasks) | writes `<pipeline>/tester-findings.json` (`checks` table + `failures[]` classified REGRESSION / STALE_TEST / FLAKY / UNCLEAR with evidence) + a short text summary; readonly (never edits code or tests) |
+| orchestrator-agents:reader | task + file paths | `Relevant Files / Interfaces / Conventions / Entry Points / Test Files` — or `## Cannot Proceed` |
+| orchestrator-agents:researcher | task + research question | `Prior Decisions / API Reference / Approach / Caveats` |
+| orchestrator-agents:thinker | context block + question | `Analysis / Brainstorming / Q&A`; reads its own context via `Read`/`Grep`/`Glob` and emits a `## Context Request` when it needs broad mapping or external research |
+| orchestrator-agents:writer | `## Context` + `## Task` + `## Files to modify` | `## Modified Files` with exact paths |
+| orchestrator-agents:checker | files to check (optional) + pipeline path (optional, for track isolation) | `## Check Results` table; writes `<pipeline>/checker-findings.json` (`checks[]` only, no `issues[]`) |
+| orchestrator-agents:reviewer | task context + modified files list + pipeline path (optional, for track isolation) | `## Review Results`; writes `<pipeline>/reviewer-findings.json` (`issues[]` at `file:line`, plus a `checks[]` entry for the review pass) |
+| orchestrator-agents:tester | task + intended behavior change + changed files + what to test + pipeline path | writes `<pipeline>/tester-findings.json` (`checks` table + `failures[]` classified REGRESSION / STALE_TEST / FLAKY / UNCLEAR with evidence) + a short text summary; readonly (never edits code or tests) |
+
+File deletion is an orchestrator action: no agent holds `Bash`, and `Write`/`Edit` cannot remove a file, so a task requiring a file to be deleted must have the orchestrator perform the deletion — a writer asked to do it can only empty the file and report.
 
 ---
 
@@ -33,9 +34,9 @@ extra when the cache has already expired (it is equivalent to a fresh spawn), so
 warm reuse whenever the agent is still relevant and do not skip it on the assumption that
 minutes have passed. Measure before optimising against a specific number.
 
-**Availability:** `SendMessage` does **not** require agent teams — resuming a stopped subagent by its `agent_id` or name works in normal dispatch (the stopped agent auto-resumes in the background on receipt). Only structured team-protocol messages (`shutdown_request`, `plan_approval_response`) need `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`. If a name has since been reused by a newer agent, address the earlier one by its `agent_id`.
+**Availability:** `SendMessage` resumes a stopped subagent addressed by its `agent_id` or name, in normal dispatch, and the stopped agent auto-resumes in the background on receipt. If a name has been reused by a newer agent, address the earlier one by `agent_id`.
 
-**Hard exception:** `orchestrator-agents:verify` — always step 2. Never reuse a verify agent; always spawn fresh.
+**Hard exception:** `orchestrator-agents:reviewer` — always step 2. Never reuse a reviewer agent; always spawn fresh so its diff baseline is never stale.
 
 **Best reuse target:** `orchestrator-agents:reader` — called most frequently; highest cache value from file content.
 

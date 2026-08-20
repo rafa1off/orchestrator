@@ -4,11 +4,12 @@
 # ///
 """MCP dev-tools server — pipeline findings writer."""
 
-from fastmcp import FastMCP
 import json
 import os
 import time
 from pathlib import Path
+
+from fastmcp import FastMCP
 
 PROJECT_DIR = Path(os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd()))
 DEFAULT_PIPELINE = ".claude/pipeline"
@@ -16,7 +17,7 @@ DEFAULT_PIPELINE = ".claude/pipeline"
 # Sources whose findings are a verification claim: an empty or absent `checks` list
 # means "nothing ran", which must be distinguishable on disk from "checks ran and
 # passed". Recording the key verbatim lets the PostToolUse guard reject the former.
-PROOF_REQUIRED_SOURCES = frozenset({"verify", "tester"})
+PROOF_REQUIRED_SOURCES = frozenset({"checker", "reviewer", "tester"})
 
 mcp = FastMCP("dev-tools")
 
@@ -33,16 +34,17 @@ def write_findings(
     """
     Write findings to .claude/pipeline/<source>-findings.json.
     Always call — even on PASS/APPROVED.
-    source: 'verify' | 'tester' (the only agents holding this tool; checker and
-            reviewer report as text and write no findings file)
+    source: 'checker' | 'reviewer' | 'tester'. checker reports lint/typecheck/build
+            checks, reviewer reports diff-review issues[], and tester reports suite
+            checks[] plus classified failures[].
     status: 'PASS'|'FAIL'|'ERROR'
     pipeline: optional override for multi-track runs, e.g. '.claude/pipeline/track-a'
     checks: list of {name, status, exit_code, output} dicts — REQUIRED and non-empty
-            for verify and tester. One entry per check/suite actually executed, each
-            carrying the real process exit_code. A PostToolUse guard rejects a
-            verify/tester payload with no checks: an unsubstantiated PASS is
-            indistinguishable from a run that never happened.
-    issues: list of issue strings (verify's diff-review findings)
+            for checker, reviewer, and tester. One entry per check/suite actually
+            executed, each carrying the real process exit_code. A PostToolUse guard
+            rejects a checker/reviewer/tester payload with no checks: an
+            unsubstantiated PASS is indistinguishable from a run that never happened.
+    issues: list of issue strings (reviewer's diff-review findings)
     failures: list of {test, classification, evidence, recommendation} dicts (used by
               tester); classification is REGRESSION|STALE_TEST|FLAKY|UNCLEAR
     `checks`, `issues`, and `failures` are recorded verbatim when supplied — an empty

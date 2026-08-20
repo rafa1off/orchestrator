@@ -100,6 +100,29 @@ Call `ExitPlanMode`. Claude Code reads the plan file from Step 4 and presents it
 **The plan was just approved. Execute this step now — no further user input is needed.**
 
 1. Write the plan to `.claude/plans/YYYY-MM-DD-<feature-name>.md`. The system plan file from Step 4 is session-scoped and will not survive a new session — this archive is what makes deferred or repeated execution possible, and what gets committed to git as a decision record.
-2. Create tasks from the plan's `## Tasks` section — call `TaskCreate` for each numbered item in order, using the item text as the title and `status: "pending"`.
+2. Create `.claude/plans/progress.md` from the plan's `## Tasks` section — one `- [ ] N. <deliverable> — <file set>` line per numbered item, plus a `**Plan:**` header pointing at the archive path from step 1, an `**Updated:**` timestamp, a `## Decisions` section seeded with any decisions the user made while planning, and an empty `## Verify Rounds` section. Overwrite any existing ledger — it describes one active effort.
+
+```markdown
+# Progress — <feature name>
+
+**Plan:** `.claude/plans/YYYY-MM-DD-<feature>.md`
+**Updated:** YYYY-MM-DDTHH:MMZ
+
+## Deliverables
+
+- [x] 1. <deliverable> — `file`, `file`
+- [>] 2. <deliverable> — `file`
+- [ ] 3. <deliverable> — `file`
+
+## Decisions
+
+- <decision> (YYYY-MM-DD, user)
+
+## Verify Rounds
+
+- Round 1: N findings, dispatched to writer. Round 2: clean.
+```
+
+`[ ]` is pending, `[>]` in progress, `[x]` done. The numeric prefix makes each line a unique edit target even when two deliverables share text.
 
 The plan is now done. Execution is the orchestrator's.

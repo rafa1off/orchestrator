@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# PreToolUse hook: block writer/verify/tester from running git push or opening/merging/editing PRs.
+# PreToolUse hook: block writer/checker/reviewer/tester from running git push or opening/merging/editing PRs.
 # Reason: Claude Code v2.1.198+ makes background agents auto-commit/push/open draft PRs on completion.
-# writer/verify/tester run background:true routinely in this ecosystem, and there's no user in the
+# writer/checker/reviewer/tester run background:true routinely in this ecosystem, and there's no user in the
 # loop to confirm a push from inside a subagent — so it's blocked outright, not just asked for.
 set -euo pipefail
 
@@ -21,7 +21,7 @@ CMD=$(echo "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)
 [ -z "$CMD" ] && exit 0
 
 case "$AGENT" in
-  orchestrator-agents:writer|orchestrator-agents:verify|orchestrator-agents:tester) ;;
+  orchestrator-agents:writer|orchestrator-agents:checker|orchestrator-agents:reviewer|orchestrator-agents:tester) ;;
   *) exit 0 ;;
 esac
 

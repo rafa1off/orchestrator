@@ -1,6 +1,6 @@
 ---
 name: orchestrator
-description: "Agent dispatch guide and routing protocol for all development work in this codebase. Defines the 8-agent catalog (reader, researcher, thinker, writer, checker, reviewer, verify, tester), the 3 core invariants that govern every task, and the flexible working loop."
+description: "Agent dispatch guide and routing protocol for all development work in this codebase. Defines the 7-agent catalog (reader, researcher, thinker, writer, checker, reviewer, tester), the 3 core invariants that govern every task, and the flexible working loop."
 when_to_use: "Load at the start of every session — before any code change, bug fix, refactor, or documentation update of any size. Always load before writing any code."
 ---
 
@@ -12,27 +12,24 @@ The main Claude Code session acts as orchestrator. Agents are tools — call the
 
 ## Agent Catalog
 
-| Agent | Model | Type | When to call |
-|-------|-------|------|--------------|
-| Explore *(built-in)* | haiku | readonly | Broad codebase discovery — "survey the repo", "find all usages of X". Use `Agent(subagent_type="Explore", ...)` |
-| orchestrator-agents:reader | haiku | readonly | Map files, interfaces, and conventions before writing. Call multiple times as new paths surface. |
-| orchestrator-agents:researcher | sonnet | readonly | External APIs, library patterns, prior decisions in `docs/`. |
-| orchestrator-agents:thinker | sonnet | readonly | Analysis, brainstorming, architectural decisions. Isolates verbose reasoning from main context. |
-| orchestrator-agents:writer | sonnet | read+write | Produce code changes from a context block. |
-| orchestrator-agents:checker | haiku | readonly | Lint + typecheck + build checks only — no diff review. Ad-hoc quality gate; call any time. |
-| orchestrator-agents:reviewer | sonnet | readonly | Diff review only — no lint/typecheck. Use for PR reviews or reviewing a change set after checker passes. |
-| orchestrator-agents:verify | sonnet | readonly | Lint + typecheck + diff review in one pass. Post-write loop only. Never reused — always spawn fresh. |
-| orchestrator-agents:tester | sonnet | readonly | Run the suite and diagnose each failure (regression vs stale test vs flaky). Never writes or fixes tests. |
+| Agent | Model | Effort | Type | When to call |
+|-------|-------|--------|------|--------------|
+| Explore *(built-in)* | haiku | *(none)* | readonly | Broad codebase discovery — "survey the repo", "find all usages of X". Use `Agent(subagent_type="Explore", ...)` |
+| orchestrator-agents:reader | haiku | *(none)* | readonly | Map files, interfaces, and conventions before writing. Call multiple times as new paths surface. |
+| orchestrator-agents:researcher | sonnet | low | readonly | External APIs, library patterns, prior decisions in `docs/`. |
+| orchestrator-agents:thinker | opus | medium | readonly | Analysis, brainstorming, architectural decisions. Isolates verbose reasoning from main context. |
+| orchestrator-agents:writer | sonnet | low | read+write | Produce code changes from a context block. |
+| orchestrator-agents:checker | haiku | *(none)* | readonly | Lint + typecheck + build checks only — no diff review. Writes guarded findings to `checker-findings.json`; call any time. |
+| orchestrator-agents:reviewer | sonnet | medium | readonly | Diff review only — no lint/typecheck. Writes guarded findings to `reviewer-findings.json`; always spawn fresh for a clean diff baseline. |
+| orchestrator-agents:tester | sonnet | low | readonly | Run the suite and diagnose each failure (regression vs stale test vs flaky). Never writes or fixes tests. |
 
-> **Task tracking:** pass task context when dispatching any agent — `taskId: [id]` for a single plan task, or `tasks: [{taskId, description}, ...]` when delegating multiple sequential plan items. Agents self-manage all status transitions.
-
-> **Trust asymmetry — checker and reviewer are unverified.** Only verify and tester write
-> findings through `write_findings`, and only they are covered by the proof-of-execution
-> guard (every check must carry a real process exit code) and the `SubagentStop` guard
-> (they cannot finish without fresh, substantiated findings). checker and reviewer return
-> prose: a `PASS` from either is an unfalsifiable claim, with nothing proving a command ran.
-> Use them as convenience gates mid-task. **They never substitute for the invariant-2
-> verify + tester pass**, and a green checker is not evidence a write phase is sound.
+> **Trust is in the guard, not the agent's word.** `checker`, `reviewer`, and `tester` all
+> write structured findings through `write_findings`, and all three are covered by the
+> proof-of-execution guard (every check must carry a real process exit code recorded during
+> the run being judged) and the `SubagentStop` guard (none can finish without fresh,
+> substantiated findings). A result from any of them is trustworthy only because it carries
+> one `checks[]` entry per check actually executed — the guard is what makes a green result
+> mean something, not the prose summary attached to it.
 
 > Read [agent-contracts.md](agent-contracts.md) for full input/output contracts and session registry (warm agent reuse).
 
@@ -43,8 +40,14 @@ The main Claude Code session acts as orchestrator. Agents are tools — call the
 These rules hold regardless of task size or route. Never violate them.
 
 1. **Read before write** — invoke reader before calling writer on those files. Direct inline reads are for single known files only — anything broader warrants a reader agent.
-2. **Verify after write, max 2 rounds** — after any write phase, dispatch verify + tester together. Verify findings (lint/typecheck/diff) auto-loop to writer; if they remain after 2 rounds, escalate. Tester failures are readonly diagnoses (REGRESSION / STALE_TEST / FLAKY / UNCLEAR) — never auto-fixed: surface them to the user and dispatch a writer only on the user's decision. Read [verify-loop.md](verify-loop.md) for the step-by-step protocol.
-3. **Serialize writers on overlapping files** — one active writer per overlapping file set. Writers with fully disjoint file sets may run in parallel.
+2. **Serialize writers on overlapping files** — one active writer per overlapping file set. Writers with fully disjoint file sets may run in parallel.
+3. **Never auto-fix a tester diagnosis** — tester is readonly and classifies each test failure as REGRESSION / STALE_TEST / FLAKY / UNCLEAR. Because REGRESSION (fix the code) and STALE_TEST (update the test) have opposite fixes, guessing is unsafe: surface the diagnoses to the user and dispatch a writer only on the user's decision, with the decision folded into the writer's `## Task`. Read [verification.md](verification.md) for the full protocol.
+
+---
+
+## Resuming
+
+On session start, or after a context compaction, read `.claude/plans/progress.md` before doing anything else — it carries deliverable status and recorded decisions. Also read `.claude/pipeline/pre-compact-snapshot.md` if it exists.
 
 ---
 
@@ -67,10 +70,9 @@ These rules hold regardless of task size or route. Never violate them.
 | Agent | Notes |
 |-------|-------|
 | reader, researcher, thinker | save agent_id for warm reuse |
-| verify, tester | dispatched together in the same message turn |
 | checker, reviewer | orchestrator blocks on result before next step |
 
-**verify** — never reused; always spawn fresh.
+**reviewer** — never reused; always spawn fresh, so the diff baseline is never stale.
 
 ---
 
@@ -82,4 +84,4 @@ These rules hold regardless of task size or route. Never violate them.
 
 **Research tasks** (external library APIs, framework patterns, prior project decisions in `docs/`): dispatch `orchestrator-agents:researcher` directly.
 
-**Analytical tasks** (questions, brainstorming, design): dispatch `orchestrator-agents:thinker` directly. Thinker reads the context it needs with `Read`/`LSP`; when it needs broad mapping or external/web research it returns a `## Context Request`, which you fulfil (e.g. by running researcher) and then resume it warm via `SendMessage` with the findings (see [agent-contracts.md](agent-contracts.md#context-requests)). Dispatch is orchestrator-driven — agents are leaf nodes and do not spawn subagents (see [dispatch-levels.md](dispatch-levels.md#teammate-vs-subagent-boundary)).
+**Analytical tasks** (questions, brainstorming, design): dispatch `orchestrator-agents:thinker` directly. Thinker reads the context it needs with `Read`/`Grep`/`Glob`; when it needs broad mapping or external/web research it returns a `## Context Request`, which you fulfil (e.g. by running researcher) and then resume it warm via `SendMessage` with the findings (see [agent-contracts.md](agent-contracts.md#context-requests)). Dispatch is orchestrator-driven — agents are leaf nodes and do not spawn subagents (see [dispatch-levels.md](dispatch-levels.md#leaf-node-boundary)).

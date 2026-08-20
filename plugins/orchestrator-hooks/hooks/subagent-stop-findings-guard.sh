@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# SubagentStop hook: refuse to let verify or tester finish without fresh, substantiated
-# findings. Covers both agents — the previous matcher was `^orchestrator-agents:verify$`
-# only, so tester could stop having written nothing and nothing objected.
+# SubagentStop hook: refuse to let checker, reviewer, or tester finish without fresh,
+# substantiated findings. Covers all three agents — the previous matcher was
+# `^orchestrator-agents:verify$` only, so tester could stop having written nothing and
+# nothing objected.
 #
 # Three fail-open holes this closes, in the order they bit:
 #   1. `find … | head -1` picked an ARBITRARY track's findings in a multi-track run, and
@@ -28,7 +29,7 @@ block() {
 }
 
 if ! command -v jq >/dev/null 2>&1; then
-  echo "[orchestrator-hooks] BLOCKED: jq is not installed, so the findings guard cannot verify this run. Install jq — without it every verify/tester result is unverifiable and must not be trusted." >&2
+  echo "[orchestrator-hooks] BLOCKED: jq is not installed, so the findings guard cannot verify this run. Install jq — without it every checker/reviewer/tester result is unverifiable and must not be trusted." >&2
   exit 2
 fi
 
@@ -36,10 +37,12 @@ AGENT=$(echo "$INPUT" | jq -r '.agent_type // empty' 2>/dev/null)
 AGENT_ID=$(echo "$INPUT" | jq -r '.agent_id // empty' 2>/dev/null)
 LAST_MSG=$(echo "$INPUT" | jq -r '.last_assistant_message // empty' 2>/dev/null)
 
-# Derive the expected findings filename from the agent that is stopping, so verify and
-# tester are each held to their own file rather than sharing one hardcoded path.
+# Derive the expected findings filename from the agent that is stopping, so checker,
+# reviewer, and tester are each held to their own file rather than sharing one
+# hardcoded path.
 case "$AGENT" in
-  *verify) SOURCE="verify" ;;
+  *checker) SOURCE="checker" ;;
+  *reviewer) SOURCE="reviewer" ;;
   *tester) SOURCE="tester" ;;
   *) exit 0 ;;
 esac

@@ -7,7 +7,7 @@ A private Claude Code plugin marketplace for the orchestrator multi-agent develo
 | Plugin | Description | Requires |
 |---|---|---|
 | [`orchestrator-skills`](#orchestrator-skills) | 2 workflow skills — auto-installs `orchestrator-agents` + `orchestrator-hooks` | — |
-| [`orchestrator-agents`](#orchestrator-agents) | 8-agent catalog — auto-installs `orchestrator-mcp` | `uv` |
+| [`orchestrator-agents`](#orchestrator-agents) | 7-agent catalog — auto-installs `orchestrator-mcp` | `uv` |
 | [`orchestrator-hooks`](#orchestrator-hooks) | Full hook suite (SessionStart/End, SubagentStart/Stop findings guards, PreToolUse guardrails, PostToolUse findings + writer-overlap, PreCompact) | `jq` |
 | [`orchestrator-mcp`](#orchestrator-mcp) | Dev-tools MCP server (`write_findings` pipeline contract) | `uv` |
 | [`ty-lsp`](#ty-lsp) | Python LSP via Astral ty | `uv tool install ty` |
@@ -29,10 +29,10 @@ orchestrator-skills
 ### `jq` (required by `orchestrator-hooks`)
 
 Every guard script parses its hook payload with [`jq`](https://jqlang.github.io/jq/). It is a
-**hard requirement, not a soft dependency**: without it the verify/tester findings guard cannot
-confirm that any check actually ran, so it **blocks** rather than allowing an unverifiable
-result through. A blocked verify complaining that `jq` is missing means exactly that — install
-it, don't work around it.
+**hard requirement, not a soft dependency**: without it the checker/reviewer/tester findings
+guard cannot confirm that any check actually ran, so it **blocks** rather than allowing an
+unverifiable result through. A blocked checker, reviewer, or tester run complaining that `jq`
+is missing means exactly that — install it, don't work around it.
 
 ```bash
 sudo apt install jq      # Debian/Ubuntu
@@ -45,7 +45,7 @@ Precisely which hooks do what without `jq`:
 | Hook | No `jq` | Why |
 |---|---|---|
 | `SubagentStop` findings guard | **blocks** | It is the last gate before a result is trusted. A guard that cannot check must not approve |
-| `PreToolUse` guardrails, `PostToolUse` injection, start-stamp, overlap tracker | `exit 0` | None of them is the final gate on a correctness claim, and the `SubagentStop` block above means no verify or tester run can complete without `jq` anyway |
+| `PreToolUse` guardrails, `PostToolUse` injection, start-stamp, overlap tracker | `exit 0` | None of them is the final gate on a correctness claim, and the `SubagentStop` block above means no checker, reviewer, or tester run can complete without `jq` anyway |
 
 See [Fail-closed principle](#fail-closed-principle).
 
@@ -129,23 +129,9 @@ Skill("/orchestrator-skills:orchestrator")
 
 Add the following to your project's `.claude/settings.json` (or user settings at `~/.claude/settings.json`).
 
-#### Agent teams flag
-
-The L3b TeamCreate dispatch level and SendMessage warm-agent reuse require the experimental teams feature. Add it to the `env` block:
-
-```json
-{
-  "env": {
-    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
-  }
-}
-```
-
-> **Note:** This flag enables an experimental Claude Code feature. Behaviour may change across releases.
-
 #### Permissions allow-rules
 
-Background subagents (verify, tester, reader, researcher) auto-deny any tool that would prompt for permission — without allow-rules they silently skip lint, typecheck, and test runs. Add these entries to the `permissions.allow` block so backgrounded agents can execute their checks:
+Background subagents (checker, reviewer, tester, reader, researcher) auto-deny any tool that would prompt for permission — without allow-rules they silently skip lint, typecheck, and test runs. Add these entries to the `permissions.allow` block so backgrounded agents can execute their checks:
 
 ```json
 {
@@ -162,12 +148,12 @@ Background subagents (verify, tester, reader, researcher) auto-deny any tool tha
 }
 ```
 
-Adjust the `Bash(...)` patterns to match your project's actual toolchain. The `mcp__plugin_orchestrator-mcp_dev-tools__write_findings` entry allows the verify and tester agents to write structured findings to the pipeline without prompting.
+Adjust the `Bash(...)` patterns to match your project's actual toolchain. The `mcp__plugin_orchestrator-mcp_dev-tools__write_findings` entry allows the checker, reviewer, and tester agents to write structured findings to the pipeline without prompting.
 
 If a check is denied anyway, the run now **fails loudly instead of silently**: an agent whose
 lint or test command could not execute cannot report `PASS` for it, and the guards refuse the
-findings with the reason. A blocked verify pointing at a missing allow-rule is the expected
-symptom of an incomplete list above — not a reason to bypass the guard.
+findings with the reason. A blocked checker or reviewer pointing at a missing allow-rule is the
+expected symptom of an incomplete list above — not a reason to bypass the guard.
 
 #### Cache configuration
 
@@ -180,7 +166,6 @@ To avoid cold-starting the prompt cache mid-session:
 ```json
 {
   "env": {
-    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
     "ENABLE_PROMPT_CACHING_1H": "1"
   }
 }
@@ -194,8 +179,8 @@ Two workflow skills for the orchestrator session:
 
 | Skill | When to use |
 |---|---|
-| `/orchestrator-skills:orchestrator` | Load at every session start — the agent routing guide: 8-agent catalog, 3 core invariants, L1/L2/L3 dispatch levels (L3 splits into Workflow default + TeamCreate for coordination-heavy tasks), dispatch mode rules, routing special cases. Lazy-loads `dispatch-levels.md`, `verify-loop.md`, and `agent-contracts.md` on demand. |
-| `/orchestrator-skills:orchestrator-plan` | Before any multi-step task — enters plan mode, runs reader/researcher in parallel, writes a plan to `.claude/plans/`, creates tasks via `TaskCreate`, then dispatches after approval following L1/L2/L3. |
+| `/orchestrator-skills:orchestrator` | Load at every session start — the agent routing guide: 7-agent catalog, 3 core invariants, L1/L2/L3 dispatch levels (L3 via `Workflow`), dispatch mode rules, routing special cases. Lazy-loads `dispatch-levels.md`, `verification.md`, and `agent-contracts.md` on demand. |
+| `/orchestrator-skills:orchestrator-plan` | Before any multi-step task — enters plan mode, runs reader/researcher in parallel, writes a plan to `.claude/plans/`, creates the `.claude/plans/progress.md` ledger, then dispatches after approval following L1/L2/L3. |
 
 **Dependencies:** `orchestrator-agents`, `orchestrator-hooks`
 
@@ -203,31 +188,29 @@ Two workflow skills for the orchestrator session:
 
 ## orchestrator-agents
 
-8-agent catalog. The orchestrator session acts as coordinator, calling specialized subagents on demand.
+7-agent catalog. The orchestrator session acts as coordinator, calling specialized subagents on demand.
 
-| Agent | Model | Type | Role |
-|---|---|---|---|
-| `orchestrator-agents:reader` | haiku | readonly | Maps code paths, returns structured context snapshots |
-| `orchestrator-agents:researcher` | sonnet | readonly | Finds external patterns, library APIs, prior project decisions |
-| `orchestrator-agents:thinker` | sonnet | readonly | Deep reasoning, tradeoff analysis, brainstorming; isolates verbose analysis from main context |
-| `orchestrator-agents:writer` | sonnet | read+write | Produces minimal, focused code changes from a context block |
-| `orchestrator-agents:checker` | haiku | readonly | Lint + typecheck + build only — no diff review; ad-hoc quality gate, call any time |
-| `orchestrator-agents:reviewer` | sonnet | readonly | Diff review only — no lint/typecheck; for PR reviews or reviewing a change set after checker passes |
-| `orchestrator-agents:verify` | sonnet | readonly | Lint + typecheck + diff review in one pass; post-write loop only; writes `verify-findings.json` |
-| `orchestrator-agents:tester` | sonnet | readonly | Runs the suite and classifies each failure (REGRESSION / STALE TEST / FLAKY / UNCLEAR) with evidence — never writes or fixes tests |
+| Agent | Model | Effort | Type | Role |
+|---|---|---|---|---|
+| `orchestrator-agents:reader` | haiku | *(absent — inert on haiku)* | readonly | Maps code paths, returns structured context snapshots |
+| `orchestrator-agents:researcher` | sonnet | low | readonly | Finds external patterns, library APIs, prior project decisions |
+| `orchestrator-agents:thinker` | opus | medium | readonly | Deep reasoning, tradeoff analysis, brainstorming; isolates verbose analysis from main context |
+| `orchestrator-agents:writer` | sonnet | low | read+write | Produces minimal, focused code changes from a context block |
+| `orchestrator-agents:checker` | haiku | *(absent — inert on haiku)* | readonly | Lint + typecheck + build only — no diff review; call any time, writes `checker-findings.json` |
+| `orchestrator-agents:reviewer` | sonnet | medium | readonly | Diff review only — no lint/typecheck; always spawned fresh, writes `reviewer-findings.json` |
+| `orchestrator-agents:tester` | sonnet | low | readonly | Runs the suite and classifies each failure (REGRESSION / STALE TEST / FLAKY / UNCLEAR) with evidence — never writes or fixes tests |
 
-All agents accept `taskId` (single task) or `tasks: [{taskId, description}, ...]` (multiple sequential tasks) in the invocation prompt and self-manage `in_progress`/`completed` status transitions.
+**Dispatch mode:** agents always run as background subagents — fork mode is on by default in
+interactive sessions and Claude cannot request the foreground. Background subagents keep all
+MCP tools but only a fixed built-in set (`Read`, `Grep`, `Glob`, `Bash`, `Edit`, `Write`,
+`Skill`, …), which excludes `LSP` and the Task tools (`TaskGet`/`TaskUpdate`/…). No agent
+definition instructs either, so this never blocks a dispatch.
 
-**Dispatch mode:** no agent definition sets `background`. Dispatch with
-`run_in_background: false` whenever an agent needs `LSP`, `TaskGet`, or `TaskUpdate` —
-Claude Code strips those from *background* subagents even when they are listed in `tools:`.
-Background subagents keep all MCP tools but only a fixed built-in set (`Read`, `Grep`,
-`Glob`, `Bash`, `Edit`, `Write`, …). That affects every agent except checker.
-
-**Trust asymmetry:** only `verify` and `tester` write findings via `write_findings`, and only
-they are covered by the proof-of-execution and `SubagentStop` guards. `checker` and
-`reviewer` return prose — a PASS from either is an unverified claim and never substitutes
-for the invariant-2 verify + tester pass.
+**Guarded findings:** `checker`, `reviewer`, and `tester` all write findings via
+`write_findings` and are covered by the proof-of-execution and `SubagentStop` guards — a PASS
+from any of them is substantiated, not a claim. Verification itself is discretionary: there is
+no mandatory post-write pass, and the orchestrator decides when to dispatch checker, reviewer,
+and tester based on the plan or the current task.
 
 **Readonly agents that hold `Write`:** `thinker` and `researcher` declare `memory: project`,
 which auto-grants `Read`/`Write`/`Edit` so they can maintain their memory directory. The
@@ -239,8 +222,10 @@ grant is not path-scoped and cannot be narrowed in frontmatter, so a `PreToolUse
 ### The 3 Invariants
 
 1. **Read before write** — invoke reader before calling writer; the orchestrator may read files directly when the scope is narrow enough to not warrant a reader agent
-2. **Verify after write, max 2 rounds** — run verify + tester after a write phase, always together in the same message turn; escalate after 2 rounds with remaining findings
-3. **One writer per overlapping file set** — serialize writers sharing files; disjoint sets may run in parallel
+2. **One writer per overlapping file set** — serialize writers sharing files; disjoint sets may run in parallel
+3. **Never auto-fix a tester diagnosis** — REGRESSION and STALE_TEST have opposite fixes, so tester failures are surfaced to the user for a decision and a writer is dispatched only once the user has chosen
+
+Verification (checker, reviewer, tester) is discretionary, not mandatory — see `verification.md`.
 
 ---
 
@@ -250,43 +235,48 @@ Hook suite that automates the orchestrator's pipeline contracts:
 
 | Event | Trigger | Behavior |
 |---|---|---|
-| `SessionStart` | Session begins or resumes | Clears stale findings, start-stamps, and the write log from `.claude/pipeline/` (including `track-*/` subdirs) |
-| `SubagentStart` (verify, tester) | Agent spawns | Records the start time keyed by `agent_id` — the reference point the freshness check below compares against |
-| `SubagentStop` (verify, tester) | Agent finishes | **Blocks** unless findings were written *during this run* and every `checks[]` entry carries a real `exit_code`. Blocks via `decision: "block"` with a reason, so the agent gets a retry instruction rather than a dead end |
-| `PreToolUse` (`Bash`) | writer/verify/tester run a command | **Blocks** `git push` and `gh pr create/merge/edit`, including `git -C <path> push` and newline-separated forms |
+| `SessionStart` | Session begins or resumes | Clears stale findings, start-stamps, and the write log from `.claude/pipeline/` (including `track-*/` subdirs); `.claude/plans/progress.md` and `.claude/metrics/` are untouched — both are persistent |
+| `SubagentStart` (checker, reviewer, tester) | Agent spawns | Records the start time keyed by `agent_id` — the reference point the freshness check below compares against |
+| `SubagentStop` (checker, reviewer, tester) | Agent finishes | **Blocks** unless findings were written *during this run* and every `checks[]` entry carries a real `exit_code`. Blocks via `decision: "block"` with a reason, so the agent gets a retry instruction rather than a dead end |
+| `SubagentStop` (writer, checker, reviewer, tester) | Agent finishes | Appends `<iso8601>\t<agent_type>\t<elapsed_seconds>` to `.claude/metrics/agent-timings.tsv`, capped at 1000 rows past 2000; every failure path (missing stamp, unwritable dir, absent `jq`) still exits 0 and clears the stamp |
+| `PreToolUse` (`Bash`) | writer/checker/reviewer/tester run a command | **Blocks** `git push` and `gh pr create/merge/edit`, including `git -C <path> push` and newline-separated forms |
 | `PreToolUse` (`Agent`) | Any subagent spawns a subagent | Allowlist — only reader/researcher/thinker/reviewer may be nested targets |
 | `PreToolUse` (`Write`/`Edit`) | thinker/researcher write | **Blocks** any path outside `.claude/agent-memory/` |
 | `PostToolUse` (`write_findings`) | Findings file written | Proof-of-execution guard, then injects the file's content as `additionalContext` |
-| `PostToolUse` (`Write`/`Edit`) | writer edits a file | Logs `agent_id`→path to `.claude/pipeline/write-log.tsv` and flags the file when a *different* writer already touched it (invariant 3) |
-| `PreCompact` | Context compaction begins | Snapshots findings and `progress.md` to `.claude/pipeline/pre-compact-snapshot.md` |
-| `SessionEnd` | Session terminates | Appends to `.claude/pipeline/session-log.txt` (capped at 500 lines) and clears findings, stamps, and the write log |
+| `PostToolUse` (`Write`/`Edit`) | writer edits a file | Logs `agent_id`→path to `.claude/pipeline/write-log.tsv` and flags the file when a *different* writer already touched it (invariant 2) |
+| `PreCompact` | Context compaction begins | Snapshots the findings files (`checker-findings.json`, `reviewer-findings.json`, `tester-findings.json`) to `.claude/pipeline/pre-compact-snapshot.md`; `progress.md` is not read here — it is durable at a fixed path and needs no snapshot |
+| `SessionEnd` | Session terminates | Appends to `.claude/pipeline/session-log.txt` (capped at 500 lines) and clears findings, stamps, and the write log; `.claude/plans/progress.md` and `.claude/metrics/` are untouched — both are persistent |
 
 ### Fail-closed principle
 
 Every guard here asserts **positive evidence**, not merely well-formed failure reporting.
-A verify or tester result is trusted only when it carries one `checks[]` entry per check
-actually executed, each with the real process exit code; absent, empty, or null-exit-code
-checks are refused at three layers (the MCP tool itself, `PostToolUse`, and `SubagentStop`).
-A missing `jq` blocks rather than silently disabling the guard. The guards' *presence* is
-what makes a green result meaningful, so failing open is worse than having no guard at all.
+A checker, reviewer, or tester result is trusted only when it carries one `checks[]` entry per
+check actually executed, each with the real process exit code; absent, empty, or
+null-exit-code checks are refused at three layers (the MCP tool itself, `PostToolUse`, and
+`SubagentStop`). A missing `jq` blocks rather than silently disabling the guard. The guards'
+*presence* is what makes a green result meaningful, so failing open is worse than having no
+guard at all.
 
 ---
 
 ## orchestrator-mcp
 
-Exposes a single tool used by the verify and tester agents to write structured findings to the pipeline:
+Exposes a single tool used by the checker, reviewer, and tester agents to write structured findings to the pipeline:
 
 | Tool | Description |
 |---|---|
 | `write_findings(source, status, pipeline?, checks?, issues?, failures?)` | Writes `<source>-findings.json` to `.claude/pipeline/` (or a per-track subdirectory for parallel runs), stamped with `written_at` |
 
-`source` is `verify` or `tester` — the only two agents holding the tool. `checks` is required
-and non-empty for both: the call is **rejected** without it, because a result with no checks
-cannot be distinguished from a run that never happened. Empty `issues`/`failures` lists are
-recorded verbatim rather than dropped, so "reported nothing" stays distinct from "never
-populated the field".
+`source` is `checker`, `reviewer`, or `tester` — the only three agents holding the tool.
+`checks` is required and non-empty for all three: the call is **rejected** without it, because
+a result with no checks cannot be distinguished from a run that never happened. Empty
+`issues`/`failures` lists are recorded verbatim rather than dropped, so "reported nothing"
+stays distinct from "never populated the field".
 
-Verify runs lint, typecheck, and diff review directly via `Bash`, reading the project's commands from `CLAUDE.md` first and falling back to marker-file detection (`uv.lock` → ruff/mypy, `package.json` → eslint/tsc, etc.).
+Checker runs lint, typecheck, and build directly via `Bash`, reading the project's commands
+from `CLAUDE.md` first and falling back to marker-file detection (`uv.lock` → ruff/mypy,
+`package.json` → eslint/tsc, etc.). Reviewer runs the diff-review pass and reports issues at
+`file:line`.
 
 ---
 

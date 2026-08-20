@@ -185,7 +185,7 @@ data structure whose shape *is* the specification.
 ### 7. Tasks
 
 Deliverables, named after *what changes* — never after who changes it, and never after the
-agent that would do it. Each becomes one `TaskCreate` call.
+agent that would do it.
 
 ```markdown
 ## Tasks

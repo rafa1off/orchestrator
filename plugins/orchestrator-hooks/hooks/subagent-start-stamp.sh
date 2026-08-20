@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SubagentStart hook: record when a verify/tester agent began, keyed by agent_id.
+# SubagentStart hook: record when a checker/reviewer/tester/writer agent began, keyed by agent_id.
 #
 # This is the other half of the freshness check in subagent-stop-findings-guard.sh.
 # Without a start time there is no way to tell a findings file this agent just wrote

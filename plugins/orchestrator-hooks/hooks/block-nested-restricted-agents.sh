@@ -35,7 +35,7 @@ case "$TARGET" in
   orchestrator-agents:writer|orchestrator-agents:tester)
     REASON="file-mutation risk"
     ;;
-  orchestrator-agents:verify|orchestrator-agents:checker)
+  orchestrator-agents:checker)
     REASON="runs lint/typecheck/build subprocesses"
     ;;
   *)

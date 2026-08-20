@@ -19,12 +19,13 @@ FILE="${CLAUDE_PROJECT_DIR}/${PIPELINE:-.claude/pipeline}/${SOURCE}-findings.jso
 STATUS=$(jq -r '.status // "unknown"' "$FILE" 2>/dev/null || echo "unknown")
 CONTENT=$(cat "$FILE")
 
-# Proof-of-execution guard: block verify/tester findings that do not substantiate their
-# own claim. Backgrounded verify and tester agents can have Bash auto-denied (lint/
-# typecheck or the test suite); this catches a silent skip reported as a false PASS.
+# Proof-of-execution guard: block checker/reviewer/tester findings that do not
+# substantiate their own claim. Backgrounded checker, reviewer, and tester agents can
+# have Bash auto-denied (lint/typecheck or the test suite); this catches a silent skip
+# reported as a false PASS.
 #
 # The guard asserts positive evidence, not just well-formed failure reporting. Checking
-# only `.checks[]?` let `{"source":"verify","status":"PASS"}` — no checks at all — through
+# only `.checks[]?` let `{"source":"checker","status":"PASS"}` — no checks at all — through
 # as a green result, because an empty iteration satisfies every "no bad entry" test. An
 # absent or empty `checks` list is now the first thing rejected.
 #
@@ -36,7 +37,7 @@ CONTENT=$(cat "$FILE")
 #
 # What still blocks is an unproven *green*: no checks at all, a PASS entry with no real
 # exit code, or an overall PASS sitting on top of a check that errored.
-if [ "$SOURCE" = "verify" ] || [ "$SOURCE" = "tester" ]; then
+if [ "$SOURCE" = "checker" ] || [ "$SOURCE" = "reviewer" ] || [ "$SOURCE" = "tester" ]; then
   REASON=$(jq -r '
     if (.checks | type) != "array" or (.checks | length) == 0 then
       "no checks[] recorded — nothing proves any check ran"
