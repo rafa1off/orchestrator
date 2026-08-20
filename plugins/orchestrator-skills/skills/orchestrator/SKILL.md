@@ -15,21 +15,23 @@ The main Claude Code session acts as orchestrator. Agents are tools — call the
 | Agent | Model | Effort | Type | When to call |
 |-------|-------|--------|------|--------------|
 | Explore *(built-in)* | haiku | *(none)* | readonly | Broad codebase discovery — "survey the repo", "find all usages of X". Use `Agent(subagent_type="Explore", ...)` |
-| orchestrator-agents:reader | haiku | *(none)* | readonly | Map files, interfaces, and conventions before writing. Call multiple times as new paths surface. |
-| orchestrator-agents:researcher | sonnet | low | readonly | External APIs, library patterns, prior decisions in `docs/`. |
-| orchestrator-agents:thinker | opus | medium | readonly | Analysis, brainstorming, architectural decisions. Isolates verbose reasoning from main context. |
-| orchestrator-agents:writer | sonnet | low | read+write | Produce code changes from a context block. |
+| orchestrator-agents:reader | haiku | *(none)* | readonly | Map files, interfaces, and conventions before writing. Writes guarded reports to `reader-report.json`; call multiple times as new paths surface. |
+| orchestrator-agents:researcher | sonnet | low | readonly | External APIs, library patterns, prior decisions in `docs/`. Writes guarded reports to `researcher-report.json`. |
+| orchestrator-agents:thinker | opus | medium | readonly | Analysis, brainstorming, architectural decisions. Isolates verbose reasoning from main context. Writes guarded reports to `thinker-report.json`. |
+| orchestrator-agents:writer | sonnet | low | read+write | Produce code changes from a context block. Writes guarded reports to `writer-report.json`. |
 | orchestrator-agents:checker | haiku | *(none)* | readonly | Lint + typecheck + build checks only — no diff review. Writes guarded findings to `checker-findings.json`; call any time. |
 | orchestrator-agents:reviewer | sonnet | medium | readonly | Diff review only — no lint/typecheck. Writes guarded findings to `reviewer-findings.json`; always spawn fresh for a clean diff baseline. |
-| orchestrator-agents:tester | sonnet | low | readonly | Run the suite and diagnose each failure (regression vs stale test vs flaky). Never writes or fixes tests. |
+| orchestrator-agents:tester | sonnet | low | readonly | Run the suite and diagnose each failure (regression vs stale test vs flaky). Never writes or fixes tests. Writes guarded findings to `tester-findings.json`. |
 
-> **Trust is in the guard, not the agent's word.** `checker`, `reviewer`, and `tester` all
-> write structured findings through `write_findings`, and all three are covered by the
-> proof-of-execution guard (every check must carry a real process exit code recorded during
-> the run being judged) and the `SubagentStop` guard (none can finish without fresh,
-> substantiated findings). A result from any of them is trustworthy only because it carries
-> one `checks[]` entry per check actually executed — the guard is what makes a green result
-> mean something, not the prose summary attached to it.
+> **Trust is in the guard, not the agent's word.** All seven agents return through a
+> validated tool call — `checker`, `reviewer`, and `tester` write structured findings through
+> `write_findings`; `reader`, `researcher`, `thinker`, and `writer` write structured reports
+> through `write_report`. A final markdown message is no longer any agent's deliverable.
+> Findings additionally carry proof-of-execution (every check must carry a real process exit
+> code recorded during the run being judged); reports carry presence and freshness only,
+> because those four agents run no commands to attest to. The `SubagentStop` guard enforces
+> both shapes — none of the seven can finish without a fresh, substantiated result. The guard
+> is what makes a green result mean something, not the prose summary attached to it.
 
 > Read [agent-contracts.md](agent-contracts.md) for full input/output contracts and session registry (warm agent reuse).
 
@@ -48,6 +50,11 @@ These rules hold regardless of task size or route. Never violate them.
 ## Resuming
 
 On session start, or after a context compaction, read `.claude/plans/progress.md` before doing anything else — it carries deliverable status and recorded decisions. Also read `.claude/pipeline/pre-compact-snapshot.md` if it exists.
+
+Reports in `.claude/pipeline/*-report.json` are not part of this resume step — they are
+cleared alongside findings on session start/end and are current-turn scratch, already
+delivered to you by the `PostToolUse` auto-injection the moment they were written. There is
+nothing stale to recover from them across a compaction the way there is for `progress.md`.
 
 ---
 
@@ -84,4 +91,4 @@ On session start, or after a context compaction, read `.claude/plans/progress.md
 
 **Research tasks** (external library APIs, framework patterns, prior project decisions in `docs/`): dispatch `orchestrator-agents:researcher` directly.
 
-**Analytical tasks** (questions, brainstorming, design): dispatch `orchestrator-agents:thinker` directly. Thinker reads the context it needs with `Read`/`Grep`/`Glob`; when it needs broad mapping or external/web research it returns a `## Context Request`, which you fulfil (e.g. by running researcher) and then resume it warm via `SendMessage` with the findings (see [agent-contracts.md](agent-contracts.md#context-requests)). Dispatch is orchestrator-driven — agents are leaf nodes and do not spawn subagents (see [dispatch-levels.md](dispatch-levels.md#leaf-node-boundary)).
+**Analytical tasks** (questions, brainstorming, design): dispatch `orchestrator-agents:thinker` directly. Thinker reads the context it needs with `Read`/`Grep`/`Glob`; when it needs broad mapping or external/web research it sets `context_request` on its report, which you detect via `report.context_request is not None`, fulfil (e.g. by running researcher), and then resume it warm via `SendMessage` with the findings (see [agent-contracts.md](agent-contracts.md#context-requests)). Dispatch is orchestrator-driven — agents are leaf nodes and do not spawn subagents (see [dispatch-levels.md](dispatch-levels.md#leaf-node-boundary)).

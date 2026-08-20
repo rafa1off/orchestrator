@@ -42,9 +42,11 @@ run them in the same turn.
 
 **3 — Read findings after dispatched agents complete:**
 
-Each writes structured findings; a `PostToolUse` hook auto-injects each file's contents into
-your context as it lands, so you usually receive them without a manual read. To read
-explicitly:
+Each writes structured findings via `write_findings`; a `PostToolUse` hook auto-injects each
+file's contents into your context as it lands, so you usually receive them without a manual
+read. This mirrors the auto-injection for reports written by `write_report`, though reports
+are not this file's concern — findings are the proof-of-execution signal verification acts
+on. To read explicitly:
 ```bash
 cat .claude/pipeline/checker-findings.json .claude/pipeline/reviewer-findings.json .claude/pipeline/tester-findings.json
 ```

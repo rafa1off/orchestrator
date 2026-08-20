@@ -6,7 +6,7 @@
           {
             "type": "command",
             "shell": "bash",
-            "command": "P=\"${CLAUDE_PROJECT_DIR}/.claude/pipeline\"; rm -f \"$P/checker-findings.json\" \"$P/reviewer-findings.json\" \"$P/tester-findings.json\" \"$P/pre-compact-snapshot.md\" \"$P/write-log.tsv\" \"$P/identity-audit.jsonl\" \"$P\"/*/checker-findings.json \"$P\"/*/reviewer-findings.json \"$P\"/*/tester-findings.json 2>/dev/null; rm -rf \"$P/.starts\" 2>/dev/null; true"
+            "command": "P=\"${CLAUDE_PROJECT_DIR}/.claude/pipeline\"; rm -f \"$P/checker-findings.json\" \"$P/reviewer-findings.json\" \"$P/tester-findings.json\" \"$P/reader-report.json\" \"$P/writer-report.json\" \"$P/thinker-report.json\" \"$P/researcher-report.json\" \"$P/pre-compact-snapshot.md\" \"$P/write-log.tsv\" \"$P/identity-audit.jsonl\" \"$P\"/*/checker-findings.json \"$P\"/*/reviewer-findings.json \"$P\"/*/tester-findings.json \"$P\"/*/reader-report.json \"$P\"/*/writer-report.json \"$P\"/*/thinker-report.json \"$P\"/*/researcher-report.json 2>/dev/null; rm -rf \"$P/.starts\" 2>/dev/null; true"
           }
         ]
       }
@@ -34,7 +34,7 @@
     ],
     "SubagentStop": [
       {
-        "matcher": "^orchestrator-agents:(checker|reviewer|tester)$",
+        "matcher": "^orchestrator-agents:(checker|reviewer|tester|reader|writer|thinker|researcher)$",
         "hooks": [
           {
             "type": "command",
@@ -107,7 +107,7 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "mcp__.*__write_findings",
+        "matcher": "mcp__.*__(write_findings|write_report)",
         "hooks": [
           {
             "type": "command",
@@ -133,7 +133,7 @@
           {
             "type": "command",
             "shell": "bash",
-            "command": "P=\"${CLAUDE_PROJECT_DIR}/.claude/pipeline\"; { printf '# Pipeline Snapshot — %s\\n' \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"; for f in checker-findings.json reviewer-findings.json tester-findings.json; do [ -f \"$P/$f\" ] && { printf '## %s\\n' \"$f\"; cat \"$P/$f\"; echo; }; done; } > \"$P/pre-compact-snapshot.md\" 2>/dev/null || true"
+            "command": "P=\"${CLAUDE_PROJECT_DIR}/.claude/pipeline\"; { printf '# Pipeline Snapshot — %s\\n' \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"; for f in checker-findings.json reviewer-findings.json tester-findings.json reader-report.json writer-report.json thinker-report.json researcher-report.json; do [ -f \"$P/$f\" ] && { printf '## %s\\n' \"$f\"; cat \"$P/$f\"; echo; }; done; } > \"$P/pre-compact-snapshot.md\" 2>/dev/null || true"
           }
         ]
       }
@@ -144,7 +144,7 @@
           {
             "type": "command",
             "shell": "bash",
-            "command": "P=\"${CLAUDE_PROJECT_DIR}/.claude/pipeline\"; L=\"$P/session-log.txt\"; mkdir -p \"$P\"; printf '%s session-end\\n' \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\" >> \"$L\"; tail -n 500 \"$L\" > \"$L.tmp\" 2>/dev/null && mv \"$L.tmp\" \"$L\"; rm -f \"$P/checker-findings.json\" \"$P/reviewer-findings.json\" \"$P/tester-findings.json\" \"$P/pre-compact-snapshot.md\" \"$P/write-log.tsv\" \"$P/identity-audit.jsonl\" \"$P\"/*/checker-findings.json \"$P\"/*/reviewer-findings.json \"$P\"/*/tester-findings.json 2>/dev/null; rm -rf \"$P/.starts\" 2>/dev/null; true"
+            "command": "P=\"${CLAUDE_PROJECT_DIR}/.claude/pipeline\"; L=\"$P/session-log.txt\"; mkdir -p \"$P\"; printf '%s session-end\\n' \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\" >> \"$L\"; tail -n 500 \"$L\" > \"$L.tmp\" 2>/dev/null && mv \"$L.tmp\" \"$L\"; rm -f \"$P/checker-findings.json\" \"$P/reviewer-findings.json\" \"$P/tester-findings.json\" \"$P/reader-report.json\" \"$P/writer-report.json\" \"$P/thinker-report.json\" \"$P/researcher-report.json\" \"$P/pre-compact-snapshot.md\" \"$P/write-log.tsv\" \"$P/identity-audit.jsonl\" \"$P\"/*/checker-findings.json \"$P\"/*/reviewer-findings.json \"$P\"/*/tester-findings.json \"$P\"/*/reader-report.json \"$P\"/*/writer-report.json \"$P\"/*/thinker-report.json \"$P\"/*/researcher-report.json 2>/dev/null; rm -rf \"$P/.starts\" 2>/dev/null; true"
           }
         ]
       }

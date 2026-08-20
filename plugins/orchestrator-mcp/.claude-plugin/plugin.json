@@ -1,7 +1,7 @@
 {
   "name": "orchestrator-mcp",
-  "version": "1.5.0",
-  "description": "Dev-tools MCP server for the orchestrator ecosystem — write_findings pipeline contract (checks + issues + failures schema) for the checker, reviewer, and tester agents. Rejects checker/reviewer/tester findings with no checks[], and stamps written_at for freshness checks.",
+  "version": "1.6.0",
+  "description": "Dev-tools MCP server for the orchestrator ecosystem — write_findings pipeline contract (checks + issues + failures schema) for the checker, reviewer, and tester agents, and write_report (context_request + per-agent fields) for reader, writer, thinker, and researcher. Rejects checker/reviewer/tester findings with no checks[], and stamps written_at for freshness checks on both.",
   "author": {
     "name": "Rafael Giuriatto",
     "email": "rafael.giuriatto@resolva.ai"

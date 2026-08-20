@@ -192,10 +192,10 @@ Two workflow skills for the orchestrator session:
 
 | Agent | Model | Effort | Type | Role |
 |---|---|---|---|---|
-| `orchestrator-agents:reader` | haiku | *(absent — inert on haiku)* | readonly | Maps code paths, returns structured context snapshots |
-| `orchestrator-agents:researcher` | sonnet | low | readonly | Finds external patterns, library APIs, prior project decisions |
-| `orchestrator-agents:thinker` | opus | medium | readonly | Deep reasoning, tradeoff analysis, brainstorming; isolates verbose analysis from main context |
-| `orchestrator-agents:writer` | sonnet | low | read+write | Produces minimal, focused code changes from a context block |
+| `orchestrator-agents:reader` | haiku | *(absent — inert on haiku)* | readonly | Maps code paths, writes `reader-report.json` with structured context snapshots |
+| `orchestrator-agents:researcher` | sonnet | low | readonly | Finds external patterns, library APIs, prior project decisions; writes `researcher-report.json` |
+| `orchestrator-agents:thinker` | opus | medium | readonly | Deep reasoning, tradeoff analysis, brainstorming; isolates verbose analysis from main context; writes `thinker-report.json` |
+| `orchestrator-agents:writer` | sonnet | low | read+write | Produces minimal, focused code changes from a context block; writes `writer-report.json` listing modified files |
 | `orchestrator-agents:checker` | haiku | *(absent — inert on haiku)* | readonly | Lint + typecheck + build only — no diff review; call any time, writes `checker-findings.json` |
 | `orchestrator-agents:reviewer` | sonnet | medium | readonly | Diff review only — no lint/typecheck; always spawned fresh, writes `reviewer-findings.json` |
 | `orchestrator-agents:tester` | sonnet | low | readonly | Runs the suite and classifies each failure (REGRESSION / STALE TEST / FLAKY / UNCLEAR) with evidence — never writes or fixes tests |
@@ -235,17 +235,17 @@ Hook suite that automates the orchestrator's pipeline contracts:
 
 | Event | Trigger | Behavior |
 |---|---|---|
-| `SessionStart` | Session begins or resumes | Clears stale findings, start-stamps, and the write log from `.claude/pipeline/` (including `track-*/` subdirs); `.claude/plans/progress.md` and `.claude/metrics/` are untouched — both are persistent |
-| `SubagentStart` (checker, reviewer, tester) | Agent spawns | Records the start time keyed by `agent_id` — the reference point the freshness check below compares against |
-| `SubagentStop` (checker, reviewer, tester) | Agent finishes | **Blocks** unless findings were written *during this run* and every `checks[]` entry carries a real `exit_code`. Blocks via `decision: "block"` with a reason, so the agent gets a retry instruction rather than a dead end |
+| `SessionStart` | Session begins or resumes | Clears stale findings, reports, start-stamps, and the write log from `.claude/pipeline/` (including `track-*/` subdirs); `.claude/plans/progress.md` and `.claude/metrics/` are untouched — both are persistent |
+| `SubagentStart` (all 7 agents) | Agent spawns | Records the start time keyed by `agent_id` — the reference point the freshness check below compares against |
+| `SubagentStop` (all 7 agents) | Agent finishes | For checker/reviewer/tester: **blocks** unless findings were written *during this run* and every `checks[]` entry carries a real `exit_code`. For reader/writer/thinker/researcher: **blocks** unless a report was written during this run and is fresh — no exit codes to check, since none of them runs commands. Blocks via `decision: "block"` with a reason, so the agent gets a retry instruction rather than a dead end |
 | `SubagentStop` (writer, checker, reviewer, tester) | Agent finishes | Appends `<iso8601>\t<agent_type>\t<elapsed_seconds>` to `.claude/metrics/agent-timings.tsv`, capped at 1000 rows past 2000; every failure path (missing stamp, unwritable dir, absent `jq`) still exits 0 and clears the stamp |
 | `PreToolUse` (`Bash`) | writer/checker/reviewer/tester run a command | **Blocks** `git push` and `gh pr create/merge/edit`, including `git -C <path> push` and newline-separated forms |
 | `PreToolUse` (`Agent`) | Any subagent spawns a subagent | Allowlist — only reader/researcher/thinker/reviewer may be nested targets |
 | `PreToolUse` (`Write`/`Edit`) | thinker/researcher write | **Blocks** any path outside `.claude/agent-memory/` |
-| `PostToolUse` (`write_findings`) | Findings file written | Proof-of-execution guard, then injects the file's content as `additionalContext` |
+| `PostToolUse` (`write_findings`\|`write_report`) | Findings or report file written | Proof-of-execution guard for findings, presence-and-freshness guard for reports, then injects the file's content as `additionalContext` |
 | `PostToolUse` (`Write`/`Edit`) | writer edits a file | Logs `agent_id`→path to `.claude/pipeline/write-log.tsv` and flags the file when a *different* writer already touched it (invariant 2) |
-| `PreCompact` | Context compaction begins | Snapshots the findings files (`checker-findings.json`, `reviewer-findings.json`, `tester-findings.json`) to `.claude/pipeline/pre-compact-snapshot.md`; `progress.md` is not read here — it is durable at a fixed path and needs no snapshot |
-| `SessionEnd` | Session terminates | Appends to `.claude/pipeline/session-log.txt` (capped at 500 lines) and clears findings, stamps, and the write log; `.claude/plans/progress.md` and `.claude/metrics/` are untouched — both are persistent |
+| `PreCompact` | Context compaction begins | Snapshots the findings files (`checker-findings.json`, `reviewer-findings.json`, `tester-findings.json`) and the report files (`reader-report.json`, `writer-report.json`, `thinker-report.json`, `researcher-report.json`) to `.claude/pipeline/pre-compact-snapshot.md`; `progress.md` is not read here — it is durable at a fixed path and needs no snapshot |
+| `SessionEnd` | Session terminates | Appends to `.claude/pipeline/session-log.txt` (capped at 500 lines) and clears findings, reports, stamps, and the write log; `.claude/plans/progress.md` and `.claude/metrics/` are untouched — both are persistent |
 
 ### Fail-closed principle
 
@@ -261,17 +261,25 @@ guard at all.
 
 ## orchestrator-mcp
 
-Exposes a single tool used by the checker, reviewer, and tester agents to write structured findings to the pipeline:
+Exposes two tools, so every one of the 7 agents returns through a schema-validated call
+rather than a markdown final message:
 
 | Tool | Description |
 |---|---|
-| `write_findings(source, status, pipeline?, checks?, issues?, failures?)` | Writes `<source>-findings.json` to `.claude/pipeline/` (or a per-track subdirectory for parallel runs), stamped with `written_at` |
+| `write_findings(findings, pipeline?)` | Writes `<source>-findings.json` to `.claude/pipeline/` (or a per-track subdirectory for parallel runs), stamped with `written_at` |
+| `write_report(report, pipeline?)` | Writes `<source>-report.json` to `.claude/pipeline/` (or a per-track subdirectory), stamped with `written_at` |
 
-`source` is `checker`, `reviewer`, or `tester` — the only three agents holding the tool.
-`checks` is required and non-empty for all three: the call is **rejected** without it, because
-a result with no checks cannot be distinguished from a run that never happened. Empty
-`issues`/`failures` lists are recorded verbatim rather than dropped, so "reported nothing"
-stays distinct from "never populated the field".
+`write_findings`'s `source` is `checker`, `reviewer`, or `tester` — the only three agents
+running commands and holding the tool. `checks` is required and non-empty for all three: the
+call is **rejected** without it, because a result with no checks cannot be distinguished from
+a run that never happened. Empty `issues`/`failures` lists are recorded verbatim rather than
+dropped, so "reported nothing" stays distinct from "never populated the field".
+
+`write_report`'s `source` is `reader`, `writer`, `thinker`, or `researcher` — agents that run
+no commands and so have no `checks[]` to report. Every report type carries a `context_request`
+field (`needs`, `why`) in place of a `## Context Request` markdown heading, and a handful of
+fields are required outright to enforce a quality bar: `Convention.precedent`,
+`Reference.source`, and `ThinkerReport.recommendation`.
 
 Checker runs lint, typecheck, and build directly via `Bash`, reading the project's commands
 from `CLAUDE.md` first and falling back to marker-file detection (`uv.lock` → ruff/mypy,

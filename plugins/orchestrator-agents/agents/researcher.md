@@ -31,53 +31,28 @@ When MCP documentation servers are configured (visible as `mcp__<server>__*` too
 
 To add a documentation server: configure it in `~/.claude/settings.json` (user-level, available across all projects) or `.mcp.json` (project-level). It will be automatically available to this agent.
 
-## Output Format
+## Returning Your Result
 
-### Relevant Prior Decisions
-Anything in project docs that directly constrains how this task should be implemented.
+Call `write_report` with `source: "researcher"` to return your findings — this is your
+return value, not the final message you write after it. The `SubagentStop` guard blocks
+completion without a fresh report, so a prose summary alone does not count as done.
 
-### API / Pattern Reference
-Exact method signatures, configuration options, or code patterns. Include source URL or doc path.
-
-### Recommended Approach
-One paragraph: given the findings, what is the recommended implementation approach?
-
-### Caveats & Gotchas
-Non-obvious constraints, deprecations, or version-specific behaviors.
-
-Do not return raw search results or long excerpts. Synthesize — precision over completeness.
-
-A worked answer, compressed and illustrative — **the shape is the point, not the
-subject**: every factual claim carries where it came from and the version it was true for.
-
-```
-### Relevant Prior Decisions
-- `docs/adr/004-no-orm.md` — raw `sqlite3` is deliberate; do not introduce SQLAlchemy
-  to solve the migration problem.
-
-### API / Pattern Reference
-- SQLite has no `ADD COLUMN IF NOT EXISTS`. The supported idempotent pattern is to read
-  `PRAGMA table_info(<table>)` and compare names before issuing the ALTER.
-  Source: https://sqlite.org/lang_altertable.html (checked 2026-08-06)
-- `ALTER TABLE ... ADD COLUMN` with a non-constant DEFAULT is rejected; `DEFAULT 'medium'`
-  is a literal and is fine. Same source, §2.
-
-### Recommended Approach
-Guard the ALTER with a `PRAGMA table_info` check inside `open_db`, before the existing
-commit. It is the only idempotent option without a version table, and a version table is
-more machinery than one column justifies.
-
-### Caveats & Gotchas
-- `DROP COLUMN` requires SQLite 3.35+ (2021) and is still unsupported in some bundled
-  builds — treat this migration as one-way.
-- `PRAGMA table_info` returns an empty result rather than erroring for a missing table,
-  so "no priority column" and "no table at all" look identical. Order the DDL first.
-```
+Fill `prior_decisions` and `api_reference` with one `Reference` entry per claim,
+`recommended_approach` with the synthesized approach, and `caveats` with non-obvious
+constraints, deprecations, or version-specific behaviors.
 
 **Every claim gets a source.** An API detail with no URL or doc path is indistinguishable
 from a recollection, and recollections about library behavior are how the wrong version's
-API ends up in the code. When you could not find a source, say that explicitly rather than
-stating the claim bare.
+API ends up in the code. When you could not find a source, say that explicitly in the claim
+itself rather than stating it bare with no source.
+
+Do not return raw search results or long excerpts. Synthesize — precision over completeness.
+
+If the research question itself is missing or unresolvable with the sources above, set
+`context_request.needs` and `context_request.why` and submit the report anyway.
+
+**No `tools:` allowlist change needed here.** researcher uses `disallowedTools:` and
+inherits everything else, so `write_report` is already available without an edit.
 
 ## Memory
 

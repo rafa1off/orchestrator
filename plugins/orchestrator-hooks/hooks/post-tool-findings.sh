@@ -1,19 +1,40 @@
 #!/usr/bin/env bash
-# PostToolUse hook: after write_findings succeeds, inject findings content as additionalContext
-# so the orchestrator receives results automatically without a manual cat step.
+# PostToolUse hook: after write_findings or write_report succeeds, inject the file's
+# content as additionalContext so the orchestrator receives results automatically without
+# a manual cat step. Generalised (rather than split into a sibling) because both tools
+# share the same "read tool_input, locate the file, inject additionalContext" shape and
+# differ only in whether proof-of-execution applies — one `if` branch expresses that
+# difference more clearly than duplicating the whole script. The name now undersells the
+# report half of its job; left as-is since renaming is a deliberate hooks.json + test
+# change, not this task's call to make.
+#
+# The proof-of-execution check below applies ONLY to findings (checker/reviewer/tester).
+# Reports (reader/writer/thinker/researcher) are not proof-of-execution — reader runs no
+# commands, so a report has no checks[] and no exit codes (cs3-schema.md Part 2,
+# "Deliberate non-goals") — and must never be run through this check.
 set -euo pipefail
 
 command -v jq >/dev/null 2>&1 || exit 0
 
+# write_findings and write_report each take a single nested model argument now
+# (`findings`/`report`), not flat top-level fields, so `.tool_input.source` no longer
+# resolves under either tool and must not be read directly. The key that is present
+# (`findings` or `report`) tells us both the source and which kind of payload this is.
 INPUT=$(cat)
-SOURCE=$(echo "$INPUT" | jq -r '.tool_input.source // empty' 2>/dev/null)
+SOURCE=$(echo "$INPUT" | jq -r '.tool_input.findings.source // .tool_input.report.source // empty' 2>/dev/null)
 [ -z "$SOURCE" ] && exit 0
+
+if echo "$INPUT" | jq -e '.tool_input.report // empty' >/dev/null 2>&1; then
+  SUFFIX="report"
+else
+  SUFFIX="findings"
+fi
 
 # Multi-track runs pass a pipeline override (e.g. .claude/pipeline/track-a); reading
 # only the default path here skipped the proof-of-execution guard below for every
 # parallel track.
 PIPELINE=$(echo "$INPUT" | jq -r '.tool_input.pipeline // empty' 2>/dev/null)
-FILE="${CLAUDE_PROJECT_DIR}/${PIPELINE:-.claude/pipeline}/${SOURCE}-findings.json"
+FILE="${CLAUDE_PROJECT_DIR}/${PIPELINE:-.claude/pipeline}/${SOURCE}-${SUFFIX}.json"
 [ -f "$FILE" ] || exit 0
 
 STATUS=$(jq -r '.status // "unknown"' "$FILE" 2>/dev/null || echo "unknown")
@@ -63,8 +84,15 @@ if [ "$SOURCE" = "checker" ] || [ "$SOURCE" = "reviewer" ] || [ "$SOURCE" = "tes
   fi
 fi
 
-jq -nc \
-  --arg src "$SOURCE" \
-  --arg status "$STATUS" \
-  --arg content "$CONTENT" \
-  '{hookSpecificOutput: {hookEventName: "PostToolUse", additionalContext: ("[orchestrator] \($src) findings ready (status: \($status)):\n\($content)")}}'
+if [ "$SUFFIX" = "report" ]; then
+  jq -nc \
+    --arg src "$SOURCE" \
+    --arg content "$CONTENT" \
+    '{hookSpecificOutput: {hookEventName: "PostToolUse", additionalContext: ("[orchestrator] \($src) report ready:\n\($content)")}}'
+else
+  jq -nc \
+    --arg src "$SOURCE" \
+    --arg status "$STATUS" \
+    --arg content "$CONTENT" \
+    '{hookSpecificOutput: {hookEventName: "PostToolUse", additionalContext: ("[orchestrator] \($src) findings ready (status: \($status)):\n\($content)")}}'
+fi

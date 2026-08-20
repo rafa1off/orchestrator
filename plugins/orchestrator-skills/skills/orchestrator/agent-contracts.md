@@ -8,13 +8,21 @@ Read this file when you need the full input/output contract for a specific agent
 
 | Agent | Invoke with | Returns |
 |-------|------------|---------|
-| orchestrator-agents:reader | task + file paths | `Relevant Files / Interfaces / Conventions / Entry Points / Test Files` — or `## Cannot Proceed` |
-| orchestrator-agents:researcher | task + research question | `Prior Decisions / API Reference / Approach / Caveats` |
-| orchestrator-agents:thinker | context block + question | `Analysis / Brainstorming / Q&A`; reads its own context via `Read`/`Grep`/`Glob` and emits a `## Context Request` when it needs broad mapping or external research |
-| orchestrator-agents:writer | `## Context` + `## Task` + `## Files to modify` | `## Modified Files` with exact paths |
-| orchestrator-agents:checker | files to check (optional) + pipeline path (optional, for track isolation) | `## Check Results` table; writes `<pipeline>/checker-findings.json` (`checks[]` only, no `issues[]`) |
-| orchestrator-agents:reviewer | task context + modified files list + pipeline path (optional, for track isolation) | `## Review Results`; writes `<pipeline>/reviewer-findings.json` (`issues[]` at `file:line`, plus a `checks[]` entry for the review pass) |
-| orchestrator-agents:tester | task + intended behavior change + changed files + what to test + pipeline path | writes `<pipeline>/tester-findings.json` (`checks` table + `failures[]` classified REGRESSION / STALE_TEST / FLAKY / UNCLEAR with evidence) + a short text summary; readonly (never edits code or tests) |
+| orchestrator-agents:reader | task + file paths | writes `<pipeline>/reader-report.json` via `write_report` (`relevant_files` / `interfaces` / `conventions` / `entry_points` / `test_files`, plus `context_request` when blocked) |
+| orchestrator-agents:researcher | task + research question | writes `<pipeline>/researcher-report.json` via `write_report` (`prior_decisions` / `api_reference` / `recommended_approach` / `caveats`, plus `context_request` when blocked) |
+| orchestrator-agents:thinker | context block + question | writes `<pipeline>/thinker-report.json` via `write_report` (`mode`-specific fields plus a required `recommendation`); reads its own context via `Read`/`Grep`/`Glob` and sets `context_request` when it needs broad mapping or external research |
+| orchestrator-agents:writer | `## Context` + `## Task` + `## Files to modify` | writes `<pipeline>/writer-report.json` via `write_report` (`modified[]` with exact paths, `in_scope` flagged per entry) |
+| orchestrator-agents:checker | files to check (optional) + pipeline path (optional, for track isolation) | `## Check Results` table; writes `<pipeline>/checker-findings.json` via `write_findings` (`checks[]` only, no `issues[]`) |
+| orchestrator-agents:reviewer | task context + modified files list + pipeline path (optional, for track isolation) | `## Review Results`; writes `<pipeline>/reviewer-findings.json` via `write_findings` (`issues[]` at `file:line`, plus a `checks[]` entry for the review pass) |
+| orchestrator-agents:tester | task + intended behavior change + changed files + what to test + pipeline path | writes `<pipeline>/tester-findings.json` via `write_findings` (`checks` table + `failures[]` classified REGRESSION / STALE_TEST / FLAKY / UNCLEAR with evidence); readonly (never edits code or tests) |
+
+Both paths are validated tool calls, guarded by the same `SubagentStop` check for presence
+and freshness — a final markdown message is no longer any agent's deliverable. They diverge
+on what they can claim: findings additionally carry proof-of-execution, one `checks[]` entry
+per check actually run with a real exit code, because checker, reviewer, and tester ran
+commands. Reports carry no `checks[]` and no exit code, because reader, researcher, thinker,
+and writer run none — the guard demands only that the report is present and fresh, never
+that it is substantiated by a process outcome.
 
 File deletion is an orchestrator action: no agent holds `Bash`, and `Write`/`Edit` cannot remove a file, so a task requiring a file to be deleted must have the orchestrator perform the deletion — a writer asked to do it can only empty the file and report.
 
@@ -44,7 +52,10 @@ minutes have passed. Measure before optimising against a specific number.
 
 ## Context Requests
 
-A leaf agent that needs more than it can reach with its own read tools returns a `## Context Request` (e.g. thinker needing external/web research, which it has no tools for) and stops. To fulfil one:
+A leaf agent that needs more than it can reach with its own read tools sets `context_request`
+(`needs` + `why`) on its report (e.g. thinker needing external/web research, which it has no
+tools for) and stops. Every report type carries this field; the orchestrator's detection is a
+single check: `report.context_request is not None`. To fulfil one:
 
 1. Run the reader/researcher (or other agent) that produces the missing context.
 2. Resume the **same** requesting agent via `SendMessage(to: its agent_id)` with the findings — it continues warm, retaining its prior reasoning, rather than restarting cold from a fresh `Agent()` dispatch.
