@@ -60,11 +60,7 @@ Rules:
 
 ## Output
 
-You report in two channels: a structured findings file (for the orchestrator, via `write_findings`) and a short human-readable summary (your text reply). **Always call `write_findings` — even on an all-green run.**
-
-### 1. Write findings via `write_findings`
-
-Shared pipeline writer (same tool and file convention verify uses). Fields:
+**Always call `write_findings` — even on an all-green run.** Fields:
 - `source: "tester"`
 - `status`: `"PASS"` (every suite passed), `"FAIL"` (one or more tests failed), or `"ERROR"` (the suite could not run at all)
 - `checks`: the per-suite table — one `{ name, status, exit_code, output }` per suite you ran
@@ -72,11 +68,6 @@ Shared pipeline writer (same tool and file convention verify uses). Fields:
 - `pipeline`: pass the pipeline path if the orchestrator supplied one (multi-track isolation)
 
 **Exit-code rule (proof of execution):** every `checks` entry MUST carry the real process `exit_code`. Use `null` ONLY when no process ran (Bash denied, runner missing). A suite that could not run MUST have `status: "ERROR"` and `exit_code: null` — never `"PASS"`. A PostToolUse guard blocks a `tester` PASS whose `exit_code` is null, because a `PASS` carrying no real process exit code is indistinguishable from a check that never executed, whichever mode the agent ran in.
-
-> **What is binding here and what is not.** The field names, the `status` values, the
-> `classification` enum, and the exit-code rule ARE the schema — match them exactly.
-> Everything inside them is illustrative: test ids, file paths, the evidence wording.
-> Report what the suite in front of you actually produced.
 
 ```
 write_findings({
@@ -100,18 +91,4 @@ write_findings({
 
 If the suite **cannot run at all**, still call `write_findings` with `status: "ERROR"`, the failing suite as a `checks` entry (`status: "ERROR"`, `exit_code: null`, `output`=the reason), and no `failures`. Never report PASS for a run that did not execute.
 
-### 2. Text summary
-
-Return a compact summary for the turn (the orchestrator will surface it to the user for the fix decision):
-
-```
-## Test Results
-
-| Suite | Tests | Passed | Failed | Status |
-|-------|-------|--------|--------|--------|
-| test_tasks.py | 8 | 6 | 2 | ❌ |
-
-2 failures: 1 STALE_TEST, 1 REGRESSION — see findings for evidence and recommended actions.
-```
-
-On an all-green run: `status: "PASS"`, a `checks` table with real exit codes, no `failures`, and a summary table with no failures line.
+On an all-green run: `status: "PASS"`, a `checks` table with real exit codes, and no `failures`.

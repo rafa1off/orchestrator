@@ -1,7 +1,7 @@
 {
   "name": "orchestrator-agents",
-  "version": "1.16.0",
-  "description": "7-agent catalog for the orchestrator ecosystem: reader (haiku), researcher (sonnet), thinker (sonnet), writer (sonnet), checker (haiku), reviewer (sonnet), tester (sonnet, readonly run+diagnose). All 7 return through a schema-validated tool call — write_findings or write_report. Leaf subagents — no nested Agent dispatch; readonly agents confined to their memory dir.",
+  "version": "1.17.0",
+  "description": "7-agent catalog for the orchestrator ecosystem: reader (haiku), researcher (sonnet), thinker (sonnet), writer (sonnet), checker (haiku), reviewer (sonnet), tester (sonnet, readonly run+diagnose). All 7 return through a schema-validated tool call \u2014 write_findings or write_report. Leaf subagents \u2014 no nested Agent dispatch; readonly agents confined to their memory dir.",
   "author": {
     "name": "Rafael Giuriatto",
     "email": "rafael.giuriatto@resolva.ai"

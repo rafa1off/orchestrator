@@ -13,42 +13,42 @@
       "name": "orchestrator-mcp",
       "source": "./plugins/orchestrator-mcp",
       "version": "1.6.0",
-      "description": "Dev-tools MCP server for the orchestrator ecosystem — write_findings pipeline contract (checks + issues + failures schema) for the checker, reviewer, and tester agents, and write_report (context_request + per-agent fields) for reader, writer, thinker, and researcher. Rejects checker/reviewer/tester findings with no checks[], and stamps written_at for freshness checks on both.",
+      "description": "Dev-tools MCP server for the orchestrator ecosystem \u2014 write_findings pipeline contract (checks + issues + failures schema) for the checker, reviewer, and tester agents, and write_report (context_request + per-agent fields) for reader, writer, thinker, and researcher. Rejects checker/reviewer/tester findings with no checks[], and stamps written_at for freshness checks on both.",
       "strict": true
     },
     {
       "name": "orchestrator-hooks",
       "source": "./plugins/orchestrator-hooks",
       "version": "1.16.0",
-      "description": "Hook suite for the orchestrator ecosystem — SessionStart/SessionEnd cleanup, SubagentStart start-stamps, SubagentStop findings/report guard covering all 7 agents (proof-of-execution for checker/reviewer/tester, presence + freshness for reader/writer/thinker/researcher, blocks with a retry reason), PostToolUse findings/report auto-context + guard, readonly-agent write confinement, writer-overlap detection, PreCompact snapshot.",
+      "description": "Hook suite for the orchestrator ecosystem \u2014 SessionStart/SessionEnd cleanup, SubagentStart start-stamps, SubagentStop findings/report guard covering all 7 agents (proof-of-execution for checker/reviewer/tester, presence + freshness for reader/writer/thinker/researcher, blocks with a retry reason), PostToolUse findings/report auto-context + guard, readonly-agent write confinement, writer-overlap detection, PreCompact snapshot.",
       "strict": true
     },
     {
       "name": "orchestrator-agents",
       "source": "./plugins/orchestrator-agents",
-      "version": "1.16.0",
-      "description": "7-agent catalog for the orchestrator ecosystem: reader (haiku), researcher (sonnet), thinker (sonnet), writer (sonnet), checker (haiku), reviewer (sonnet), tester (sonnet, readonly run+diagnose). All 7 return through a schema-validated tool call — write_findings or write_report. Leaf subagents — no nested Agent dispatch; readonly agents confined to their memory dir.",
+      "version": "1.17.0",
+      "description": "7-agent catalog for the orchestrator ecosystem: reader (haiku), researcher (sonnet), thinker (sonnet), writer (sonnet), checker (haiku), reviewer (sonnet), tester (sonnet, readonly run+diagnose). All 7 return through a schema-validated tool call \u2014 write_findings or write_report. Leaf subagents \u2014 no nested Agent dispatch; readonly agents confined to their memory dir.",
       "strict": true
     },
     {
       "name": "orchestrator-skills",
       "source": "./plugins/orchestrator-skills",
-      "version": "1.23.0",
-      "description": "Orchestrator workflow skills — /orchestrator-skills:orchestrator (agent dispatch guide) and /orchestrator-skills:orchestrator-plan (plan before coding). Activate with: Skill(\"/orchestrator-skills:orchestrator\") in CLAUDE.md.",
+      "version": "1.24.0",
+      "description": "Orchestrator workflow skills \u2014 /orchestrator-skills:orchestrator (agent dispatch guide) and /orchestrator-skills:orchestrator-plan (plan before coding). Activate with: Skill(\"/orchestrator-skills:orchestrator\") in CLAUDE.md.",
       "strict": true
     },
     {
       "name": "ty-lsp",
       "source": "./plugins/ty-lsp",
       "version": "1.0.1",
-      "description": "Python LSP via Astral ty — go-to-definition, find-references, document-symbol on Python files. Requires: uv tool install ty",
+      "description": "Python LSP via Astral ty \u2014 go-to-definition, find-references, document-symbol on Python files. Requires: uv tool install ty",
       "strict": true
     },
     {
       "name": "vtsls-lsp",
       "source": "./plugins/vtsls-lsp",
       "version": "1.0.1",
-      "description": "TypeScript/JavaScript LSP via vtsls — go-to-definition, find-references, document-symbol on .ts/.tsx/.js files. Requires: npm install -g @vtsls/language-server",
+      "description": "TypeScript/JavaScript LSP via vtsls \u2014 go-to-definition, find-references, document-symbol on .ts/.tsx/.js files. Requires: npm install -g @vtsls/language-server",
       "strict": true
     }
   ]
