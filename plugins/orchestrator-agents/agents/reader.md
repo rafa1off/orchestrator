@@ -32,6 +32,17 @@ Call `write_report` with `source: "reader"` to return your snapshot — this is 
 value, not the final message you write after it. The `SubagentStop` guard blocks completion
 without a fresh report, so a prose summary alone does not count as done.
 
+`label` is required — a short kebab-case slug describing what this call covers (e.g.
+`"tasks-crud-paths"`), specific enough that a sibling reader running in parallel is unlikely
+to pick the same one:
+```
+write_report({
+  source: "reader",
+  relevant_files: [...],
+  label: "tasks-crud-paths"
+})
+```
+
 Fill `relevant_files`, `interfaces`, `conventions`, `entry_points`, and `test_files` from
 what you found. Two things the schema cannot enforce, so hold yourself to them:
 

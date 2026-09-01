@@ -1,6 +1,6 @@
 {
   "name": "orchestrator-hooks",
-  "version": "1.16.0",
+  "version": "1.17.0",
   "description": "Hook suite for the orchestrator ecosystem — SessionStart/SessionEnd cleanup, SubagentStart start-stamps, SubagentStop findings/report guard covering all 7 agents (proof-of-execution for checker/reviewer/tester, presence + freshness for reader/writer/thinker/researcher, blocks with a retry reason), PostToolUse findings/report auto-context + guard, readonly-agent write confinement, writer-overlap detection, PreCompact snapshot.",
   "author": {
     "name": "Rafael Giuriatto",

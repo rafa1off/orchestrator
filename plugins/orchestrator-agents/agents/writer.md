@@ -63,6 +63,17 @@ hold yourself to them:
 - **Set `in_scope: false` and fill `note`** for any file edited outside `## Files to modify`
   — an unplanned edit is worth surfacing, not smoothing over.
 
+`label` is required — a short kebab-case slug describing what this call covers (e.g.
+`"add-priority-field"`), specific enough that a sibling writer running in parallel on a
+disjoint file set is unlikely to pick the same one:
+```
+write_report({
+  source: "writer",
+  modified: [...],
+  label: "add-priority-field"
+})
+```
+
 If the supplied context is inadequate to make the change — the task is ambiguous, the files
 to modify are missing or wrong, or the context block does not name what convention to
 follow — set `context_request.needs` and `context_request.why` and submit the report anyway

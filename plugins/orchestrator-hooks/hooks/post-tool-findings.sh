@@ -34,8 +34,9 @@ fi
 # only the default path here skipped the proof-of-execution guard below for every
 # parallel track.
 PIPELINE=$(echo "$INPUT" | jq -r '.tool_input.pipeline // empty' 2>/dev/null)
-FILE="${CLAUDE_PROJECT_DIR}/${PIPELINE:-.claude/pipeline}/${SOURCE}-${SUFFIX}.json"
-[ -f "$FILE" ] || exit 0
+DIR="${CLAUDE_PROJECT_DIR}/${PIPELINE:-.claude/pipeline}"
+FILE=$(ls -t "${DIR}/${SOURCE}-"*"-${SUFFIX}.json" 2>/dev/null | head -1)
+[ -n "$FILE" ] && [ -f "$FILE" ] || exit 0
 
 STATUS=$(jq -r '.status // "unknown"' "$FILE" 2>/dev/null || echo "unknown")
 CONTENT=$(cat "$FILE")

@@ -8,13 +8,18 @@ Read this file when you need the full input/output contract for a specific agent
 
 | Agent | Invoke with | Returns |
 |-------|------------|---------|
-| orchestrator-agents:reader | task + file paths | writes `<pipeline>/reader-report.json` via `write_report` (`relevant_files` / `interfaces` / `conventions` / `entry_points` / `test_files`, plus `context_request` when blocked) |
-| orchestrator-agents:researcher | task + research question | writes `<pipeline>/researcher-report.json` via `write_report` (`prior_decisions` / `api_reference` / `recommended_approach` / `caveats`, plus `context_request` when blocked) |
-| orchestrator-agents:thinker | context block + question | writes `<pipeline>/thinker-report.json` via `write_report` (`mode`-specific fields plus a required `recommendation`); reads its own context via `Read`/`Grep`/`Glob` and sets `context_request` when it needs broad mapping or external research |
-| orchestrator-agents:writer | `## Context` + `## Task` + `## Files to modify` | writes `<pipeline>/writer-report.json` via `write_report` (`modified[]` with exact paths, `in_scope` flagged per entry) |
-| orchestrator-agents:checker | files to check (optional) + pipeline path (optional, for track isolation) | writes `<pipeline>/checker-findings.json` via `write_findings` (`checks[]` only, no `issues[]`) |
-| orchestrator-agents:reviewer | task context + modified files list + pipeline path (optional, for track isolation) | writes `<pipeline>/reviewer-findings.json` via `write_findings` (`issues[]` at `file:line`, plus a `checks[]` entry for the review pass) |
-| orchestrator-agents:tester | task + intended behavior change + changed files + what to test + pipeline path | writes `<pipeline>/tester-findings.json` via `write_findings` (`checks` table + `failures[]` classified REGRESSION / STALE_TEST / FLAKY / UNCLEAR with evidence); readonly (never edits code or tests) |
+| orchestrator-agents:reader | task + file paths | writes `<pipeline>/reader-<label>-report.json` via `write_report` (`relevant_files` / `interfaces` / `conventions` / `entry_points` / `test_files`, plus `context_request` when blocked) |
+| orchestrator-agents:researcher | task + research question | writes `<pipeline>/researcher-<label>-report.json` via `write_report` (`prior_decisions` / `api_reference` / `recommended_approach` / `caveats`, plus `context_request` when blocked) |
+| orchestrator-agents:thinker | context block + question | writes `<pipeline>/thinker-<label>-report.json` via `write_report` (`mode`-specific fields plus a required `recommendation`); reads its own context via `Read`/`Grep`/`Glob` and sets `context_request` when it needs broad mapping or external research |
+| orchestrator-agents:writer | `## Context` + `## Task` + `## Files to modify` | writes `<pipeline>/writer-<label>-report.json` via `write_report` (`modified[]` with exact paths, `in_scope` flagged per entry) |
+| orchestrator-agents:checker | files to check (optional) + pipeline path (optional, for track isolation) | writes `<pipeline>/checker-<label>-findings.json` via `write_findings` (`checks[]` only, no `issues[]`) |
+| orchestrator-agents:reviewer | task context + modified files list + pipeline path (optional, for track isolation) | writes `<pipeline>/reviewer-<label>-findings.json` via `write_findings` (`issues[]` at `file:line`, plus a `checks[]` entry for the review pass) |
+| orchestrator-agents:tester | task + intended behavior change + changed files + what to test + pipeline path | writes `<pipeline>/tester-<label>-findings.json` via `write_findings` (`checks` table + `failures[]` classified REGRESSION / STALE_TEST / FLAKY / UNCLEAR with evidence); readonly (never edits code or tests) |
+
+`<label>` is a required, agent-supplied kebab-case slug describing what that call's result
+covers (e.g. `checker-lint-typecheck-build-findings.json`) — it is what lets two agents of
+the same type running in parallel land on distinct filenames instead of overwriting each
+other; a real on-disk collision is resolved server-side with a random suffix.
 
 Both paths are validated tool calls, guarded by the same `SubagentStop` check for presence
 and freshness — a final markdown message is no longer any agent's deliverable. They diverge

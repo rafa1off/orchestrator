@@ -66,6 +66,9 @@ Rules:
 - `checks`: the per-suite table — one `{ name, status, exit_code, output }` per suite you ran
 - `failures`: one entry per failing test — `{ test, classification, evidence, recommendation }` where `classification` ∈ `REGRESSION | STALE_TEST | FLAKY | UNCLEAR`
 - `pipeline`: pass the pipeline path if the orchestrator supplied one (multi-track isolation)
+- `label`: required — a short kebab-case slug describing what this run covers (e.g.
+  `"test-tasks-suite"`), specific enough that a sibling tester running in parallel is
+  unlikely to pick the same one
 
 **Exit-code rule (proof of execution):** every `checks` entry MUST carry the real process `exit_code`. Use `null` ONLY when no process ran (Bash denied, runner missing). A suite that could not run MUST have `status: "ERROR"` and `exit_code: null` — never `"PASS"`. A PostToolUse guard blocks a `tester` PASS whose `exit_code` is null, because a `PASS` carrying no real process exit code is indistinguishable from a check that never executed, whichever mode the agent ran in.
 
@@ -85,7 +88,8 @@ write_findings({
       classification: "REGRESSION",
       evidence: "complete_task now returns None instead of the updated row (tasks.py:88); the intended change did not call for dropping the return value.",
       recommendation: "Restore the return value in the code. (Not done — readonly.)" }
-  ]
+  ],
+  label: "test-tasks-suite"
 })
 ```
 

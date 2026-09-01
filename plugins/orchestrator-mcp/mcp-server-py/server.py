@@ -7,14 +7,26 @@
 import json
 import os
 import time
+import uuid
 from pathlib import Path
 from typing import Annotated, Literal
 
 from fastmcp import FastMCP
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 PROJECT_DIR = Path(os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd()))
 DEFAULT_PIPELINE = ".claude/pipeline"
+
+LABEL_PATTERN = r"^[a-z0-9]+(-[a-z0-9]+)*$"
+Label = Annotated[str, Field(pattern=LABEL_PATTERN, min_length=1, max_length=40)]
+# `Label`'s Field(pattern=...) only self-enforces when used as a BaseModel field (like
+# Findings/Report below) or when FastMCP validates a real tool call against the generated
+# schema. write_findings/write_report take `label` as a bare function parameter, so a
+# direct Python call — including every call in this file's own test suite, which invokes
+# the unwrapped function to exercise it in-process — bypasses that validation entirely.
+# This adapter re-validates explicitly inside each tool body so an unsafe label is
+# rejected on every call path, not only the MCP protocol one.
+_LABEL_ADAPTER = TypeAdapter(Label)
 
 
 class _Strict(BaseModel):
@@ -180,16 +192,34 @@ def _pipeline_dir(pipeline: str | None) -> Path:
     return pipeline_dir
 
 
+def _unique_path(pipeline_dir: Path, source: str, label: str, kind: str) -> Path:
+    """kind is 'findings' or 'report'. Returns a path that does not yet exist —
+    the common case is the label alone; a collision (two agents picked the same
+    label) is resolved by appending a short random suffix rather than overwriting."""
+    path = pipeline_dir / f"{source}-{label}-{kind}.json"
+    while path.exists():
+        path = pipeline_dir / f"{source}-{label}-{uuid.uuid4().hex[:4]}-{kind}.json"
+    return path
+
+
 @mcp.tool()
-def write_findings(findings: Findings, pipeline: str | None = None) -> str:
+def write_findings(
+    findings: Findings, label: Label, pipeline: str | None = None
+) -> str:
     """
-    Write findings to .claude/pipeline/<source>-findings.json. Always call — even on
-    PASS. `exit_code` is null only when a check's own `status` is "ERROR"; a check that
+    Write findings to .claude/pipeline/<source>-<label>-findings.json. Always call — even
+    on PASS. `exit_code` is null only when a check's own `status` is "ERROR"; a check that
     could not execute at all must still be reported as a checks[] entry with
     status="ERROR" (exit_code=null), never omitted — omission is indistinguishable from
     a run that never happened.
+    label: a short kebab-case slug describing what this call's result covers (e.g.
+        "lint-typecheck-build") — specific enough that two agents of the same type
+        running in parallel are unlikely to pick the same one. On an actual on-disk
+        collision, a random 4-hex-char disambiguator is appended rather than
+        overwriting the earlier file.
     pipeline: optional override for multi-track runs, e.g. '.claude/pipeline/track-a'
     """
+    _LABEL_ADAPTER.validate_python(label)
     pipeline_dir = _pipeline_dir(pipeline)
 
     payload = findings.model_dump(mode="json")
@@ -202,21 +232,27 @@ def write_findings(findings: Findings, pipeline: str | None = None) -> str:
         **payload,
     }
 
-    out_path = pipeline_dir / f"{findings.source}-findings.json"
+    out_path = _unique_path(pipeline_dir, findings.source, label, "findings")
     out_path.write_text(json.dumps(out, indent=2))
-    return f"wrote {pipeline or DEFAULT_PIPELINE}/{findings.source}-findings.json"
+    return f"wrote {pipeline or DEFAULT_PIPELINE}/{out_path.name}"
 
 
 @mcp.tool()
-def write_report(report: Report, pipeline: str | None = None) -> str:
+def write_report(report: Report, label: Label, pipeline: str | None = None) -> str:
     """
-    Write a report to .claude/pipeline/<source>-report.json. Always call, even when
-    there is nothing noteworthy to say. `context_request` is how an agent signals it
+    Write a report to .claude/pipeline/<source>-<label>-report.json. Always call, even
+    when there is nothing noteworthy to say. `context_request` is how an agent signals it
     cannot proceed — set it instead of writing a "## Context Request" heading in prose;
     the orchestrator branches on `report.context_request is not None`. A report is not
     proof-of-execution: it carries no checks[] or exit codes.
+    label: a short kebab-case slug describing what this call's result covers (e.g.
+        "add-priority-field") — specific enough that two agents of the same type
+        running in parallel are unlikely to pick the same one. On an actual on-disk
+        collision, a random 4-hex-char disambiguator is appended rather than
+        overwriting the earlier file.
     pipeline: optional override for multi-track runs, e.g. '.claude/pipeline/track-a'
     """
+    _LABEL_ADAPTER.validate_python(label)
     pipeline_dir = _pipeline_dir(pipeline)
 
     payload = report.model_dump(mode="json")
@@ -227,9 +263,9 @@ def write_report(report: Report, pipeline: str | None = None) -> str:
         **payload,
     }
 
-    out_path = pipeline_dir / f"{report.source}-report.json"
+    out_path = _unique_path(pipeline_dir, report.source, label, "report")
     out_path.write_text(json.dumps(out, indent=2))
-    return f"wrote {pipeline or DEFAULT_PIPELINE}/{report.source}-report.json"
+    return f"wrote {pipeline or DEFAULT_PIPELINE}/{out_path.name}"
 
 
 if __name__ == "__main__":

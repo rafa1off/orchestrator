@@ -83,6 +83,7 @@ fi
 # Collect every candidate for this source across the default dir and all track subdirs,
 # then keep only those this agent could plausibly have written.
 FRESH_FILE=""
+BEST_TS=0
 while IFS= read -r candidate; do
   [ -f "$candidate" ] || continue
   WRITTEN_AT=$(jq -r '.written_at // 0' "$candidate" 2>/dev/null || echo 0)
@@ -93,12 +94,12 @@ while IFS= read -r candidate; do
   if [ "$WRITTEN_AT" -eq 0 ]; then
     WRITTEN_AT=$(stat -c %Y "$candidate" 2>/dev/null || echo 0)
   fi
-  if [ "$WRITTEN_AT" -ge "$START_TS" ]; then
+  if [ "$WRITTEN_AT" -ge "$START_TS" ] && [ "$WRITTEN_AT" -ge "$BEST_TS" ]; then
     FRESH_FILE="$candidate"
-    break
+    BEST_TS="$WRITTEN_AT"
   fi
 done <<EOF
-$(find "$PIPELINE_ROOT" -name "${SOURCE}-${FILE_SUFFIX}.json" 2>/dev/null)
+$(find "$PIPELINE_ROOT" -name "${SOURCE}-*-${FILE_SUFFIX}.json" 2>/dev/null)
 EOF
 
 if [ -z "$FRESH_FILE" ]; then
@@ -107,7 +108,7 @@ if [ -z "$FRESH_FILE" ]; then
   # limit or been aborted; SubagentStop carries no terminal_reason or aborted field to
   # tell these apart, so the message reports the observation and quotes the agent.
   DETAIL="No ${SOURCE}-${FILE_SUFFIX}.json written during this run"
-  if find "$PIPELINE_ROOT" -name "${SOURCE}-${FILE_SUFFIX}.json" 2>/dev/null | read -r _; then
+  if find "$PIPELINE_ROOT" -name "${SOURCE}-*-${FILE_SUFFIX}.json" 2>/dev/null | read -r _; then
     DETAIL="A ${SOURCE}-${FILE_SUFFIX}.json exists but predates this run (stale — from an earlier round or another track)"
   fi
   SUMMARY=""

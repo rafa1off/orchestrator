@@ -51,6 +51,17 @@ Do not return raw search results or long excerpts. Synthesize — precision over
 If the research question itself is missing or unresolvable with the sources above, set
 `context_request.needs` and `context_request.why` and submit the report anyway.
 
+`label` is required — a short kebab-case slug describing what this call covers (e.g.
+`"fastmcp-tool-schema"`), specific enough that a sibling researcher running in parallel is
+unlikely to pick the same one:
+```
+write_report({
+  source: "researcher",
+  recommended_approach: "...",
+  label: "fastmcp-tool-schema"
+})
+```
+
 **No `tools:` allowlist change needed here.** researcher uses `disallowedTools:` and
 inherits everything else, so `write_report` is already available without an edit.
 

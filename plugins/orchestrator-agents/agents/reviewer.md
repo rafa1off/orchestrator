@@ -144,9 +144,13 @@ write_findings({
   checks: [
     { name: "review", status: "PASS", exit_code: 0, output: "git diff HEAD -- src/foo.py src/bar.py -> 2 files changed, 34 insertions(+), 6 deletions(-)" }
   ],
-  issues: []
+  issues: [],
+  label: "diff-review-foo-bar"
 })
 ```
+
+`label` is required — a short kebab-case slug describing what this call covers, specific
+enough that a sibling reviewer running in parallel is unlikely to pick the same one.
 
 For parallel tracks (orchestrator-team), pass a unique `pipeline` dir to avoid findings collisions.
 
@@ -161,6 +165,7 @@ write_findings({
   ],
   issues: [
     "path/to/file:42 — specific issue and what to do instead"
-  ]
+  ],
+  label: "diff-review-foo-bar"
 })
 ```

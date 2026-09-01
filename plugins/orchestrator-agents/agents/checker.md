@@ -95,9 +95,13 @@ write_findings({
     { name: "lint",      status: "PASS", exit_code: 0, output: "" },
     { name: "typecheck", status: "PASS", exit_code: 0, output: "" }
   ],
-  issues: []
+  issues: [],
+  label: "lint-typecheck-build"
 })
 ```
+
+`label` is required — a short kebab-case slug describing what this call covers, specific
+enough that a sibling checker running in parallel is unlikely to pick the same one.
 
 For parallel tracks (orchestrator-team), pass a unique `pipeline` dir to avoid findings collisions.
 
@@ -111,6 +115,7 @@ write_findings({
     { name: "lint",      status: "PASS",  exit_code: 0,    output: "" },
     { name: "typecheck", status: "ERROR", exit_code: null, output: "mypy: command not found — not in pyproject.toml [dependency-groups].dev, not on PATH" }
   ],
-  issues: []
+  issues: [],
+  label: "lint-typecheck-build"
 })
 ```

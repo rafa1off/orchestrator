@@ -80,6 +80,18 @@ conditional on the missing piece rather than leaving it empty. If you can reason
 gap, finish the analysis and record it in `caveats` instead — a conditional answer now beats
 a complete one after a round trip. Never fill the gap by guessing.
 
+`label` is required — a short kebab-case slug describing what this call covers (e.g.
+`"sort-key-tradeoffs"`), specific enough that a sibling thinker running in parallel is
+unlikely to pick the same one:
+```
+write_report({
+  source: "thinker",
+  mode: "analysis",
+  recommendation: "...",
+  label: "sort-key-tradeoffs"
+})
+```
+
 ## Memory
 
 Your memory lives under `.claude/agent-memory/` in a directory derived from your
