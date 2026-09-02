@@ -45,10 +45,10 @@
       "strict": true
     },
     {
-      "name": "vtsls-lsp",
-      "source": "./plugins/vtsls-lsp",
-      "version": "1.0.1",
-      "description": "TypeScript/JavaScript LSP via vtsls \u2014 go-to-definition, find-references, document-symbol on .ts/.tsx/.js files. Requires: npm install -g @vtsls/language-server",
+      "name": "tsgo-lsp",
+      "source": "./plugins/tsgo-lsp",
+      "version": "1.0.0",
+      "description": "TypeScript/JavaScript LSP via tsgo \u2014 go-to-definition, find-references, document-symbol on .ts/.tsx/.js/.jsx files. Requires: tsc --lsp --stdio",
       "strict": true
     }
   ]

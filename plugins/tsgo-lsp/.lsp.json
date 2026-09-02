@@ -1,7 +1,8 @@
 {
   "servers": {
-    "command": "vtsls",
+    "command": "tsc",
     "args": [
+      "--lsp",
       "--stdio"
     ],
     "extensionToLanguage": {

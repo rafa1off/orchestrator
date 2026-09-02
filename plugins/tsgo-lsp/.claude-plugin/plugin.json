@@ -1,0 +1,9 @@
+{
+  "name": "tsgo-lsp",
+  "version": "1.0.0",
+  "description": "TypeScript/JavaScript LSP via tsgo — go-to-definition, find-references, document-symbol on .ts/.tsx/.js/.jsx files. Requires: tsc --lsp --stdio",
+  "author": {
+    "name": "Rafael Giuriatto",
+    "email": "rafael.giuriatto@resolva.ai"
+  }
+}

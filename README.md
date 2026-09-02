@@ -11,7 +11,7 @@ A private Claude Code plugin marketplace for the orchestrator multi-agent develo
 | [`orchestrator-hooks`](#orchestrator-hooks) | Full hook suite (SessionStart/End, SubagentStart/Stop findings guards, PreToolUse guardrails, PostToolUse findings + writer-overlap, PreCompact) | `jq` |
 | [`orchestrator-mcp`](#orchestrator-mcp) | Dev-tools MCP server (`write_findings` pipeline contract) | `uv` |
 | [`ty-lsp`](#ty-lsp) | Python LSP via Astral ty | `uv tool install ty` |
-| [`vtsls-lsp`](#vtsls-lsp) | TypeScript/JavaScript LSP via vtsls | `npm install -g @vtsls/language-server` |
+| [`tsgo-lsp`](#tsgo-lsp) | TypeScript/JavaScript LSP via tsgo | `tsc --lsp --stdio` |
 
 **Dependency chain:** installing `orchestrator-skills` pulls in the full stack automatically.
 
@@ -96,7 +96,7 @@ claude plugin install orchestrator-skills@orchestrator
 claude plugin install ty-lsp@orchestrator
 
 # TypeScript/JavaScript LSP — install for TS/JS projects
-claude plugin install vtsls-lsp@orchestrator
+claude plugin install tsgo-lsp@orchestrator
 ```
 
 To install components individually:
@@ -296,11 +296,11 @@ Python LSP via [Astral ty](https://github.com/astral-sh/ty). Provides go-to-defi
 
 ---
 
-## vtsls-lsp
+## tsgo-lsp
 
-TypeScript and JavaScript LSP via [vtsls](https://github.com/yioneko/vtsls). Provides go-to-definition, find-references, hover, and document-symbol on `.ts`, `.tsx`, `.js`, and `.jsx` files.
+TypeScript and JavaScript LSP via tsgo. Provides go-to-definition, find-references, hover, and document-symbol on `.ts`, `.tsx`, `.js`, and `.jsx` files.
 
-**Prerequisite:** `npm install -g @vtsls/language-server`
+**Prerequisite:** `tsc --lsp --stdio` must be available on `PATH`.
 
 ---
 
