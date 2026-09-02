@@ -20,7 +20,7 @@ The main Claude Code session acts as orchestrator. Agents are tools — call the
 | orchestrator-agents:thinker | opus | medium | readonly | Analysis, brainstorming, architectural decisions. Isolates verbose reasoning from main context. Writes guarded reports to `thinker-report.json`. |
 | orchestrator-agents:writer | sonnet | low | read+write | Produce code changes from a context block. Writes guarded reports to `writer-report.json`. |
 | orchestrator-agents:checker | haiku | *(none)* | readonly | Lint + typecheck + build checks only — no diff review. Writes guarded findings to `checker-findings.json`; call any time. |
-| orchestrator-agents:reviewer | sonnet | medium | readonly | Diff review only — no lint/typecheck. Writes guarded findings to `reviewer-findings.json`; always spawn fresh for a clean diff baseline. |
+| orchestrator-agents:reviewer | opus | medium | readonly | Diff review only — no lint/typecheck. Writes guarded findings to `reviewer-findings.json`; always spawn fresh for a clean diff baseline. |
 | orchestrator-agents:tester | sonnet | low | readonly | Run the suite and diagnose each failure (regression vs stale test vs flaky). Never writes or fixes tests. Writes guarded findings to `tester-findings.json`. |
 
 > **Trust is in the guard, not the agent's word.** All seven agents return through a

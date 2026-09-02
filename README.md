@@ -197,7 +197,7 @@ Two workflow skills for the orchestrator session:
 | `orchestrator-agents:thinker` | opus | medium | readonly | Deep reasoning, tradeoff analysis, brainstorming; isolates verbose analysis from main context; writes `thinker-report.json` |
 | `orchestrator-agents:writer` | sonnet | low | read+write | Produces minimal, focused code changes from a context block; writes `writer-report.json` listing modified files |
 | `orchestrator-agents:checker` | haiku | *(absent — inert on haiku)* | readonly | Lint + typecheck + build only — no diff review; call any time, writes `checker-findings.json` |
-| `orchestrator-agents:reviewer` | sonnet | medium | readonly | Diff review only — no lint/typecheck; always spawned fresh, writes `reviewer-findings.json` |
+| `orchestrator-agents:reviewer` | opus | medium | readonly | Diff review only — no lint/typecheck; always spawned fresh, writes `reviewer-findings.json` |
 | `orchestrator-agents:tester` | sonnet | low | readonly | Runs the suite and classifies each failure (REGRESSION / STALE TEST / FLAKY / UNCLEAR) with evidence — never writes or fixes tests |
 
 **Dispatch mode:** agents always run as background subagents — fork mode is on by default in

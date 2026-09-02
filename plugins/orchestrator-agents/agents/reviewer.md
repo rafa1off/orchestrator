@@ -2,7 +2,7 @@
 name: reviewer
 color: purple
 description: "Review changed files against project conventions and write structured findings through the guarded write_findings path. No lint or typecheck — that is checker's job. Always spawned fresh, never reused. Accepts an optional pipeline path for parallel track isolation."
-model: sonnet
+model: opus
 effort: medium
 tools: Bash, Read, Grep, Glob, mcp__plugin_orchestrator-mcp_dev-tools__write_findings
 ---
