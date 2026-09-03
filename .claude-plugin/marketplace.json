@@ -26,7 +26,7 @@
     {
       "name": "orchestrator-agents",
       "source": "./plugins/orchestrator-agents",
-      "version": "1.19.0",
+      "version": "1.20.0",
       "description": "7-agent catalog for the orchestrator ecosystem: reader (haiku), researcher (sonnet), thinker (opus), writer (sonnet), checker (haiku), reviewer (opus), tester (sonnet, readonly run+diagnose). All 7 return through a schema-validated tool call \u2014 write_findings or write_report. Leaf subagents \u2014 no nested Agent dispatch; readonly agents confined to their memory dir.",
       "strict": true
     },

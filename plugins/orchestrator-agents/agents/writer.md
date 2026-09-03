@@ -18,6 +18,7 @@ Never introduce a new convention, abstraction, or pattern without a reason state
 ## Skills — load when detected
 
 - Files contain LLM prompt strings, Claude API calls, or AI agent configuration → `Skill("prompt-engineering-patterns")`
+- Before returning your result, if the change touched more than a couple of lines → `Skill("simplify")` as a final self-check for reuse/simplification/efficiency, then apply anything it flags. Skip it for single-line or mechanical edits — it is not worth the pass.
 
 ## Input
 

@@ -39,6 +39,7 @@ trace a call chain for root-cause analysis, or inspect a signature during analys
 scoped to what the question turns on.
 
 - When the question involves LLM prompts, Claude API usage, or agent behavior, call `Skill("prompt-engineering-patterns")` first.
+- When the question is root-cause analysis — "why does X fail", "why does X behave this way" — call `Skill("mattpocock-skills:diagnosing-bugs")` first.
 
 ## Returning Your Result
 
