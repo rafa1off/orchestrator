@@ -37,7 +37,11 @@ over-fire on a session that never touches this plan.
 review below) is conditional on a plan-backed run** — one with `.claude/plans/progress.md`
 for the work in question. Plan-less, single-request verification (above) is unaffected: no
 confirmation is asked, no commit is made, and the round cap is counted in-session only, with
-nothing persisted.
+nothing persisted. The commit ledger itself lives at `.claude/plans/<same stem as
+`progress.md`'s `**Plan:**` value>.jsonl` — one file per plan, created on its first
+`write_ledger_entry` call and never overwritten across different plans (unlike `progress.md`,
+which is overwritten each time a new plan archives). "The ledger" below always means this
+per-plan file, derived the same way every time.
 
 Run Start runs its checks in this order, each one keyed on the field's literal value (its
 first whitespace-delimited token — the stored value carries a trailing date), never on its
@@ -48,7 +52,7 @@ mere presence:
    yet confirmed", never as `declined` or `confirmed`.
    - **Token is `declined`:** stop here. Do not capture Base, do not snapshot WIP, do not ask
      again. This plan runs in the pre-this-mechanism mode for the rest of its execution: no
-     per-task commits, no `progress.jsonl` lines, `progress.md` checkboxes set directly by the
+     per-task commits, no ledger lines, `progress.md` checkboxes set directly by the
      orchestrator from each task's verification outcome, and the full-branch review never runs
      (skipped silently — the user was already told once, at the moment they declined, why).
    - **Token is `confirmed`:** proceed to step 2.
@@ -67,7 +71,7 @@ mere presence:
    absent, for a pre-this-mechanism `progress.md`) → obtain the current HEAD sha (`git
    rev-parse HEAD`) and write it now, this is a fresh start. Any other value (an actual sha is
    already recorded) → never silently overwritten by this step — specifically not "no
-   validated line exists in `progress.jsonl`", which would reopen the gate incorrectly after
+   validated line exists in the ledger", which would reopen the gate incorrectly after
    a rebase (a plan resumed after a history rewrite can have committed tasks whose lines all
    fail `--is-ancestor` validation while still being a mid-execution resume, not a fresh
    start). The one exception to "never overwritten" is the explicit user instruction
@@ -94,7 +98,7 @@ mere presence:
    for a fresh WIP snapshot to lose track of. But it must exclude one thing to stay correct:
    the file set of any task that is currently in-flight — defined as: a task with a `Task N:
    writer dispatched.` or `Task N: forced fix applied.` line in `progress.md`'s `## Verify
-   Rounds` section (see the Adjudication Protocol, below) whose last `progress.jsonl` line, if
+   Rounds` section (see the Adjudication Protocol, below) whose last ledger line, if
    any, is not a **terminal** status. Terminal statuses are `complete` and
    `complete-with-parked` only — `reverted` and the degraded status-omitted line are not
    terminal for this purpose. This is the single test; nothing else defines "in-flight" for
@@ -216,26 +220,31 @@ was dispatched that epoch — e.g. a re-verify-only epoch after a compaction): s
 guard for this commit and surface one line to the user stating it was skipped, never commit
 silently as if a stale snapshot still applied.
 
-**Ledger writes use no `Bash`, on every write, not only the degraded path below:** appending
-a line to `progress.jsonl` is `Read` the current file, append the new JSON line to its
-content in memory, `Write` the full file back — the same two tools the orchestrator already
-has for every `complete`/`complete-with-parked`/`reverted` append. `Bash` is needed only for
-the actual `git add` / `git commit` / `git revert` operations, never for recording their
-result in the ledger.
+**Ledger writes go through `mcp__plugin_orchestrator-mcp_dev-tools__write_ledger_entry`, on
+every write, not only the degraded path below** — never a hand-rolled `Read`/`Write` append.
+The tool takes `entry` (the fields below) and `plan` (the archive stem — see above); it
+appends and creates the file on first use, so nothing needs to pre-create it. This is schema
+validation, not subagent-boundary attestation (the orchestrator itself is both the actor that
+ran the commit and the caller of this tool, so there is no proof-of-execution gap to bridge)
+— what it buys is a malformed call being rejected and retried instead of silently corrupting
+a line every later Resuming/Run Start/Adjudication Protocol read depends on parsing
+correctly. `Bash` is needed only for the actual `git add` / `git commit` / `git revert`
+operations, never for recording their result in the ledger.
 
 **Degraded path — a specific commit cannot be made (Bash denied or unavailable for this
 commit, distinct from `**Auto-commit:** declined`, which stops per-task commits for the whole
-run before any commit is attempted):** append a `progress.jsonl` line with `sha: null` and
-`status` omitted, and surface this to the user immediately. On any later resume, a
+run before any commit is attempted):** call `write_ledger_entry` with `sha: null` and
+`status`/`files` omitted, and surface this to the user immediately. On any later resume, a
 `sha: null` line always renders `[!]`.
 
 **Failure path:**
 - Task already committed, needs undoing → `git revert <sha>` (a new commit, never a history
-  rewrite) → append `{"task": N, "sha": "<revert-sha>", "status": "reverted", "reverts":
-  "<original-sha>"}`.
+  rewrite) → `write_ledger_entry({task: N, sha: "<revert-sha>", status: "reverted", reverts:
+  "<original-sha>"}, plan: "<stem>")`.
 - Task not yet committed → discard the writer's edits; no ledger line is written.
 
-**`progress.jsonl` schema** — append-only, one line per ledger event, e.g.:
+**Ledger schema** — append-only, one line per ledger event (each line the JSON body of one
+`write_ledger_entry` call), e.g.:
 ```json
 {"task": 3, "sha": "a1b2c3d", "files": ["path/a.ts", "path/b.ts"], "status": "complete"}
 {"task": 4, "sha": "b2c3d4e", "files": ["path/c.ts"], "status": "complete-with-parked", "ruling": "trailing whitespace flagged by reviewer, cosmetic, parked at round cap"}
@@ -329,7 +338,7 @@ At the cap, every open finding from checker/reviewer must be explicitly adjudica
 never silently dropped:
 - **Parked** — recorded with a one-line ruling stating why it is not blocking (e.g. cosmetic,
   out of scope, pre-existing). The task is accepted with `status: "complete-with-parked"` in
-  `progress.jsonl`, and the ruling text travels with that ledger line.
+  the ledger, and the ruling text travels with that ledger line.
 - **Forced fix** — if the finding is load-bearing (breaks a stated acceptance criterion,
   introduces a correctness bug), exactly **one** more writer dispatch is made specifically
   to fix it, followed by exactly **one** re-verify pass — neither of which counts against
@@ -339,7 +348,7 @@ never silently dropped:
   pass has not yet run when the section is next read (e.g. a compaction landed between the
   forced-fix dispatch and its re-verify), that is exactly the same as any other in-flight
   task per Run Start step 3's exclusion rule — its presence in `## Verify Rounds` with no
-  terminal `progress.jsonl` line already marks it in-flight. Before authorizing a forced fix,
+  terminal ledger line already marks it in-flight. Before authorizing a forced fix,
   the cap logic checks for a `Task N: forced fix applied.` line for that task; if present, a
   second forced fix is never authorized — the still-open finding escalates to the user
   instead, exactly as an unresolved load-bearing finding does after the one permitted forced

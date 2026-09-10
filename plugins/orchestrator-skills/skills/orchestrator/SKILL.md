@@ -52,15 +52,16 @@ These rules hold regardless of task size or route. Never violate them.
 On session start, or after a context compaction, read `.claude/plans/progress.md` before doing anything else — it carries deliverable status and recorded decisions. Also read `.claude/pipeline/pre-compact-snapshot.md` if it exists.
 
 When `progress.md`'s `**Auto-commit:**` field (read by its first whitespace-delimited token)
-is `confirmed`, also read `.claude/plans/progress.jsonl` and validate each line's `sha` (when
-not `null`) with `git merge-base --is-ancestor <sha> HEAD` (treat any non-zero exit as failed
-validation, not specifically exit code 1) — this reconstructs each task's status marker.
-Each line is validated independently; a line that fails validation reverts only that task's
-status to unknown, with no fallback to an earlier line for the same task — an unknown last
-line means unknown status, never a resurrected earlier "complete". This ledger is
-branch-local and history-rewrite-fragile: after a rebase, expect every prior line to
-re-validate as unknown rather than trusting a coincidentally-resolving sha. When the token is
-`declined`, or before it is ever confirmed, `progress.jsonl` is empty by construction and this
+is `confirmed`, also read the plan's ledger — `.claude/plans/<same stem as **Plan:**>.jsonl`
+— and validate each line's `sha` (when not `null`) with `git merge-base --is-ancestor <sha>
+HEAD` (treat any non-zero exit as failed validation, not specifically exit code 1) — this
+reconstructs each task's status marker. Each line is validated independently; a line that
+fails validation reverts only that task's status to unknown, with no fallback to an earlier
+line for the same task — an unknown last line means unknown status, never a resurrected
+earlier "complete". The ledger is branch-local and history-rewrite-fragile: after a rebase,
+expect every prior line to re-validate as unknown rather than trusting a coincidentally-
+resolving sha. When the token is `declined`, or before it is ever confirmed, the ledger has
+no lines to read (it may not even exist yet — it is created on its first append) and this
 read is a no-op — it never resets an orchestrator-set checkbox back to pending. Resuming does
 not dispatch anything and does not perform `## Run Start`'s writes (Base, WIP snapshot,
 confirmation) — those belong solely to `## Run Start`, below.

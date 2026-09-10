@@ -19,6 +19,13 @@ DEFAULT_PIPELINE = ".claude/pipeline"
 
 LABEL_PATTERN = r"^[a-z0-9]+(-[a-z0-9]+)*$"
 Label = Annotated[str, Field(pattern=LABEL_PATTERN, min_length=1, max_length=40)]
+
+# A plan's archive stem, e.g. "2026-09-09-orchestrator-plan-and-commit-ledger" — the
+# same stem `.claude/plans/<stem>.md` is archived under, with no directory and no
+# extension. The ledger is named identically, `.jsonl` in place of `.md`.
+PLAN_PATTERN = r"^\d{4}-\d{2}-\d{2}-[a-z0-9]+(-[a-z0-9]+)*$"
+PlanSlug = Annotated[str, Field(pattern=PLAN_PATTERN, min_length=11, max_length=200)]
+_PLAN_ADAPTER = TypeAdapter(PlanSlug)
 # `Label`'s Field(pattern=...) only self-enforces when used as a BaseModel field (like
 # Findings/Report below) or when FastMCP validates a real tool call against the generated
 # schema. write_findings/write_report take `label` as a bare function parameter, so a
@@ -183,6 +190,24 @@ Report = Annotated[
 ]
 
 
+# --- Ledger model --------------------------------------------------------------
+# One line per commit event in a plan's append-only .claude/plans/<plan>.jsonl. Unlike
+# findings/reports, this does not cross a subagent boundary — the orchestrator both runs
+# the `git commit`/`git revert` and calls this tool in the same breath, so there is no
+# proof-of-execution to attest (no `checks[]`, no exit code). What this model buys is
+# schema validation only: a malformed line would otherwise silently corrupt a file every
+# later Resuming/Run Start/Adjudication Protocol read depends on parsing correctly.
+
+
+class LedgerEntry(_Strict):
+    task: int
+    sha: str | None  # null ONLY on the degraded, Bash-unavailable path
+    status: Literal["complete", "complete-with-parked", "reverted"] | None = None
+    files: list[str] | None = None
+    ruling: str | None = None  # set only when status == "complete-with-parked"
+    reverts: str | None = None  # set only when status == "reverted"
+
+
 mcp = FastMCP("dev-tools")
 
 
@@ -266,6 +291,42 @@ def write_report(report: Report, label: Label, pipeline: str | None = None) -> s
     out_path = _unique_path(pipeline_dir, report.source, label, "report")
     out_path.write_text(json.dumps(out, indent=2))
     return f"wrote {pipeline or DEFAULT_PIPELINE}/{out_path.name}"
+
+
+def _plan_ledger_path(plan: str) -> Path:
+    plans_dir = PROJECT_DIR / ".claude/plans"
+    plans_dir.mkdir(parents=True, exist_ok=True)
+    return plans_dir / f"{plan}.jsonl"
+
+
+@mcp.tool()
+def write_ledger_entry(entry: LedgerEntry, plan: PlanSlug) -> str:
+    """
+    Append one line to .claude/plans/<plan>.jsonl — the per-plan commit ledger. Always
+    append, never rewrite an existing line — a task may accumulate more than one line
+    (e.g. a commit, then a later revert); the last line per task number is that task's
+    current status.
+    plan: the plan's archive stem exactly as recorded in progress.md's **Plan:** field
+        (e.g. "2026-09-09-orchestrator-plan-and-commit-ledger", no directory, no
+        extension). The ledger is named identically with a `.jsonl` extension, alongside
+        the plan's own `.md` file under `.claude/plans/`, and is never overwritten across
+        different plans — unlike `progress.md`, the single "current effort" view, which
+        is overwritten each time a new plan archives. The file is created on first
+        append; nothing needs to pre-create it.
+    `sha` is required on every entry — use `null` only on the degraded, Bash-unavailable
+    path (where `status`/`files` are also omitted, since neither is known). `status`,
+    `files`, `ruling`, `reverts` are included only when applicable to that line's outcome;
+    unset fields are omitted from the written line, never written as an explicit `null`
+    placeholder (except `sha`, which is always present, sometimes `null`).
+    """
+    _PLAN_ADAPTER.validate_python(plan)
+    path = _plan_ledger_path(plan)
+    payload = entry.model_dump(mode="json", exclude_none=True)
+    payload["sha"] = entry.sha  # always present, even when null (degraded path) —
+    # exclude_none above would otherwise drop it like any other None field
+    with path.open("a") as f:
+        f.write(json.dumps(payload) + "\n")
+    return f"appended to .claude/plans/{path.name}"
 
 
 if __name__ == "__main__":
