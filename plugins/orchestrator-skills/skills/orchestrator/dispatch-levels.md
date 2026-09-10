@@ -57,7 +57,7 @@ A **subagent** (the 7 agents: reader, researcher, thinker, writer, checker, revi
 | Writer B needed Writer A's output interface first | L2 parallel | L1 sequential or L3a pipeline | Parallel writers assume no ordering dependency — violated here |
 | L3a Workflow for 2–3 independent file sets | L3a | L2 | Scripting overhead not justified below 4 tracks |
 | L1 for a task touching 8 disjoint modules | L1 | L2 or L3a | Single-writer context bloats; parallel dispatch keeps context focused |
-| Verification looping indefinitely with no fix landing | Open-ended loop | Escalate to the user | Discretionary verification is not license to loop forever without resolution |
+| Verification loop reaches round cap (5) with findings still open | Keep looping, or drop findings silently | Follow verification.md's `## Adjudication Protocol`: park with ruling, or forced fix if load-bearing (tester findings always escalate to the user) | The cap exists so a stuck loop resolves via explicit decision, never via silent discard or infinite retry |
 | Budget loop on a write task | Budget loop | Fixed L1/discretionary verification | Writes need deterministic scope; depth-scaling is for analysis |
 | Workflow-ifying a routine checker/reviewer/tester pass | L3a workflow | Inline dispatch | Wrong scale; routine verification is inline and user-in-loop by design |
 

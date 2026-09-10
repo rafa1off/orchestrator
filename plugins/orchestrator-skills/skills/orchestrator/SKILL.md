@@ -51,10 +51,48 @@ These rules hold regardless of task size or route. Never violate them.
 
 On session start, or after a context compaction, read `.claude/plans/progress.md` before doing anything else — it carries deliverable status and recorded decisions. Also read `.claude/pipeline/pre-compact-snapshot.md` if it exists.
 
+When `progress.md`'s `**Auto-commit:**` field (read by its first whitespace-delimited token)
+is `confirmed`, also read `.claude/plans/progress.jsonl` and validate each line's `sha` (when
+not `null`) with `git merge-base --is-ancestor <sha> HEAD` (treat any non-zero exit as failed
+validation, not specifically exit code 1) — this reconstructs each task's status marker.
+Each line is validated independently; a line that fails validation reverts only that task's
+status to unknown, with no fallback to an earlier line for the same task — an unknown last
+line means unknown status, never a resurrected earlier "complete". This ledger is
+branch-local and history-rewrite-fragile: after a rebase, expect every prior line to
+re-validate as unknown rather than trusting a coincidentally-resolving sha. When the token is
+`declined`, or before it is ever confirmed, `progress.jsonl` is empty by construction and this
+read is a no-op — it never resets an orchestrator-set checkbox back to pending. Resuming does
+not dispatch anything and does not perform `## Run Start`'s writes (Base, WIP snapshot,
+confirmation) — those belong solely to `## Run Start`, below.
+
 Reports in `.claude/pipeline/*-report.json` are not part of this resume step — they are
 cleared alongside findings on session start/end and are current-turn scratch, already
 delivered to you by the `PostToolUse` auto-injection the moment they were written. There is
 nothing stale to recover from them across a compaction the way there is for `progress.md`.
+
+---
+
+## Run Start
+
+For a plan-backed run (one with `.claude/plans/progress.md`), before the first writer
+dispatch of each **epoch** (session start, and again at every compaction-resume — these are
+not the same thing), the orchestrator confirms auto-commit, captures `**Base:**`, and
+snapshots WIP state, so per-task commits and the final full-branch review below have what
+they need. Read [verification.md](verification.md#run-start) for the full trigger, the
+3-step algorithm, and every degraded/edge case (declined confirmation, a rebased Base, Bash
+unavailable, in-flight-task exclusion from the WIP snapshot) before any plan-backed run's
+first writer dispatch.
+
+---
+
+## Final Full-Branch Review
+
+For a plan-backed run, once every file-authoring task is `complete`/`complete-with-parked`
+(and, for L2/L3, after the existing integration pass in `dispatch-levels.md`), dispatch one
+fresh `reviewer` scoped to the whole branch, diffed against the recorded `Base` — this
+applies to multi-task L1 work too, not only L2/L3. Read
+[verification.md](verification.md#final-full-branch-review) for the precondition, the
+`<files>` union, and why it diffs against `Base` rather than `git merge-base`.
 
 ---
 

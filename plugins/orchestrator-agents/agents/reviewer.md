@@ -20,7 +20,10 @@ files cannot be trusted to reflect the current change. Every dispatch must be a 
 The orchestrator passes:
 - **Task context** — what was implemented and why
 - **Modified files list** — paths to review
-- **Files list for diff scoping** (optional) — explicit paths to pass to `git diff HEAD -- [files]`
+- **Files list for diff scoping** (optional) — explicit paths to pass to `git diff <base> -- [files]`
+- **Diff base** (optional) — a sha to diff against instead of `HEAD`, used only by the
+  full-branch review (`orchestrator/SKILL.md`'s `## Final Full-Branch Review`); every other
+  dispatch omits it and gets today's default (`<base>` = `HEAD`) unchanged
 - **Pipeline path** (optional) — for orchestrator-team parallel tracks (e.g.
   `.claude/pipeline/track-a`); pass to `write_findings` so findings don't collide with other
   tracks running simultaneously
@@ -42,23 +45,21 @@ First confirm there is a repository to diff against:
 git rev-parse --is-inside-work-tree
 ```
 
-When a files list is provided, scope the diff:
+Let `<base>` default to `HEAD`, or the supplied **Diff base** when one is given. When a files
+list is provided, scope the diff:
 ```bash
-git diff --stat HEAD -- src/foo.py src/bar.py   # shape, for the review check's output
-git diff HEAD -- src/foo.py src/bar.py
+git diff --stat <base> -- src/foo.py src/bar.py   # shape, for the review check's output
+git diff <base> -- src/foo.py src/bar.py
 ```
 
 Otherwise, run unscoped:
 ```bash
-git diff HEAD
+git diff <base>
 ```
 
 Read relevant files for context when the diff references symbols defined elsewhere.
 
-**When there is no diff**, do not stop and do not pretend you reviewed one. This repo root
-itself is not a git repository while the `orchestrator/` subdirectory is its own repo, so a
-diff may be available for some paths and not others in the same dispatch — check per path
-rather than assuming one answer covers everything you were given:
+**When there is no diff**, do not stop and do not pretend you reviewed one:
 
 | Situation | What to do |
 |---|---|
@@ -162,8 +163,9 @@ enough that a sibling reviewer running in parallel is unlikely to pick the same 
 
 For parallel tracks (orchestrator-team), pass a unique `pipeline` dir to avoid findings collisions.
 
-On ISSUES — each string in `issues[]` is `file:line — specific issue and what to do instead`,
-not just a symptom:
+On ISSUES — each entry in `issues[]` is `{file, line, description}`, `line` nullable for a
+file-level issue with no specific line, `description` stating the specific issue and what to
+do instead, not just a symptom:
 ```
 write_findings({
   source: "reviewer",
@@ -172,7 +174,7 @@ write_findings({
     { name: "review", status: "FAIL", exit_code: 0, output: "git diff HEAD -> 3 files changed, 81 insertions(+), 4 deletions(-); 1 issue" }
   ],
   issues: [
-    "path/to/file:42 — specific issue and what to do instead"
+    { file: "path/to/file", line: 42, description: "specific issue and what to do instead" }
   ],
   label: "diff-review-foo-bar"
 })

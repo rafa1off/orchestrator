@@ -28,10 +28,24 @@ report says so explicitly — an omitted section reads as "not considered".
 **Date:** YYYY-MM-DD
 **In scope:** [what this plan will change]
 **Out of scope:** [adjacent things it deliberately will not touch]
+**Architecture:** [one line — the shape of the change, e.g. "new module + two call-site edits"]
+**Tech Stack:** [languages/frameworks touched, only if the plan introduces or constrains one]
+**Spec:** [path to the source spec/requirements doc, or explicit "none — scoped from conversation"]
 ```
 
 `Out of scope` is not filler. It is what rules out "while I was in here" edits, and what
 tells a reviewer that an untouched neighbour was a decision, not an oversight.
+
+Global Constraints (below) is exempt from §3's precedent rule: §3 Conventions in Force
+requires every rule to cite a `file:line` precedent, but a spec-derived constraint has no
+code precedent to cite — it is anchored to the `Spec` path above instead.
+
+```markdown
+## Global Constraints
+
+[Requirements copied verbatim from the spec that every task inherits implicitly — version
+floors, naming rules, exact config values. "None" is a valid, explicit entry.]
+```
 
 ### 2. Explanation
 
@@ -187,6 +201,11 @@ data structure whose shape *is* the specification.
 Deliverables, named after *what changes* — never after who changes it, and never after the
 agent that would do it.
 
+A task is the smallest unit of change that can be independently accepted or rejected. Fold
+setup, config, or docs into the task that uses them; only split a task out where an
+independent accept/reject decision on it is meaningful — where accepting it and rejecting
+its neighbor is a coherent outcome.
+
 ```markdown
 ## Tasks
 
@@ -196,13 +215,26 @@ agent that would do it.
 4. archive tests + update `test_row_shape` — files: `tests/test_archive.py`, `tests/test_tasks.py`
 ```
 
-Every task carries its **file set** — the files that deliverable touches. Two tasks naming
-the same file are two changes to one file: a fact about the change, and one that belongs on
-the page rather than being discovered later.
+Every task that authors or modifies a file carries its **file set** — the files that
+deliverable touches; a verification-only task — one whose deliverable is a check passing,
+not a file changing — carries none. Two tasks naming the same file are two changes to one
+file: a fact about the change, and one that belongs on the page rather than being discovered
+later.
 
-State any **dependency between tasks** explicitly, because file sets cannot express it:
-task B may call or import what task A creates while sharing no file with it. Nothing in the
-file lists reveals that ordering — only the contracts do, and only if you write it down.
+Declare each task's Consumes and Produces explicitly, because file sets cannot express this
+dependency: task B may call or import what task A creates while sharing no file with it, and
+nothing in the file lists reveals that ordering.
+
+```markdown
+**Consumes:** [symbol names this task depends on from an earlier task, each naming either
+the producing task number or a precedent `file:line` — never a restated signature; omit this
+line entirely for a task that consumes nothing]
+**Produces:** [symbol names this task exposes to later tasks — each must have a full contract
+entry already specified in §6 Change Contracts (a function signature, a route, or any other
+§6 entry shape); this block names the symbol and points at its §6 entry, it does not repeat
+the contract; omit this line entirely for a task that produces nothing for a later task to
+consume]
+```
 
 ### 8. Acceptance & Verification
 
@@ -226,6 +258,28 @@ change with no rollback path is a risk that has to be stated, not one to leave i
 
 ---
 
+## No Placeholders
+
+A plan may not contain:
+- "TBD", "later", or any deferred-decision marker.
+- "add appropriate error handling" or any other unspecified-behavior phrase — §6 states the
+  exact error behavior or the plan is not done.
+- "similar to Task N" without repeating the actual contract — a task file is read in
+  isolation by whoever implements it; a cross-reference to prose in another task is not
+  load-bearing.
+- A reference to any type or function not defined in this plan's §6 or in a cited precedent.
+
+## Coherence Pass
+
+Before the Completeness Gate, the plan's author confirms:
+- Every section of the source spec (§1 Spec path) is addressed by at least one task, or
+  explicitly marked out of scope in §1.
+- No placeholder from "No Placeholders" survived a later edit to the plan.
+- Every **Consumes** block's symbol matches, name-for-name and type-for-type, the
+  **Produces** block (or precedent) it points at.
+
+---
+
 ## Completeness Gate
 
 Do not call `ExitPlanMode` until every line is true. Each one maps to a failure this
@@ -244,6 +298,10 @@ format exists to prevent.
 - [ ] Every side-effect category in §5 is answered, `none` included.
 - [ ] Anything not derivable from a contract plus its precedent is pinned as a literal.
 - [ ] Nothing outside `In scope` is modified by any task.
+- [ ] Every symbol named in a **Produces** block has a full contract entry in §6 Change
+      Contracts.
+- [ ] Every symbol named in a **Consumes** block names either a producing task number (whose
+      **Produces** lists that symbol) or a precedent `file:line` — never a restated contract.
 
 If a checkbox fails because research is missing, go back and research it. Filling it from
 memory is how a plan comes out confident and wrong.

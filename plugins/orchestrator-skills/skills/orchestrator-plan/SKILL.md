@@ -72,18 +72,19 @@ you have not. In brief:
 
 | § | Section | Carries |
 |---|---|---|
-| 1 | Header | goal, date, in scope, **out of scope** |
+| 1 | Header | goal, date, in scope, **out of scope**, Architecture, Tech Stack, Spec, Global Constraints |
 | 2 | Explanation | rationale and the rejected alternative, for the human approving |
 | 3 | Conventions in Force | discovered rules, each with a `file:line` precedent |
 | 4 | Artifacts | everything that will exist afterwards — source, tests, deps, schema, config, env, generated output, docs, versions, CI |
 | 5 | Side Effects & Blast Radius | call sites, data, test churn, compat, hooks, concurrency |
 | 6 | Change Contracts | per file: exact signatures, types, error behavior, precedent to mirror — **no bodies** |
-| 7 | Tasks | deliverables, each with its file set and the contracts it implements |
+| 7 | Tasks | deliverables, each with its file set (file-authoring tasks) or none (verification-only tasks) and the contracts it implements |
 | 8 | Acceptance & Verification | what done means; which test failures are expected |
 | 9 | Risks & Rollback | what could go wrong and how to undo it |
 
-Then run the **Completeness Gate** at the end of plan-format.md. It is a real gate — do not
-proceed to Step 5 with a failing line.
+Run No Placeholders, then the Coherence Pass, then the Completeness Gate — the Coherence
+Pass is prose judgment, the Gate is mechanical checklist, run in that order. Do not proceed
+to Step 5 with a failing Gate line.
 
 ---
 
@@ -100,19 +101,22 @@ Call `ExitPlanMode`. Claude Code reads the plan file from Step 4 and presents it
 **The plan was just approved. Execute this step now — no further user input is needed.**
 
 1. Write the plan to `.claude/plans/YYYY-MM-DD-<feature-name>.md`. The system plan file from Step 4 is session-scoped and will not survive a new session — this archive is what makes deferred or repeated execution possible, and what gets committed to git as a decision record.
-2. Create `.claude/plans/progress.md` from the plan's `## Tasks` section — one `- [ ] N. <deliverable> — <file set>` line per numbered item, plus a `**Plan:**` header pointing at the archive path from step 1, an `**Updated:**` timestamp, a `## Decisions` section seeded with any decisions the user made while planning, and an empty `## Verify Rounds` section. Overwrite any existing ledger — it describes one active effort.
+2. Create `.claude/plans/progress.md` from the plan's `## Tasks` section — one line per numbered item (`- [ ] N. <deliverable> — <file set>`, or `- [ ] N. <deliverable>` with no trailing `—` at all when the task is verification-only, no file set), plus a `**Plan:**` header pointing at the archive path from step 1, an `**Updated:**` timestamp, a `**Base:**` header line reading `not yet captured`, an `**Auto-commit:**` header line reading `not yet confirmed`, a `## Decisions` section seeded with any decisions the user made while planning, and an empty `## Verify Rounds` section. Overwrite any existing `progress.md` — it describes one active effort.
+3. Create an empty `.claude/plans/progress.jsonl` alongside it — an append-only ledger of per-task commit events, populated as the orchestrator executes the plan (see `verification.md` and `orchestrator/SKILL.md`'s `## Run Start`/`## Resuming`). Overwrite any existing `progress.jsonl` the same way — a stale one from an earlier effort would have shas that still validate as genuine ancestors of HEAD, silently rendering the previous effort's completion status instead of this one's.
 
 ```markdown
 # Progress — <feature name>
 
 **Plan:** `.claude/plans/YYYY-MM-DD-<feature>.md`
 **Updated:** YYYY-MM-DDTHH:MMZ
+**Base:** not yet captured
+**Auto-commit:** not yet confirmed
 
 ## Deliverables
 
 - [x] 1. <deliverable> — `file`, `file`
-- [>] 2. <deliverable> — `file`
-- [ ] 3. <deliverable> — `file`
+- [ ] 2. <deliverable> — `file`
+- [ ] 3. <deliverable>
 
 ## Decisions
 
@@ -120,9 +124,28 @@ Call `ExitPlanMode`. Claude Code reads the plan file from Step 4 and presents it
 
 ## Verify Rounds
 
-- Round 1: N findings, dispatched to writer. Round 2: clean.
+- Task 1: writer dispatched.
+- Task 1, round 1: 3 findings.
+- Task 1, round 2: 0 findings.
 ```
 
-`[ ]` is pending, `[>]` in progress, `[x]` done. The numeric prefix makes each line a unique edit target even when two deliverables share text.
+`**Auto-commit:**` is read by its first whitespace-delimited token (the stored value carries
+a trailing date). When that token is `confirmed`, a file-authoring deliverable's marker is
+sourced from `progress.jsonl`, never hand-edited: `[ ]` is pending (including reverted), `[x]`
+is complete, `[x~]` is complete with a parked finding — rendered inline as `- [x~] N.
+<deliverable> — \`file\` (parked: <ruling text>)`, so every session renders it the same way
+rather than inventing a footnote scheme — `[!]` needs attention (a commit could not be made,
+or its recorded sha no longer validates). If the Deliverables rendering ever disagrees with a
+fresh read of `progress.jsonl` (e.g. a hand-edit was made to `progress.md`), the jsonl wins —
+`progress.md`'s markers are a cached rendering, not an independent record; this comparison is
+never made for a `declined` plan (nothing in the jsonl to compare against) or for a
+verification-only task (which never has a jsonl line). When the token is `declined`, or
+before it is ever confirmed (`not yet confirmed` or absent), or for a verification-only
+deliverable (no file set) regardless of Auto-commit, only `[ ]`/`[x]` are used, set directly
+by the orchestrator based on the outcome of the check it names — there is no ledger line to
+source from in any of these cases. The numeric prefix makes each line a unique edit target
+even when two deliverables share text. One line per numbered §7 task, full stop: a task's
+`**Consumes:**`/`**Produces:**` sub-lines are plan content, not Deliverables-list content —
+they are never rendered into `progress.md`'s Deliverables list.
 
 The plan is now done. Execution is the orchestrator's.
