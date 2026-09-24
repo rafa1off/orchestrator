@@ -11,10 +11,10 @@ Read this file when you need the full input/output contract for a specific agent
 | orchestrator-agents:reader | task + file paths | writes `<pipeline>/reader-<label>-report.json` via `write_report` (`relevant_files` / `interfaces` / `conventions` / `entry_points` / `test_files`, plus `context_request` when blocked) |
 | orchestrator-agents:researcher | task + research question | writes `<pipeline>/researcher-<label>-report.json` via `write_report` (`prior_decisions` / `api_reference` / `recommended_approach` / `caveats`, plus `context_request` when blocked) |
 | orchestrator-agents:thinker | context block + question | writes `<pipeline>/thinker-<label>-report.json` via `write_report` (`mode`-specific fields plus a required `recommendation`); reads its own context via `Read`/`Grep`/`Glob` and sets `context_request` when it needs broad mapping or external research |
-| orchestrator-agents:writer | `## Context` + `## Task` + `## Files to modify` | writes `<pipeline>/writer-<label>-report.json` via `write_report` (`modified[]` with exact paths, `in_scope` flagged per entry) |
-| orchestrator-agents:checker | files to check (optional) + pipeline path (optional, for track isolation) | writes `<pipeline>/checker-<label>-findings.json` via `write_findings` (`checks[]` only, no `issues[]`) |
-| orchestrator-agents:reviewer | task context + modified files list + pipeline path (optional, for track isolation) | writes `<pipeline>/reviewer-<label>-findings.json` via `write_findings` (`issues[]` at `file:line`, plus a `checks[]` entry for the review pass) |
-| orchestrator-agents:tester | task + intended behavior change + changed files + what to test + pipeline path | writes `<pipeline>/tester-<label>-findings.json` via `write_findings` (`checks` table + `failures[]` classified REGRESSION / STALE_TEST / FLAKY / UNCLEAR with evidence); readonly (never edits code or tests) |
+| orchestrator-agents:writer | `## Context` + `## Task` + `## Files to modify`; plan-backed: `plan` + counters (see [verification.md](verification.md#steps)) | writes `<pipeline>/writer-<label>-report.json` via `write_report` (`modified[]` with exact paths, `in_scope` flagged per entry) |
+| orchestrator-agents:checker | files to check (optional) + pipeline path (optional, for track isolation); plan-backed: `plan` + counters (see [verification.md](verification.md#steps)) | writes `<pipeline>/checker-<label>-findings.json` via `write_findings` (`checks[]` only, no `issues[]`) |
+| orchestrator-agents:reviewer | task context + modified files list + pipeline path (optional, for track isolation); plan-backed: `plan` + counters (see [verification.md](verification.md#steps)) | writes `<pipeline>/reviewer-<label>-findings.json` via `write_findings` (`issues[]` at `file:line`, plus a `checks[]` entry for the review pass) |
+| orchestrator-agents:tester | task + intended behavior change + changed files + what to test + pipeline path; plan-backed: `plan` + counters (see [verification.md](verification.md#steps)) | writes `<pipeline>/tester-<label>-findings.json` via `write_findings` (`checks` table + `failures[]` classified REGRESSION / STALE_TEST / FLAKY / UNCLEAR with evidence); readonly (never edits code or tests) |
 
 `<label>` is a required, agent-supplied kebab-case slug describing what that call's result
 covers (e.g. `checker-lint-typecheck-build-findings.json`) — it is what lets two agents of
@@ -30,6 +30,19 @@ and writer run none — the guard demands only that the report is present and fr
 that it is substantiated by a process outcome.
 
 File deletion is an orchestrator action: no agent holds `Bash`, and `Write`/`Edit` cannot remove a file, so a task requiring a file to be deleted must have the orchestrator perform the deletion — a writer asked to do it can only empty the file and report.
+
+---
+
+## Plan-scoped parameters
+
+`write_findings` and `write_report` take plan-scoped values the orchestrator threads into
+dispatch prompts — see [verification.md](verification.md#steps) for the threading rule.
+
+- **checker / reviewer / tester** receive `plan`, `seq`, and either `task` + `attempt` (a task's review) or `branch_round` (the Final Full-Branch Review).
+- **writer** receives `plan`, `task`, `attempt`.
+- **reader / researcher / thinker** never receive `plan` — the server rejects it on their report calls.
+
+Agents echo these values unchanged into their `write_findings` / `write_report` calls; they don't compute or reinterpret them.
 
 ---
 
