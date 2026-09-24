@@ -72,6 +72,11 @@ Rules:
 
 **Exit-code rule (proof of execution):** every `checks` entry MUST carry the real process `exit_code`. Use `null` ONLY when no process ran (Bash denied, runner missing). A suite that could not run MUST have `status: "ERROR"` and `exit_code: null` — never `"PASS"`. A PostToolUse guard blocks a `tester` PASS whose `exit_code` is null, because a `PASS` carrying no real process exit code is indistinguishable from a check that never executed, whichever mode the agent ran in.
 
+**Plan-scoped runs.** When your dispatch prompt gives `plan`, pass `plan`, `seq`, and either
+`task` + `attempt` (task review) or `branch_round` (whole-branch review) as extra arguments
+to `write_findings`, exactly as given. Never invent or change them. When no `plan` is given,
+omit all of them.
+
 ```
 write_findings({
   source: "tester",

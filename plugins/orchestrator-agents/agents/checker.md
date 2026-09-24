@@ -86,6 +86,11 @@ Name the missing thing when reporting ERROR — `ruff: command not found` is act
 `could not run lint` is not. If a tool resolves from the environment rather than the
 project's declared dependencies, say so: it may not exist on another machine.
 
+**Plan-scoped runs.** When your dispatch prompt gives `plan`, pass `plan`, `seq`, and either
+`task` + `attempt` (task review) or `branch_round` (whole-branch review) as extra arguments
+to `write_findings`, exactly as given. Never invent or change them. When no `plan` is given,
+omit all of them.
+
 On PASS:
 ```
 write_findings({

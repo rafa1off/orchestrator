@@ -145,6 +145,11 @@ tool is missing). A review that could not run MUST have `status: "ERROR"` — ne
 unsubstantiated PASS is indistinguishable from a run that never happened, which is the exact
 failure this guard exists to catch.
 
+**Plan-scoped runs.** When your dispatch prompt gives `plan`, pass `plan`, `seq`, and either
+`task` + `attempt` (task review) or `branch_round` (whole-branch review) as extra arguments
+to `write_findings`, exactly as given. Never invent or change them. When no `plan` is given,
+omit all of them.
+
 On APPROVED:
 ```
 write_findings({

@@ -49,6 +49,10 @@ Produce the minimal code that satisfies the task. No extra abstractions, no erro
 
 ## Returning Your Result
 
+**Plan-scoped runs.** When your dispatch prompt gives `plan`, pass `plan`, `task`, and
+`attempt` as extra arguments to `write_report`, exactly as given. Never invent or change
+them. When no `plan` is given, omit all of them.
+
 Call `write_report` with `source: "writer"` to return your result — this is your return
 value, not the final message you write after it. The `SubagentStop` guard blocks completion
 without a fresh report, so a prose summary alone does not count as done.
