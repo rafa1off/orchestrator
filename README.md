@@ -180,7 +180,7 @@ Two workflow skills for the orchestrator session:
 | Skill | When to use |
 |---|---|
 | `/orchestrator-skills:orchestrator` | Load at every session start — the agent routing guide: 7-agent catalog, 3 core invariants, L1/L2/L3 dispatch levels (L3 via `Workflow`), dispatch mode rules, routing special cases. Lazy-loads `dispatch-levels.md`, `verification.md`, and `agent-contracts.md` on demand. |
-| `/orchestrator-skills:orchestrator-plan` | Before any multi-step task — enters plan mode, runs reader/researcher in parallel, writes a plan to `.claude/plans/`, creates the `.claude/plans/progress.md` ledger, then dispatches after approval following L1/L2/L3. |
+| `/orchestrator-skills:orchestrator-plan` | Before any multi-step task — enters plan mode, runs reader/researcher in parallel, writes a plan to `.claude/plans/`, starts the plan's `.claude/plans/<plan>.jsonl` event log, then dispatches after approval following L1/L2/L3. |
 
 **Dependencies:** `orchestrator-agents`, `orchestrator-hooks`
 
@@ -235,7 +235,7 @@ Hook suite that automates the orchestrator's pipeline contracts:
 
 | Event | Trigger | Behavior |
 |---|---|---|
-| `SessionStart` | Session begins or resumes | Clears stale findings, reports, start-stamps, and the write log from `.claude/pipeline/` (including `track-*/` subdirs); `.claude/plans/progress.md` and `.claude/metrics/` are untouched — both are persistent |
+| `SessionStart` | Session begins or resumes | Clears stale findings, reports, start-stamps, and the write log from `.claude/pipeline/` (including `track-*/` subdirs); `.claude/plans/*.jsonl` and `.claude/metrics/` are untouched — both are persistent |
 | `SubagentStart` (all 7 agents) | Agent spawns | Records the start time keyed by `agent_id` — the reference point the freshness check below compares against |
 | `SubagentStop` (all 7 agents) | Agent finishes | For checker/reviewer/tester: **blocks** unless findings were written *during this run* and every `checks[]` entry carries a real `exit_code`. For reader/writer/thinker/researcher: **blocks** unless a report was written during this run and is fresh — no exit codes to check, since none of them runs commands. Blocks via `decision: "block"` with a reason, so the agent gets a retry instruction rather than a dead end |
 | `SubagentStop` (writer, checker, reviewer, tester) | Agent finishes | Appends `<iso8601>\t<agent_type>\t<elapsed_seconds>` to `.claude/metrics/agent-timings.tsv`, capped at 1000 rows past 2000; every failure path (missing stamp, unwritable dir, absent `jq`) still exits 0 and clears the stamp |
@@ -244,8 +244,8 @@ Hook suite that automates the orchestrator's pipeline contracts:
 | `PreToolUse` (`Write`/`Edit`) | thinker/researcher write | **Blocks** any path outside `.claude/agent-memory/` |
 | `PostToolUse` (`write_findings`\|`write_report`) | Findings or report file written | Proof-of-execution guard for findings, presence-and-freshness guard for reports, then injects the file's content as `additionalContext` |
 | `PostToolUse` (`Write`/`Edit`) | writer edits a file | Logs `agent_id`→path to `.claude/pipeline/write-log.tsv` and flags the file when a *different* writer already touched it (invariant 2) |
-| `PreCompact` | Context compaction begins | Snapshots the findings files (`checker-findings.json`, `reviewer-findings.json`, `tester-findings.json`) and the report files (`reader-report.json`, `writer-report.json`, `thinker-report.json`, `researcher-report.json`) to `.claude/pipeline/pre-compact-snapshot.md`; `progress.md` is not read here — it is durable at a fixed path and needs no snapshot |
-| `SessionEnd` | Session terminates | Appends to `.claude/pipeline/session-log.txt` (capped at 500 lines) and clears findings, reports, stamps, and the write log; `.claude/plans/progress.md` and `.claude/metrics/` are untouched — both are persistent |
+| `PreCompact` | Context compaction begins | Snapshots the findings files (`checker-findings.json`, `reviewer-findings.json`, `tester-findings.json`) and the report files (`reader-report.json`, `writer-report.json`, `thinker-report.json`, `researcher-report.json`) to `.claude/pipeline/pre-compact-snapshot.md` |
+| `SessionEnd` | Session terminates | Appends to `.claude/pipeline/session-log.txt` (capped at 500 lines) and clears findings, reports, stamps, and the write log; `.claude/plans/*.jsonl` and `.claude/metrics/` are untouched — both are persistent |
 
 ### Fail-closed principle
 
