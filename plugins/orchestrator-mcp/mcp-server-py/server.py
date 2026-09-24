@@ -8,6 +8,7 @@ import errno
 import json
 import os
 import re
+import subprocess
 import sys
 import time
 import uuid
@@ -16,7 +17,7 @@ from pathlib import Path
 from typing import Annotated, Literal
 
 from fastmcp import FastMCP
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 
 if sys.platform == "win32":
     import msvcrt
@@ -554,7 +555,7 @@ def _fold(cache: _PlanCache, data: bytes) -> None:
             continue
         try:
             ev = json.loads(line)
-        except ValueError:
+        except (ValueError, RecursionError):
             continue
         if not isinstance(ev, dict):
             continue
@@ -622,7 +623,7 @@ def _append(plan: str, events: list[dict]) -> list[dict]:
                     first_line = data.split(b"\n", 1)[0]
                     try:
                         first_ev = json.loads(first_line)
-                    except ValueError:
+                    except (ValueError, RecursionError):
                         first_ev = None
                     if (
                         not isinstance(first_ev, dict)
@@ -714,6 +715,19 @@ def _append(plan: str, events: list[dict]) -> list[dict]:
             _unlock(fd)
     finally:
         os.close(fd)
+
+
+def _serialize(event: BaseModel) -> dict:
+    """The plan-event write serialization rule (§4.2): dump excluding None, then
+    re-add every ALWAYS_WRITTEN_NULLABLE[kind] field (as None when absent), then
+    the task_amended rule (keep "files": None only when explicitly set)."""
+    dumped = event.model_dump(mode="json", exclude_none=True)
+    kind = dumped["kind"]
+    for field in ALWAYS_WRITTEN_NULLABLE.get(kind, frozenset()):
+        dumped[field] = getattr(event, field)
+    if kind == "task_amended" and "files" in event.model_fields_set:
+        dumped["files"] = getattr(event, "files", None)
+    return dumped
 
 
 mcp = FastMCP("dev-tools")
@@ -821,13 +835,421 @@ def write_plan_event(event: PlanEvent, plan: PlanSlug) -> str:
     status is "written" or "duplicate" (a retried call reports the ORIGINAL ts).
     """
     _PLAN_ADAPTER.validate_python(plan)
-    dumped = event.model_dump(mode="json", exclude_none=True)
-    for field in ALWAYS_WRITTEN_NULLABLE.get(event.kind, frozenset()):
-        dumped[field] = getattr(event, field)
-    if event.kind == "task_amended" and "files" in event.model_fields_set:
-        dumped["files"] = event.files
+    dumped = _serialize(event)
     outcomes = _append(plan, [dumped])
     return "events: " + json.dumps(outcomes)
+
+
+def _read_all_lines(path: Path) -> list[dict]:
+    """Reads every line of a plan's .jsonl, tolerating any unparseable line at any
+    position (REQ-019) — never raises. Missing/0-byte file -> []."""
+    if not path.exists():
+        return []
+    events: list[dict] = []
+    for line in path.read_bytes().split(b"\n"):
+        if not line:
+            continue
+        try:
+            ev = json.loads(line)
+        except (ValueError, RecursionError):
+            continue
+        if not isinstance(ev, dict):
+            continue
+        events.append(ev)
+    return events
+
+
+@mcp.tool()
+def read_plan_events(
+    plan: PlanSlug,
+    kind: str | None = None,
+    task: int | None = None,
+    since_ts: int | None = None,
+    limit: int | None = None,
+) -> list[dict]:
+    """
+    Returns raw, unreconstructed lines from .claude/plans/<plan>.jsonl, in file order
+    (oldest first), filtered by every supplied parameter (`since_ts` means ts >=
+    since_ts; `limit` keeps the first N matches). No lock is taken — this is a plain
+    read. Any unparseable line, at any position, is silently skipped (REQ-019). A
+    missing or 0-byte file returns [] rather than raising — unlike get_plan_state,
+    this tool makes no existence claim about the plan.
+    """
+    _PLAN_ADAPTER.validate_python(plan)
+    path = PROJECT_DIR / ".claude/plans" / f"{plan}.jsonl"
+    out: list[dict] = []
+    for ev in _read_all_lines(path):
+        ev_kind = ev.get("kind")
+        if not isinstance(ev_kind, str):
+            continue
+        if kind is not None and ev_kind != kind:
+            continue
+        if task is not None and ev.get("task") != task:
+            continue
+        if since_ts is not None:
+            ts = ev.get("ts")
+            if not isinstance(ts, int) or isinstance(ts, bool) or ts < since_ts:
+                continue
+        out.append(ev)
+        if limit is not None and len(out) >= limit:
+            break
+    return out
+
+
+class TaskState(_Strict):
+    task: int
+    status: Literal[
+        "complete", "complete-with-parked", "reverted", "commit_failed", "dropped", "in_progress"
+    ] | None
+    ready: bool
+    in_flight: bool
+    last_attempt: int
+    forced_fix_used: bool
+    sha: str | None
+    sha_valid: bool | None
+    files: list[str] | None
+    round_count: int
+
+
+class PlanState(_Strict):
+    plan: str
+    epoch: int
+    closed: bool
+    auto_commit: Literal["confirmed", "declined"] | None
+    base_sha: str | None
+    base_sha_valid: bool | None
+    current_wip: list[str] | None
+    tasks: dict[int, TaskState]
+    ready_for_final_review: bool
+    next_seq: dict[str, int]
+    current_branch_round: int
+    current_branch_round_verifiers: list[str]
+    branch_round_complete: bool
+
+
+def _is_int(x: object) -> bool:
+    """int-typed check that excludes bool (a bool subclasses int in Python)."""
+    return isinstance(x, int) and not isinstance(x, bool)
+
+
+# kind -> model for every shape that can appear in a plan's .jsonl: the 16 PlanEvent
+# members plus the internal server-built kinds (verify_round, branch_check,
+# branch_review, branch_test, writer_returned). `escalation` is ambiguous by kind
+# alone (PlanEscalation vs TaskEscalation) and is special-cased in _validate_line.
+_KIND_TO_MODEL: dict[str, type[BaseModel]] = {
+    "plan_archived": PlanArchived,
+    "task_created": TaskCreated,
+    "task_amended": TaskAmended,
+    "task_dropped": TaskDropped,
+    "decision": Decision,
+    "auto_commit": AutoCommit,
+    "base_recorded": BaseRecorded,
+    "epoch_start": EpochStart,
+    "plan_complete": PlanComplete,
+    "plan_abandoned": PlanAbandoned,
+    "writer_dispatched": WriterDispatched,
+    "ruling": Ruling,
+    "task_complete": TaskComplete,
+    "commit_failed": CommitFailed,
+    "task_reverted": TaskReverted,
+    "verify_round": VerifyRound,
+    "branch_check": BranchCheck,
+    "branch_review": BranchReview,
+    "branch_test": BranchTest,
+    "writer_returned": WriterReturned,
+}
+
+
+def _validate_line(ev: dict) -> dict | None:
+    """Validates one already-JSON-parsed line's shape against its kind's model
+    (REQ-019: a bad line is skipped, never raised). Requires `kind` to be a str and
+    `ts` an int (not bool); the line minus `ts` is validated against the kind's model,
+    with `escalation` routed to PlanEscalation or TaskEscalation by `task`. Returns
+    the original dict (including `ts`) on success, None otherwise."""
+    kind = ev.get("kind")
+    if not isinstance(kind, str):
+        return None
+    if not _is_int(ev.get("ts")):
+        return None
+    if kind == "escalation":
+        model = PlanEscalation if ev.get("task") is None else TaskEscalation
+    else:
+        model = _KIND_TO_MODEL.get(kind)
+        if model is None:
+            return None
+    body = {k: v for k, v in ev.items() if k != "ts"}
+    try:
+        model.model_validate(body)
+    except ValidationError:
+        return None
+    return ev
+
+
+_SEQ_KEYED_KINDS = frozenset(
+    {
+        "decision", "task_amended", "ruling", "escalation", "auto_commit",
+        "base_recorded", "verify_round", "commit_failed",
+        "branch_check", "branch_review", "branch_test",
+    }
+)
+
+_BRANCH_KINDS = ("branch_check", "branch_review", "branch_test")
+
+
+def _sha_valid(sha: str | None, validate_shas: bool) -> bool | None:
+    """CON-003/AC-010: git merge-base --is-ancestor, fixed argv, cwd=PROJECT_DIR.
+    Returncode 0 -> True, 1 -> False; anything else (including a missing/failing
+    git or a sha that doesn't match _SHA_PATTERN) -> None, never False."""
+    if sha is None or not validate_shas or not isinstance(sha, str) or not _SHA_PATTERN.match(sha):
+        return None
+    try:
+        result = subprocess.run(
+            ["git", "merge-base", "--is-ancestor", sha, "HEAD"],
+            cwd=PROJECT_DIR,
+            capture_output=True,
+            check=False,
+        )
+    except (FileNotFoundError, OSError):
+        return None
+    if result.returncode == 0:
+        return True
+    if result.returncode == 1:
+        return False
+    return None
+
+
+def _task_last_attempt(evs: list[dict]) -> int:
+    attempts = [
+        e["attempt"]
+        for e in evs
+        if e.get("kind") in _ATTEMPT_KINDS and _is_int(e.get("attempt"))
+    ]
+    return max(attempts, default=0)
+
+
+def _task_in_flight(evs: list[dict]) -> bool:
+    dispatched = [
+        e
+        for e in evs
+        if e.get("kind") == "writer_dispatched" and _is_int(e.get("attempt"))
+    ]
+    if not dispatched:
+        return False
+    highest = max(dispatched, key=lambda e: e["attempt"])
+    attempt = highest["attempt"]
+    return not any(
+        e.get("kind") == "writer_returned" and e.get("attempt") == attempt for e in evs
+    )
+
+
+def _task_files(evs: list[dict]) -> list[str] | None:
+    files: list[str] | None = None
+    for e in evs:
+        if e.get("kind") in ("task_created", "task_amended") and "files" in e:
+            files = e["files"]
+    return files
+
+
+def _task_state(task: int, evs: list[dict], validate_shas: bool) -> TaskState:
+    if any(e.get("kind") == "task_dropped" for e in evs):
+        return TaskState(
+            task=task,
+            status="dropped",
+            ready=False,
+            in_flight=False,
+            last_attempt=_task_last_attempt(evs),
+            forced_fix_used=False,
+            sha=None,
+            sha_valid=None,
+            files=_task_files(evs),
+            round_count=0,
+        )
+
+    terminal_kinds = {"task_complete", "task_reverted", "commit_failed"}
+    T = None
+    for e in evs:  # last in FILE ORDER wins — never highest attempt, never ts
+        if e.get("kind") in terminal_kinds:
+            T = e
+
+    in_flight = _task_in_flight(evs)
+    if T is None:
+        status = "in_progress" if in_flight else None
+    elif T["kind"] == "task_complete":
+        status = T.get("status")
+    elif T["kind"] == "task_reverted":
+        status = "reverted"
+    else:
+        status = "commit_failed"
+
+    ready = False
+    sha = None
+    if T is not None and T["kind"] == "task_complete":
+        sha = T.get("sha")
+        t_attempt = T.get("attempt")
+        if _is_int(t_attempt):
+            higher_exists = any(
+                e.get("kind") in _ATTEMPT_KINDS
+                and _is_int(e.get("attempt"))
+                and e["attempt"] > t_attempt
+                for e in evs
+            )
+            ready = not higher_exists
+
+    last_reverted_attempt = max(
+        (
+            e["attempt"]
+            for e in evs
+            if e.get("kind") == "task_reverted" and _is_int(e.get("attempt"))
+        ),
+        default=None,
+    )
+    window = (
+        evs
+        if last_reverted_attempt is None
+        else [
+            e
+            for e in evs
+            if _is_int(e.get("attempt")) and e["attempt"] > last_reverted_attempt
+        ]
+    )
+
+    # M4: an attempt whose writer_dispatched.reason == "branch_fix" is excluded
+    # from round_count regardless of its verify_round results.
+    branch_fix_attempts = {
+        e["attempt"]
+        for e in window
+        if e.get("kind") == "writer_dispatched"
+        and e.get("reason") == "branch_fix"
+        and _is_int(e.get("attempt"))
+    }
+    round_attempts = {
+        e["attempt"]
+        for e in window
+        if e.get("kind") == "verify_round"
+        and e.get("forced_fix") is False
+        and _is_int(e.get("attempt"))
+        and e["attempt"] not in branch_fix_attempts
+    }
+
+    forced_fix_used = any(
+        e.get("kind") == "writer_dispatched" and e.get("reason") == "forced_fix" for e in window
+    )
+
+    return TaskState(
+        task=task,
+        status=status,
+        ready=ready,
+        in_flight=in_flight,
+        last_attempt=_task_last_attempt(evs),
+        forced_fix_used=forced_fix_used,
+        sha=sha,
+        sha_valid=_sha_valid(sha, validate_shas),
+        files=_task_files(evs),
+        round_count=len(round_attempts),
+    )
+
+
+@mcp.tool()
+def get_plan_state(plan: PlanSlug, validate_shas: bool = True) -> PlanState:
+    """
+    Reconstructs a plan's current state from a full sequential read of its event log
+    (spec §4.1) — no lock is taken. Fails with the SAME ValueError, never a PlanState
+    with default/guessed fields, when .claude/plans/<plan>.jsonl is missing, is 0
+    bytes (REQ-003's stray-empty-file case), or its first line is missing,
+    unparseable, not a dict, or not a plan_archived event (CON-012's torn-first-line
+    case). Any OTHER unparseable line, at any position, is silently skipped (REQ-019)
+    rather than causing a failure. `validate_shas=False` sets every sha_valid field
+    to None without running git at all.
+    """
+    _PLAN_ADAPTER.validate_python(plan)
+    path = PROJECT_DIR / ".claude/plans" / f"{plan}.jsonl"
+    if not path.exists() or path.stat().st_size == 0:
+        raise ValueError(f"plan log not found or not valid: {plan}")
+
+    first_line = path.read_bytes().split(b"\n", 1)[0]
+    try:
+        first_ev = json.loads(first_line)
+    except (ValueError, RecursionError):
+        first_ev = None
+    if (
+        not isinstance(first_ev, dict)
+        or first_ev.get("kind") != "plan_archived"
+        or not isinstance(first_ev.get("plan"), str)
+    ):
+        raise ValueError(f"plan log not found or not valid: {plan}")
+
+    events = _read_all_lines(path)
+
+    epoch = 0
+    closed = False
+    auto_commit: str | None = None
+    base_sha: str | None = None
+    current_wip: list[str] | None = None
+    next_seq: dict[str, int] = {k: 1 for k in _SEQ_KEYED_KINDS}
+    current_branch_round = 0
+    branch_verifiers_at_round: dict[int, set[str]] = {}
+    tasks_order: list[int] = []
+    tasks_events: dict[int, list[dict]] = {}
+
+    for raw_ev in events:
+        ev = _validate_line(raw_ev)
+        if ev is None:
+            continue
+        kind = ev.get("kind")
+
+        if kind == "epoch_start" and _is_int(ev.get("epoch")):
+            epoch = max(epoch, ev["epoch"])
+            current_wip = ev.get("wip")
+        elif kind in ("plan_complete", "plan_abandoned"):
+            closed = True
+        elif kind == "auto_commit":
+            auto_commit = ev.get("status")
+        elif kind == "base_recorded":
+            base_sha = ev.get("sha")
+        elif kind in _BRANCH_KINDS and _is_int(ev.get("round")):
+            rnd = ev["round"]
+            current_branch_round = max(current_branch_round, rnd)
+            branch_verifiers_at_round.setdefault(rnd, set()).add(kind)
+        elif kind == "task_created" and _is_int(ev.get("task")):
+            if ev["task"] not in tasks_order:
+                tasks_order.append(ev["task"])
+
+        if (
+            kind in _SEQ_KEYED_KINDS
+            and _is_int(ev.get("seq"))
+            and (kind != "escalation" or ev.get("task") is None)
+        ):
+            next_seq[kind] = max(next_seq[kind], ev["seq"] + 1)
+
+        task = ev.get("task")
+        if isinstance(task, int) and not isinstance(task, bool):
+            tasks_events.setdefault(task, []).append(ev)
+
+    tasks = {t: _task_state(t, tasks_events.get(t, []), validate_shas) for t in tasks_order}
+
+    verifiers_at_current = branch_verifiers_at_round.get(current_branch_round, set())
+    current_branch_round_verifiers = sorted(verifiers_at_current)
+    branch_round_complete = current_branch_round == 0 or len(verifiers_at_current) == 3
+
+    ready_for_final_review = all(
+        ts.ready for ts in tasks.values() if ts.status != "dropped" and ts.files is not None
+    )
+
+    return PlanState(
+        plan=plan,
+        epoch=epoch,
+        closed=closed,
+        auto_commit=auto_commit,
+        base_sha=base_sha,
+        base_sha_valid=_sha_valid(base_sha, validate_shas),
+        current_wip=current_wip,
+        tasks=tasks,
+        ready_for_final_review=ready_for_final_review,
+        next_seq=next_seq,
+        current_branch_round=current_branch_round,
+        current_branch_round_verifiers=current_branch_round_verifiers,
+        branch_round_complete=branch_round_complete,
+    )
 
 
 if __name__ == "__main__":

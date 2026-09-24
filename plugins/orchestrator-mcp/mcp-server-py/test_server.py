@@ -23,6 +23,8 @@ server: Any = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(server)
 
 write_plan_event = getattr(server.write_plan_event, "fn", server.write_plan_event)
+read_plan_events = getattr(server.read_plan_events, "fn", server.read_plan_events)
+get_plan_state = getattr(server.get_plan_state, "fn", server.get_plan_state)
 
 PLAN = "2026-09-24-test-plan"
 
@@ -799,3 +801,690 @@ def test_fold_skips_valid_json_invalid_events(plan):
     assert set(cache.key_to_ts) == {("plan_archived",), ("decision", 99)}
     assert cache.key_to_ts[("plan_archived",)] == 1
     assert cache.dispatch_reason == {}
+
+
+# --- Task 2: read_plan_events / get_plan_state ---------------------------------
+
+
+def _vr(plan_stem, task, attempt, source, seq, forced_fix=False, status="PASS"):
+    server._append(
+        plan_stem,
+        [
+            server._serialize(
+                server.VerifyRound(
+                    kind="verify_round", task=task, attempt=attempt, source=source, seq=seq,
+                    status=status, findings_total=0, forced_fix=forced_fix,
+                )
+            )
+        ],
+    )
+
+
+def _returned(plan_stem, task, attempt):
+    server._append(
+        plan_stem,
+        [
+            server._serialize(
+                server.WriterReturned(
+                    kind="writer_returned", task=task, attempt=attempt,
+                    in_scope=["f.py"], out_of_scope=[], context_request=None,
+                )
+            )
+        ],
+    )
+
+
+# --- AC-001a --------------------------------------------------------------------
+
+
+def test_ac_001a():
+    src = _SERVER_PATH.read_text()
+    assert "progress.md" not in src
+    assert "write_ledger_entry" not in src
+
+
+# --- AC-002d ----------------------------------------------------------------------
+
+
+def test_ac_002d(plan):
+    path = _log_path(plan)
+    path.touch()
+    assert path.stat().st_size == 0
+    with pytest.raises(ValueError):
+        get_plan_state(plan)
+
+
+def test_ac_002d_missing_file(plan):
+    assert not _log_path(plan).exists()
+    with pytest.raises(ValueError):
+        get_plan_state(plan)
+
+
+def test_ac_002d_torn_first_line(plan):
+    path = _log_path(plan)
+    good = json.dumps({"kind": "plan_archived", "plan": plan, "ts": 1}).encode()
+    path.write_bytes(b'{"kind": "decision", "text": "trunc\n' + good + b"\n")
+    with pytest.raises(ValueError):
+        get_plan_state(plan)
+
+
+def test_ac_002d_blank_first_line(plan):
+    path = _log_path(plan)
+    good = json.dumps({"kind": "plan_archived", "plan": plan, "ts": 1}).encode()
+    path.write_bytes(b"\n" + good + b"\n")
+    with pytest.raises(ValueError):
+        get_plan_state(plan)
+
+
+def test_ac_002d_non_plan_archived_first_line(plan):
+    path = _log_path(plan)
+    bad_first = json.dumps({"kind": "decision", "text": "t", "who": "user", "seq": 1}).encode()
+    path.write_bytes(bad_first + b"\n")
+    with pytest.raises(ValueError):
+        get_plan_state(plan)
+
+
+# --- AC-009 -------------------------------------------------------------------
+
+
+def test_ac_009(plan):
+    import subprocess as sp
+
+    repo = server.PROJECT_DIR
+    sp.run(["git", "init"], cwd=repo, capture_output=True, check=True)
+    sp.run(["git", "config", "user.email", "a@b.c"], cwd=repo, capture_output=True, check=True)
+    sp.run(["git", "config", "user.name", "t"], cwd=repo, capture_output=True, check=True)
+    (repo / "f.txt").write_text("1")
+    sp.run(["git", "add", "."], cwd=repo, capture_output=True, check=True)
+    sp.run(["git", "commit", "-m", "c1"], cwd=repo, capture_output=True, check=True)
+    old_sha = sp.run(
+        ["git", "rev-parse", "HEAD"], cwd=repo, capture_output=True, text=True, check=True
+    ).stdout.strip()
+
+    _archive(plan)
+    write_plan_event(
+        server.TaskCreated(kind="task_created", task=1, deliverable="x", files=["f.txt"]), plan
+    )
+    write_plan_event(server.Decision(kind="decision", text="t", who="user", seq=1), plan)
+    _vr(plan, 1, 1, "checker", 1)
+    write_plan_event(server.Ruling(kind="ruling", task=1, seq=1, text="ok"), plan)
+    write_plan_event(
+        server.BaseRecorded(kind="base_recorded", sha=old_sha, seq=1, reason="initial"), plan
+    )
+
+    # Rewrite history: old_sha is no longer an ancestor of the new HEAD.
+    (repo / "f.txt").write_text("2")
+    sp.run(["git", "add", "."], cwd=repo, capture_output=True, check=True)
+    sp.run(
+        ["git", "commit", "--amend", "-m", "c1-amended"], cwd=repo, capture_output=True, check=True
+    )
+
+    state = get_plan_state(plan, validate_shas=True)
+    assert state.base_sha_valid is False
+
+    events = read_plan_events(plan)
+    kinds = [e["kind"] for e in events]
+    assert "task_created" in kinds
+    assert "decision" in kinds
+    assert "verify_round" in kinds
+    assert "ruling" in kinds
+
+
+# --- AC-010 -------------------------------------------------------------------
+
+
+def test_ac_010(plan, monkeypatch):
+    _archive(plan)
+    write_plan_event(
+        server.TaskCreated(kind="task_created", task=1, deliverable="x", files=["f.py"]), plan
+    )
+    write_plan_event(
+        server.WriterDispatched(
+            kind="writer_dispatched", task=1, attempt=1, reason="initial", files=["f.py"]
+        ),
+        plan,
+    )
+    write_plan_event(
+        server.TaskComplete(
+            kind="task_complete", task=1, attempt=1, status="complete", sha="a" * 40,
+            files=["f.py"], no_sha_reason=None,
+        ),
+        plan,
+    )
+    write_plan_event(
+        server.BaseRecorded(kind="base_recorded", sha="b" * 40, seq=1, reason="initial"), plan
+    )
+
+    def boom(*_a, **_kw):
+        raise FileNotFoundError()
+
+    monkeypatch.setattr(server.subprocess, "run", boom)
+
+    state = get_plan_state(plan, validate_shas=True)
+    assert state.base_sha_valid is None
+    assert state.tasks[1].sha_valid is None
+
+
+# --- AC-011 (closed half) ------------------------------------------------------
+
+
+def test_ac_011(plan):
+    _archive(plan)
+    write_plan_event(server.PlanComplete(kind="plan_complete", status="clean"), plan)
+    state = get_plan_state(plan)
+    assert state.closed is True
+
+
+# --- AC-016 -------------------------------------------------------------------
+
+
+def test_ac_016(plan):
+    _archive(plan)
+    write_plan_event(
+        server.TaskCreated(kind="task_created", task=3, deliverable="x", files=["f.py"]), plan
+    )
+    write_plan_event(
+        server.WriterDispatched(
+            kind="writer_dispatched", task=3, attempt=1, reason="initial", files=["f.py"]
+        ),
+        plan,
+    )
+    write_plan_event(
+        server.TaskComplete(
+            kind="task_complete", task=3, attempt=1, status="complete", sha="a" * 40,
+            files=["f.py"], no_sha_reason=None,
+        ),
+        plan,
+    )
+    write_plan_event(
+        server.TaskReverted(kind="task_reverted", task=3, attempt=1, sha="b" * 40, reverts="a" * 40),
+        plan,
+    )
+    write_plan_event(
+        server.WriterDispatched(
+            kind="writer_dispatched", task=3, attempt=2, reason="redo", files=["f.py"]
+        ),
+        plan,
+    )
+    write_plan_event(
+        server.TaskComplete(
+            kind="task_complete", task=3, attempt=2, status="complete", sha="c" * 40,
+            files=["f.py"], no_sha_reason=None,
+        ),
+        plan,
+    )
+
+    state = get_plan_state(plan, validate_shas=False)
+    ts = state.tasks[3]
+    assert ts.status == "complete"
+    assert ts.ready is True
+    assert ts.last_attempt == 2
+
+    lines = [l for l in _lines(plan) if l["kind"] == "task_complete"]
+    assert len(lines) == 2
+    assert {l["attempt"] for l in lines} == {1, 2}
+
+
+# --- AC-017 -------------------------------------------------------------------
+
+
+def test_ac_017(plan):
+    _archive(plan)
+    write_plan_event(
+        server.TaskCreated(kind="task_created", task=3, deliverable="x", files=["f.py"]), plan
+    )
+    write_plan_event(
+        server.WriterDispatched(
+            kind="writer_dispatched", task=3, attempt=1, reason="initial", files=["f.py"]
+        ),
+        plan,
+    )
+    write_plan_event(
+        server.TaskComplete(
+            kind="task_complete", task=3, attempt=1, status="complete", sha="a" * 40,
+            files=["f.py"], no_sha_reason=None,
+        ),
+        plan,
+    )
+    write_plan_event(
+        server.TaskReverted(kind="task_reverted", task=3, attempt=1, sha="b" * 40, reverts="a" * 40),
+        plan,
+    )
+
+    state = get_plan_state(plan, validate_shas=False)
+    assert state.tasks[3].ready is False
+    assert state.ready_for_final_review is False
+
+
+# --- AC-017a --------------------------------------------------------------------
+
+
+def test_ac_017a(plan):
+    _archive(plan)
+    write_plan_event(
+        server.TaskCreated(kind="task_created", task=3, deliverable="x", files=["f.py"]), plan
+    )
+    write_plan_event(
+        server.WriterDispatched(
+            kind="writer_dispatched", task=3, attempt=1, reason="initial", files=["f.py"]
+        ),
+        plan,
+    )
+    write_plan_event(
+        server.TaskComplete(
+            kind="task_complete", task=3, attempt=1, status="complete", sha="a" * 40,
+            files=["f.py"], no_sha_reason=None,
+        ),
+        plan,
+    )
+    write_plan_event(
+        server.WriterDispatched(
+            kind="writer_dispatched", task=3, attempt=2, reason="fix", files=["f.py"]
+        ),
+        plan,
+    )
+
+    state = get_plan_state(plan, validate_shas=False)
+    ts = state.tasks[3]
+    assert ts.status == "complete"
+    assert ts.in_flight is True
+    assert ts.ready is False
+
+
+# --- AC-017b --------------------------------------------------------------------
+
+
+def test_ac_017b(plan):
+    _archive(plan)
+    write_plan_event(
+        server.TaskCreated(kind="task_created", task=3, deliverable="x", files=["f.py"]), plan
+    )
+    write_plan_event(
+        server.WriterDispatched(
+            kind="writer_dispatched", task=3, attempt=1, reason="initial", files=["f.py"]
+        ),
+        plan,
+    )
+    write_plan_event(
+        server.TaskComplete(
+            kind="task_complete", task=3, attempt=1, status="complete", sha="a" * 40,
+            files=["f.py"], no_sha_reason=None,
+        ),
+        plan,
+    )
+    write_plan_event(
+        server.WriterDispatched(
+            kind="writer_dispatched", task=3, attempt=2, reason="fix", files=["f.py"]
+        ),
+        plan,
+    )
+    _returned(plan, 3, 2)
+
+    state = get_plan_state(plan, validate_shas=False)
+    ts = state.tasks[3]
+    assert ts.in_flight is False
+    assert ts.ready is False
+
+
+# --- AC-027 -------------------------------------------------------------------
+
+
+def test_ac_027(plan):
+    _archive(plan)
+    write_plan_event(
+        server.TaskCreated(kind="task_created", task=4, deliverable="x", files=["f.py"]), plan
+    )
+    for i in range(1, 4):
+        write_plan_event(
+            server.WriterDispatched(
+                kind="writer_dispatched", task=4, attempt=i,
+                reason="initial" if i == 1 else "fix", files=["f.py"],
+            ),
+            plan,
+        )
+    for seq in range(1, 5):
+        write_plan_event(server.Decision(kind="decision", text="t", who="user", seq=seq), plan)
+
+    state = get_plan_state(plan, validate_shas=False)
+    assert state.tasks[4].last_attempt == 3
+    assert state.next_seq["decision"] == 5
+
+
+# --- AC-027a --------------------------------------------------------------------
+
+
+def test_ac_027a(plan):
+    _archive(plan)
+    path = _log_path(plan)
+    with open(path, "a") as f:
+        f.write(
+            json.dumps(
+                {"kind": "branch_check", "round": 1, "seq": 1, "status": "PASS",
+                 "findings_total": 0, "ts": 1}
+            ) + "\n"
+        )
+        f.write(
+            json.dumps(
+                {"kind": "branch_review", "round": 1, "seq": 1, "status": "PASS",
+                 "findings_total": 0, "ts": 1}
+            ) + "\n"
+        )
+
+    state = get_plan_state(plan, validate_shas=False)
+    assert state.current_branch_round == 1
+    assert set(state.current_branch_round_verifiers) == {"branch_check", "branch_review"}
+    assert state.current_branch_round_verifiers == sorted(state.current_branch_round_verifiers)
+    assert state.branch_round_complete is False
+
+    with open(path, "a") as f:
+        f.write(
+            json.dumps(
+                {"kind": "branch_test", "round": 1, "seq": 1, "status": "PASS",
+                 "findings_total": 0, "ts": 1}
+            ) + "\n"
+        )
+
+    state2 = get_plan_state(plan, validate_shas=False)
+    assert state2.current_branch_round == 1
+    assert state2.branch_round_complete is True
+    assert state2.current_branch_round + 1 == 2
+
+
+# --- AC-031 -------------------------------------------------------------------
+
+
+def test_ac_031(plan):
+    _archive(plan)
+    write_plan_event(
+        server.TaskCreated(kind="task_created", task=3, deliverable="x", files=["f.py"]), plan
+    )
+
+    write_plan_event(
+        server.WriterDispatched(
+            kind="writer_dispatched", task=3, attempt=1, reason="initial", files=["f.py"]
+        ),
+        plan,
+    )
+    _vr(plan, 3, 1, "checker", 1)
+    write_plan_event(
+        server.WriterDispatched(
+            kind="writer_dispatched", task=3, attempt=2, reason="fix", files=["f.py"]
+        ),
+        plan,
+    )
+    _vr(plan, 3, 2, "checker", 2)
+    write_plan_event(
+        server.WriterDispatched(
+            kind="writer_dispatched", task=3, attempt=3, reason="forced_fix", files=["f.py"]
+        ),
+        plan,
+    )
+    _vr(plan, 3, 3, "checker", 3)  # server-derives forced_fix=True from dispatch_reason
+    write_plan_event(
+        server.TaskComplete(
+            kind="task_complete", task=3, attempt=3, status="complete", sha="a" * 40,
+            files=["f.py"], no_sha_reason=None,
+        ),
+        plan,
+    )
+
+    state = get_plan_state(plan, validate_shas=False)
+    ts = state.tasks[3]
+    assert ts.round_count == 2
+    assert ts.forced_fix_used is True
+
+    write_plan_event(
+        server.TaskReverted(kind="task_reverted", task=3, attempt=3, sha="b" * 40, reverts="a" * 40),
+        plan,
+    )
+    write_plan_event(
+        server.WriterDispatched(
+            kind="writer_dispatched", task=3, attempt=4, reason="redo", files=["f.py"]
+        ),
+        plan,
+    )
+    _vr(plan, 3, 4, "checker", 4)
+    _vr(plan, 3, 4, "reviewer", 5)
+
+    state = get_plan_state(plan, validate_shas=False)
+    ts = state.tasks[3]
+    assert ts.round_count == 1
+    assert ts.forced_fix_used is False
+
+    write_plan_event(
+        server.TaskComplete(
+            kind="task_complete", task=3, attempt=4, status="complete", sha="c" * 40,
+            files=["f.py"], no_sha_reason=None,
+        ),
+        plan,
+    )
+    write_plan_event(
+        server.TaskReverted(kind="task_reverted", task=3, attempt=4, sha="d" * 40, reverts="c" * 40),
+        plan,
+    )
+    write_plan_event(
+        server.WriterDispatched(
+            kind="writer_dispatched", task=3, attempt=5, reason="redo", files=["f.py"]
+        ),
+        plan,
+    )
+    _vr(plan, 3, 5, "checker", 6)
+
+    state = get_plan_state(plan, validate_shas=False)
+    ts = state.tasks[3]
+    assert ts.round_count == 1
+    assert ts.last_attempt == 5
+
+
+# --- Plan decision M4: round_count excludes branch_fix attempts -----------------
+
+
+def test_round_count_excludes_branch_fix_attempts(plan):
+    _archive(plan)
+    write_plan_event(
+        server.TaskCreated(kind="task_created", task=1, deliverable="x", files=["f.py"]), plan
+    )
+    write_plan_event(
+        server.WriterDispatched(
+            kind="writer_dispatched", task=1, attempt=1, reason="initial", files=["f.py"]
+        ),
+        plan,
+    )
+    _vr(plan, 1, 1, "checker", 1)
+    write_plan_event(
+        server.TaskComplete(
+            kind="task_complete", task=1, attempt=1, status="complete", sha="a" * 40,
+            files=["f.py"], no_sha_reason=None,
+        ),
+        plan,
+    )
+
+    # A Final Full-Branch Review fix wave touches this task's files at attempt 2.
+    write_plan_event(
+        server.WriterDispatched(
+            kind="writer_dispatched", task=1, attempt=2, reason="branch_fix", files=["f.py"]
+        ),
+        plan,
+    )
+    _vr(plan, 1, 2, "checker", 2)
+    write_plan_event(
+        server.TaskComplete(
+            kind="task_complete", task=1, attempt=2, status="complete", sha="b" * 40,
+            files=["f.py"], no_sha_reason=None,
+        ),
+        plan,
+    )
+
+    state = get_plan_state(plan, validate_shas=False)
+    assert state.tasks[1].round_count == 1  # attempt 2's round is excluded (branch_fix)
+
+
+# --- read_plan_events filters ---------------------------------------------------
+
+
+def test_read_plan_events_filters(plan):
+    assert read_plan_events(plan) == []  # missing file -> []
+
+    _archive(plan)
+    write_plan_event(
+        server.TaskCreated(kind="task_created", task=1, deliverable="a", files=None), plan
+    )
+    write_plan_event(
+        server.TaskCreated(kind="task_created", task=2, deliverable="b", files=None), plan
+    )
+    write_plan_event(server.Decision(kind="decision", text="t", who="user", seq=1), plan)
+
+    all_events = read_plan_events(plan)
+    assert len(all_events) == 4
+
+    by_kind = read_plan_events(plan, kind="task_created")
+    assert {e["task"] for e in by_kind} == {1, 2}
+
+    by_task = read_plan_events(plan, task=2)
+    assert len(by_task) == 1 and by_task[0]["kind"] == "task_created"
+
+    since = all_events[-1]["ts"]
+    by_since = read_plan_events(plan, since_ts=since)
+    assert all(e["ts"] >= since for e in by_since)
+
+    limited = read_plan_events(plan, limit=2)
+    assert limited == all_events[:2]
+
+    assert read_plan_events("2026-09-24-does-not-exist-xyz") == []
+
+
+# --- next_seq defaults ----------------------------------------------------------
+
+
+def test_next_seq_defaults_to_one(plan):
+    _archive(plan)
+    state = get_plan_state(plan)
+    assert state.next_seq == {k: 1 for k in server._SEQ_KEYED_KINDS}
+
+
+# --- REQ-019: readers tolerate valid-JSON-but-wrong-shape lines -----------------
+
+
+def test_readers_tolerate_invalid_shapes(plan):
+    _archive(plan)
+    write_plan_event(
+        server.TaskCreated(kind="task_created", task=1, deliverable="d", files=["f.py"]), plan
+    )
+    write_plan_event(
+        server.TaskComplete(
+            kind="task_complete", task=1, attempt=1, status="complete", sha="a" * 40,
+            files=["f.py"], no_sha_reason=None,
+        ),
+        plan,
+    )
+    path = _log_path(plan)
+    bad_lines = [
+        {"kind": "task_complete", "ts": 1, "task": 1},
+        {
+            "kind": "writer_dispatched", "ts": 1, "task": 1, "attempt": "x",
+            "reason": "fix", "files": [],
+        },
+        {
+            "kind": "verify_round", "ts": "late", "task": 1, "attempt": 1,
+            "source": "checker", "seq": 1, "status": "PASS", "findings_total": 0,
+            "forced_fix": False,
+        },
+        {
+            "kind": "epoch_start", "ts": 1, "epoch": None, "wip": None,
+            "excluded_tasks": [], "after_compaction": False,
+        },
+        [1],
+        7,
+        # from reviewer-task2-round2-readers-state-findings.json: valid JSON,
+        # wrong-shaped values — must be skipped, never raised on.
+        {
+            "kind": "task_complete", "ts": 2, "task": 1, "attempt": 2,
+            "status": "bogus", "sha": None, "files": None, "no_sha_reason": None,
+        },
+        {"kind": "task_created", "ts": 3, "task": 2, "deliverable": "d", "files": "a"},
+        {
+            "kind": "task_complete", "ts": 4, "task": 1, "attempt": 2,
+            "status": "complete", "sha": 5, "files": None, "no_sha_reason": None,
+        },
+        {"kind": "auto_commit", "ts": 5, "status": "maybe", "seq": 1},
+        {
+            "kind": "epoch_start", "ts": 6, "epoch": 1, "wip": 5,
+            "excluded_tasks": [], "after_compaction": False,
+        },
+        {"kind": ["x"], "ts": 7},
+    ]
+    with open(path, "a") as f:
+        f.writelines(json.dumps(line) + "\n" for line in bad_lines)
+
+    for validate_shas in (True, False):
+        state = get_plan_state(plan, validate_shas=validate_shas)  # must not raise
+        assert set(state.tasks) == {1}
+        assert state.tasks[1].status == "complete"
+        assert state.tasks[1].sha == "a" * 40
+        assert state.auto_commit is None
+        assert state.epoch == 0
+        assert state.current_wip is None
+
+    events = read_plan_events(plan, kind="task_complete")  # must not raise
+    assert all(e["kind"] == "task_complete" for e in events)
+    assert any(e.get("attempt") == 1 and e.get("status") == "complete" for e in events)
+
+
+# --- AC-022 / AC-033 through the public readers ---------------------------------
+
+
+def test_ac_022_get_plan_state(plan):
+    _archive(plan)
+    write_plan_event(server.Decision(kind="decision", text="one", who="user", seq=1), plan)
+    path = _log_path(plan)
+    with open(path, "a") as f:
+        f.write('{"kind": "decision", "text": "trunc')  # torn trailing line, no newline
+
+    state = get_plan_state(plan)  # must not raise despite the torn trailing line
+    assert state.next_seq["decision"] == 2
+
+    events = read_plan_events(plan)  # must not raise
+    assert [e["kind"] for e in events] == ["plan_archived", "decision"]
+
+
+def test_ac_033_readers(plan):
+    _archive(plan)
+    write_plan_event(server.Decision(kind="decision", text="one", who="user", seq=1), plan)
+    path = _log_path(plan)
+    with open(path, "a") as f:
+        f.write("{not valid json at all\n")
+    write_plan_event(server.Decision(kind="decision", text="two", who="user", seq=2), plan)
+
+    state = get_plan_state(plan)  # must not raise despite the mid-file garbage line
+    assert state.next_seq["decision"] == 3
+
+    events = read_plan_events(plan)  # must not raise
+    decisions = [e for e in events if e["kind"] == "decision"]
+    assert {d["seq"] for d in decisions} == {1, 2}
+
+
+def test_deeply_nested_line_is_skipped(plan):
+    deeply_nested = ("[" * 100000 + "]" * 100000).encode()
+
+    _archive(plan)
+    write_plan_event(server.Decision(kind="decision", text="one", who="user", seq=1), plan)
+    path = _log_path(plan)
+    with open(path, "ab") as f:
+        f.write(deeply_nested + b"\n")
+    write_plan_event(server.Decision(kind="decision", text="two", who="user", seq=2), plan)
+
+    state = get_plan_state(plan)  # must not raise despite the deeply nested mid-file line
+    assert state.next_seq["decision"] == 3
+
+    events = read_plan_events(plan)  # must not raise
+    decisions = [e for e in events if e["kind"] == "decision"]
+    assert {d["seq"] for d in decisions} == {1, 2}
+
+
+def test_deeply_nested_first_line_raises(plan):
+    deeply_nested = ("[" * 100000 + "]" * 100000).encode()
+    path = _log_path(plan)
+    path.write_bytes(deeply_nested + b"\n")
+
+    with pytest.raises(ValueError):
+        get_plan_state(plan)
