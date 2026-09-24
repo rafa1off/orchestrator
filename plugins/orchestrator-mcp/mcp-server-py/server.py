@@ -4,15 +4,24 @@
 # ///
 """MCP dev-tools server — pipeline findings and report writer."""
 
+import errno
 import json
 import os
+import re
+import sys
 import time
 import uuid
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated, Literal
 
 from fastmcp import FastMCP
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
+
+if sys.platform == "win32":
+    import msvcrt
+else:
+    import fcntl
 
 PROJECT_DIR = Path(os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd()))
 DEFAULT_PIPELINE = ".claude/pipeline"
@@ -190,22 +199,521 @@ Report = Annotated[
 ]
 
 
-# --- Ledger model --------------------------------------------------------------
-# One line per commit event in a plan's append-only .claude/plans/<plan>.jsonl. Unlike
-# findings/reports, this does not cross a subagent boundary — the orchestrator both runs
-# the `git commit`/`git revert` and calls this tool in the same breath, so there is no
-# proof-of-execution to attest (no `checks[]`, no exit code). What this model buys is
-# schema validation only: a malformed line would otherwise silently corrupt a file every
-# later Resuming/Run Start/Adjudication Protocol read depends on parsing correctly.
+# --- Plan Event models ----------------------------------------------------------
+# One line per event in a plan's append-only .claude/plans/<plan>.jsonl — see
+# spec/spec-architecture-plan-event-log.md (v8.1) for the full vocabulary. `ts` is
+# never a model field (REQ-006a); it is merged in server-side at write time, exactly
+# like write_findings/write_report already do with `written_at`.
 
 
-class LedgerEntry(_Strict):
+class PlanArchived(_Strict):
+    kind: Literal["plan_archived"]
+    plan: str
+    archive: str
+    title: str
+    supersedes: str | None = None
+
+
+class TaskCreated(_Strict):
+    kind: Literal["task_created"]
     task: int
-    sha: str | None  # null ONLY on the degraded, Bash-unavailable path
-    status: Literal["complete", "complete-with-parked", "reverted"] | None = None
+    deliverable: str
+    files: list[str] | None  # null marks a verification-only task
+    track: str | None = None
+
+
+class TaskAmended(_Strict):
+    kind: Literal["task_amended"]
+    task: int
+    seq: int
+    deliverable: str | None = None
     files: list[str] | None = None
-    ruling: str | None = None  # set only when status == "complete-with-parked"
-    reverts: str | None = None  # set only when status == "reverted"
+    why: str
+
+
+class TaskDropped(_Strict):
+    kind: Literal["task_dropped"]
+    task: int
+    why: str
+
+
+class Decision(_Strict):
+    kind: Literal["decision"]
+    text: str
+    who: Literal["user", "orchestrator"]
+    seq: int
+
+
+class AutoCommit(_Strict):
+    kind: Literal["auto_commit"]
+    status: Literal["confirmed", "declined"]
+    seq: int
+
+
+class BaseRecorded(_Strict):
+    kind: Literal["base_recorded"]
+    sha: str
+    seq: int
+    reason: Literal["initial", "rebase_accepted"]
+
+
+class EpochStart(_Strict):
+    kind: Literal["epoch_start"]
+    epoch: int
+    wip: list[str] | None
+    excluded_tasks: list[int]
+    after_compaction: bool
+
+
+class PlanEscalation(_Strict):
+    # The plan-level trigger of the shared `escalation` kind — `task` is always
+    # null here; the task-scoped trigger is `TaskEscalation` below, reachable only
+    # through write_report, never through write_plan_event.
+    kind: Literal["escalation"]
+    topic: Literal[
+        "tester_diagnosis",
+        "base_rebased",
+        "wip_dirty",
+        "forced_fix_exhausted",
+        "writer_report_lost",
+        "base_unavailable",
+    ]
+    task: None = None
+    seq: int
+    detail: str
+
+
+class PlanComplete(_Strict):
+    kind: Literal["plan_complete"]
+    status: Literal["clean", "parked"]
+
+
+class PlanAbandoned(_Strict):
+    kind: Literal["plan_abandoned"]
+    why: str
+    superseded_by: str | None = None
+
+
+class WriterDispatched(_Strict):
+    kind: Literal["writer_dispatched"]
+    task: int
+    attempt: int
+    reason: Literal[
+        "initial", "fix", "forced_fix", "redo", "report_lost", "branch_fix"
+    ]
+    files: list[str]
+    track: str | None = None
+
+
+class Ruling(_Strict):
+    kind: Literal["ruling"]
+    task: int | None  # null = branch-level ruling
+    seq: int
+    text: str
+
+
+class TaskComplete(_Strict):
+    kind: Literal["task_complete"]
+    task: int
+    attempt: int
+    status: Literal["complete", "complete-with-parked"]
+    sha: str | None
+    files: list[str] | None
+    no_sha_reason: Literal["verification_only", "auto_commit_declined"] | None
+
+
+class CommitFailed(_Strict):
+    kind: Literal["commit_failed"]
+    task: int
+    attempt: int
+    seq: int
+    reason: str
+    files: list[str]
+
+
+class TaskReverted(_Strict):
+    kind: Literal["task_reverted"]
+    task: int
+    attempt: int  # the attempt being reverted
+    sha: str  # the revert commit's own sha
+    reverts: str  # the sha being reverted
+
+
+PlanEvent = Annotated[
+    PlanArchived
+    | TaskCreated
+    | TaskAmended
+    | TaskDropped
+    | Decision
+    | AutoCommit
+    | BaseRecorded
+    | EpochStart
+    | PlanEscalation
+    | PlanComplete
+    | PlanAbandoned
+    | WriterDispatched
+    | Ruling
+    | TaskComplete
+    | CommitFailed
+    | TaskReverted,
+    Field(discriminator="kind"),
+]
+
+
+# --- Internal, server-built event models ------------------------------------------
+# Never accepted directly from a caller — write_findings/write_report (Task 3)
+# build these from a subagent's Findings/Report plus the caller's plan-scoped
+# parameters, and pass the dumped dict into _append.
+
+
+class VerifyRound(_Strict):
+    kind: Literal["verify_round"]
+    task: int
+    attempt: int
+    source: Literal["checker", "reviewer", "tester"]
+    seq: int
+    status: Literal["PASS", "FAIL", "ERROR"]
+    findings_total: int
+    forced_fix: bool  # server-derived from dispatch_reason — never caller-supplied
+
+
+class BranchCheck(_Strict):
+    kind: Literal["branch_check"]
+    round: int
+    seq: int
+    status: Literal["PASS", "FAIL", "ERROR"]
+    findings_total: int
+
+
+class BranchReview(_Strict):
+    kind: Literal["branch_review"]
+    round: int
+    seq: int
+    status: Literal["PASS", "FAIL", "ERROR"]
+    findings_total: int
+
+
+class BranchTest(_Strict):
+    kind: Literal["branch_test"]
+    round: int
+    seq: int
+    status: Literal["PASS", "FAIL", "ERROR"]
+    findings_total: int
+
+
+class WriterReturnedContextRequest(_Strict):
+    needs: list[str]
+    why: str
+
+
+class WriterReturned(_Strict):
+    kind: Literal["writer_returned"]
+    task: int
+    attempt: int
+    in_scope: list[str]
+    out_of_scope: list[str]
+    context_request: WriterReturnedContextRequest | None
+
+
+class TaskEscalation(_Strict):
+    # The task-scoped trigger of the shared `escalation` kind — reachable only
+    # through write_report, never through write_plan_event's PlanEvent union.
+    kind: Literal["escalation"]
+    task: int
+    attempt: int
+    topic: Literal["writer_blocked"]
+    detail: str
+
+
+# --- Plan event write-path constants ----------------------------------------------
+
+# §4.2's "always written, nullable" serialization exception list: these fields are
+# written even when None, unlike every other optional field (omitted when unset).
+ALWAYS_WRITTEN_NULLABLE: dict[str, frozenset[str]] = {
+    "task_created": frozenset({"files"}),
+    "task_complete": frozenset({"sha", "files", "no_sha_reason"}),
+    "writer_returned": frozenset({"context_request"}),
+    "ruling": frozenset({"task"}),
+    "escalation": frozenset({"task"}),
+    "epoch_start": frozenset({"wip"}),
+}
+
+_SHA_PATTERN = re.compile(r"^[0-9a-f]{7,40}$")
+
+# The closed 7-kind list TaskState.last_attempt/ready are defined over (§2, §4.1) —
+# no other task-scoped kind carries an `attempt` field at all.
+_ATTEMPT_KINDS = frozenset(
+    {
+        "writer_dispatched",
+        "writer_returned",
+        "verify_round",
+        "escalation",
+        "task_complete",
+        "commit_failed",
+        "task_reverted",
+    }
+)
+
+
+# --- Platform shim (locking + positional reads) -----------------------------------
+# fcntl/os.pread are POSIX-only; the hooks already target Windows (a73271d), so this
+# module must still import and work there. msvcrt.locking retries internally and
+# gives up after ~10s, which is what the retry loop below rides on.
+
+_OPEN_FLAGS = os.O_RDWR | os.O_APPEND | os.O_CREAT | getattr(os, "O_BINARY", 0)
+
+# Windows byte-range locks are mandatory: locking byte 0 (real data, line 1) would
+# block any other handle's read of that range while a write holds the lock. Lock a
+# sentinel byte far past any realistic EOF instead.
+_WIN_LOCK_OFFSET = 0x7FFFFFFF
+
+
+def _lock(fd: int) -> None:
+    if sys.platform == "win32":
+        os.lseek(fd, _WIN_LOCK_OFFSET, os.SEEK_SET)
+        while True:
+            try:
+                msvcrt.locking(fd, msvcrt.LK_LOCK, 1)
+                return
+            except OSError as e:
+                if e.errno in (errno.EDEADLK, errno.EACCES):
+                    continue
+                raise
+    else:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+
+
+def _unlock(fd: int) -> None:
+    if sys.platform == "win32":
+        os.lseek(fd, _WIN_LOCK_OFFSET, os.SEEK_SET)
+        msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+    else:
+        fcntl.flock(fd, fcntl.LOCK_UN)
+
+
+def _read_at(fd: int, offset: int, n: int) -> bytes:
+    if sys.platform == "win32":
+        os.lseek(fd, offset, os.SEEK_SET)
+        return os.read(fd, n)
+    return os.pread(fd, n, offset)
+
+
+# --- Dedup cache -------------------------------------------------------------------
+
+
+@dataclass
+class _PlanCache:
+    plan_identity: str
+    offset: int
+    size: int
+    mtime_ns: int
+    key_to_ts: dict[tuple, int]
+    dispatch_reason: dict[tuple[int, int], str]
+
+
+_CACHE: dict[str, _PlanCache] = {}
+
+
+def _natural_key(ev: dict) -> tuple:
+    """The per-kind natural dedup key — spec REQ-014, cross-checked against §4.2."""
+    kind = ev["kind"]
+    if kind == "escalation":
+        if ev.get("task") is None:
+            return (kind, ev["topic"], ev["seq"])
+        return (kind, ev["task"], ev["attempt"])
+    if kind in ("plan_archived", "plan_complete", "plan_abandoned"):
+        return (kind,)
+    if kind in ("task_created", "task_dropped"):
+        return (kind, ev["task"])
+    if kind == "task_amended":
+        return (kind, ev["task"], ev["seq"])
+    if kind in ("decision", "auto_commit"):
+        return (kind, ev["seq"])
+    if kind == "base_recorded":
+        return (kind, ev["sha"], ev["seq"])
+    if kind == "epoch_start":
+        return (kind, ev["epoch"])
+    if kind in ("branch_check", "branch_review", "branch_test"):
+        return (kind, ev["round"], ev["seq"])
+    if kind in ("writer_dispatched", "writer_returned", "task_complete", "task_reverted"):
+        return (kind, ev["task"], ev["attempt"])
+    if kind == "verify_round":
+        return (kind, ev["task"], ev["attempt"], ev["source"], ev["seq"])
+    if kind == "ruling":
+        return (kind, ev["task"], ev["seq"])
+    if kind == "commit_failed":
+        return (kind, ev["task"], ev["attempt"], ev["seq"])
+    raise ValueError(f"unknown event kind for natural key: {kind!r}")
+
+
+def _fold(cache: _PlanCache, data: bytes) -> None:
+    """Folds every complete line in `data` into `cache`'s dedup/dispatch maps.
+    Unparseable lines are skipped silently (REQ-019) — never raised."""
+    for line in data.split(b"\n"):
+        if not line:
+            continue
+        try:
+            ev = json.loads(line)
+        except ValueError:
+            continue
+        if not isinstance(ev, dict):
+            continue
+        try:
+            key = _natural_key(ev)
+            ts = ev["ts"]
+            reason = ev["reason"] if ev.get("kind") == "writer_dispatched" else None
+            cache.key_to_ts[key] = ts
+            if reason is not None:
+                cache.dispatch_reason[(ev["task"], ev["attempt"])] = reason
+        except (KeyError, TypeError, ValueError):
+            continue
+
+
+def _append(plan: str, events: list[dict]) -> list[dict]:
+    """Implements REQ-011 steps 0-7 for one or more already-validated event dicts,
+    under a single lock acquisition. Returns [{"kind", "status", "ts"}, ...]."""
+    md_path = PROJECT_DIR / ".claude/plans" / f"{plan}.md"
+    if not md_path.exists():
+        raise ValueError(f"plan archive not found: .claude/plans/{plan}.md")
+
+    plans_dir = PROJECT_DIR / ".claude/plans"
+    plans_dir.mkdir(parents=True, exist_ok=True)
+    path = plans_dir / f"{plan}.jsonl"
+
+    fd = os.open(str(path), _OPEN_FLAGS)
+    try:
+        _lock(fd)
+        try:
+            size = os.fstat(fd).st_size
+            if size == 0 and events[0]["kind"] != "plan_archived":
+                raise ValueError("plan log is empty: first event must be plan_archived")
+            if size == 0 and events[0].get("plan") != plan:
+                raise ValueError(
+                    f"plan identity mismatch: file is {events[0].get('plan')}, "
+                    f"call is {plan}"
+                )
+
+            cache = _CACHE.get(plan)
+            if cache is not None and size < cache.offset:
+                # The file shrank (truncated, or deleted and recreated) since the
+                # cache was last warm — treat it as cold and re-seed from scratch,
+                # including the identity re-check below.
+                _CACHE.pop(plan, None)
+                cache = None
+
+            seed_deferred = False
+            if cache is None:
+                if size == 0:
+                    # First-ever write to this file: seed identity from the
+                    # incoming plan_archived event itself (REQ-017 special case).
+                    # Identity already validated above (M3). Not stored into
+                    # `_CACHE` until after the write below succeeds.
+                    cache = _PlanCache(
+                        plan_identity=plan,
+                        offset=0,
+                        size=0,
+                        mtime_ns=0,
+                        key_to_ts={},
+                        dispatch_reason={},
+                    )
+                    seed_deferred = True
+                else:
+                    data = _read_at(fd, 0, size)
+                    first_line = data.split(b"\n", 1)[0]
+                    try:
+                        first_ev = json.loads(first_line)
+                    except ValueError:
+                        first_ev = None
+                    if (
+                        not isinstance(first_ev, dict)
+                        or first_ev.get("kind") != "plan_archived"
+                        or not isinstance(first_ev.get("plan"), str)
+                    ):
+                        raise ValueError("plan log has no valid plan_archived first line")
+                    cache = _PlanCache(
+                        plan_identity=first_ev["plan"],
+                        offset=0,
+                        size=0,
+                        mtime_ns=0,
+                        key_to_ts={},
+                        dispatch_reason={},
+                    )
+                    _fold(cache, data)
+                    st = os.fstat(fd)
+                    cache.offset = size
+                    cache.size = size
+                    cache.mtime_ns = st.st_mtime_ns
+                if not seed_deferred:
+                    _CACHE[plan] = cache
+            else:
+                st = os.fstat(fd)
+                if (size, st.st_mtime_ns) != (cache.size, cache.mtime_ns):
+                    new_data = _read_at(fd, cache.offset, size - cache.offset)
+                    _fold(cache, new_data)
+                    cache.offset = size
+                    cache.size = size
+                    cache.mtime_ns = st.st_mtime_ns
+
+            if size > 0 and cache.plan_identity != plan:
+                raise ValueError(
+                    f"plan identity mismatch: file is {cache.plan_identity}, call is {plan}"
+                )
+
+            # Step 3a: torn-line repair.
+            prefix = b""
+            if size > 0:
+                last_byte = _read_at(fd, size - 1, 1)
+                if last_byte != b"\n":
+                    prefix = b"\n"
+
+            # New keys/reasons are staged locally and merged into `cache` only after
+            # `os.write` below has fully succeeded — if it raises, `cache` must be
+            # left exactly as it was before this call.
+            outcomes: list[dict] = []
+            to_write = bytearray(prefix)
+            new_key_to_ts: dict[tuple, int] = {}
+            new_dispatch_reason: dict[tuple[int, int], str] = {}
+            for ev in events:
+                key = _natural_key(ev)
+                if key in cache.key_to_ts or key in new_key_to_ts:
+                    ts_existing = new_key_to_ts.get(key, cache.key_to_ts.get(key))
+                    outcomes.append(
+                        {"kind": ev["kind"], "status": "duplicate", "ts": ts_existing}
+                    )
+                    continue
+                if ev["kind"] == "verify_round":
+                    ev["forced_fix"] = (
+                        cache.dispatch_reason.get((ev["task"], ev["attempt"])) == "forced_fix"
+                    )
+                ts = int(time.time())
+                ev_out = dict(ev)
+                ev_out["ts"] = ts
+                to_write.extend(json.dumps(ev_out).encode("utf-8") + b"\n")
+                new_key_to_ts[key] = ts
+                if ev["kind"] == "writer_dispatched":
+                    new_dispatch_reason[(ev["task"], ev["attempt"])] = ev["reason"]
+                outcomes.append({"kind": ev["kind"], "status": "written", "ts": ts})
+
+            payload = bytes(to_write)
+            if payload:
+                written = 0
+                while written < len(payload):
+                    n = os.write(fd, payload[written:])
+                    written += n
+                st = os.fstat(fd)
+                cache.offset = size + len(payload)
+                cache.size = size + len(payload)
+                cache.mtime_ns = st.st_mtime_ns
+
+            cache.key_to_ts.update(new_key_to_ts)
+            cache.dispatch_reason.update(new_dispatch_reason)
+            _CACHE[plan] = cache
+
+            return outcomes
+        finally:
+            _unlock(fd)
+    finally:
+        os.close(fd)
 
 
 mcp = FastMCP("dev-tools")
@@ -293,40 +801,33 @@ def write_report(report: Report, label: Label, pipeline: str | None = None) -> s
     return f"wrote {pipeline or DEFAULT_PIPELINE}/{out_path.name}"
 
 
-def _plan_ledger_path(plan: str) -> Path:
-    plans_dir = PROJECT_DIR / ".claude/plans"
-    plans_dir.mkdir(parents=True, exist_ok=True)
-    return plans_dir / f"{plan}.jsonl"
-
-
 @mcp.tool()
-def write_ledger_entry(entry: LedgerEntry, plan: PlanSlug) -> str:
+def write_plan_event(event: PlanEvent, plan: PlanSlug) -> str:
     """
-    Append one line to .claude/plans/<plan>.jsonl — the per-plan commit ledger. Always
-    append, never rewrite an existing line — a task may accumulate more than one line
-    (e.g. a commit, then a later revert); the last line per task number is that task's
-    current status.
-    plan: the plan's archive stem exactly as recorded in progress.md's **Plan:** field
-        (e.g. "2026-09-09-orchestrator-plan-and-commit-ledger", no directory, no
-        extension). The ledger is named identically with a `.jsonl` extension, alongside
-        the plan's own `.md` file under `.claude/plans/`, and is never overwritten across
-        different plans — unlike `progress.md`, the single "current effort" view, which
-        is overwritten each time a new plan archives. The file is created on first
-        append; nothing needs to pre-create it.
-    `sha` is required on every entry — use `null` only on the degraded, Bash-unavailable
-    path (where `status`/`files` are also omitted, since neither is known). `status`,
-    `files`, `ruling`, `reverts` are included only when applicable to that line's outcome;
-    unset fields are omitted from the written line, never written as an explicit `null`
-    placeholder (except `sha`, which is always present, sometimes `null`).
+    Append one event to .claude/plans/<plan>.jsonl — the per-plan, append-only Plan
+    Event Log (spec/spec-architecture-plan-event-log.md). Orchestrator-only: this tool
+    MUST NOT appear in any subagent's tool list. Supports exactly these 16 kinds:
+    plan_archived, task_created, task_amended, task_dropped, decision, auto_commit,
+    base_recorded, epoch_start, escalation (plan-level trigger, task=null),
+    plan_complete, plan_abandoned, writer_dispatched, ruling, task_complete,
+    commit_failed, task_reverted. The first event ever written for a plan MUST be
+    plan_archived — any other kind against an empty/absent log is rejected.
+    plan: the plan's archive stem exactly as recorded at `.claude/plans/<plan>.md`
+        (e.g. "2026-09-09-orchestrator-plan-and-commit-ledger"), no directory, no
+        extension. The log is named identically with a `.jsonl` extension and is never
+        overwritten across different plans. The file is created on first append;
+        nothing needs to pre-create it.
+    Returns "events: " followed by a JSON array of {"kind", "status", "ts"} objects —
+    status is "written" or "duplicate" (a retried call reports the ORIGINAL ts).
     """
     _PLAN_ADAPTER.validate_python(plan)
-    path = _plan_ledger_path(plan)
-    payload = entry.model_dump(mode="json", exclude_none=True)
-    payload["sha"] = entry.sha  # always present, even when null (degraded path) —
-    # exclude_none above would otherwise drop it like any other None field
-    with path.open("a") as f:
-        f.write(json.dumps(payload) + "\n")
-    return f"appended to .claude/plans/{path.name}"
+    dumped = event.model_dump(mode="json", exclude_none=True)
+    for field in ALWAYS_WRITTEN_NULLABLE.get(event.kind, frozenset()):
+        dumped[field] = getattr(event, field)
+    if event.kind == "task_amended" and "files" in event.model_fields_set:
+        dumped["files"] = event.files
+    outcomes = _append(plan, [dumped])
+    return "events: " + json.dumps(outcomes)
 
 
 if __name__ == "__main__":
