@@ -2,7 +2,8 @@
 # /// script
 # dependencies = ["fastmcp>=2.0.0"]
 # ///
-"""MCP dev-tools server — pipeline findings and report writer."""
+"""MCP dev-tools server — pipeline findings/report writer and the per-plan, append-only
+Plan Event Log (spec/spec-architecture-plan-event-log.md)."""
 
 import errno
 import json
@@ -12,9 +13,10 @@ import subprocess
 import sys
 import time
 import uuid
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, Literal, TypeIs
 
 from fastmcp import FastMCP
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
@@ -32,7 +34,7 @@ Label = Annotated[str, Field(pattern=LABEL_PATTERN, min_length=1, max_length=40)
 
 # A plan's archive stem, e.g. "2026-09-09-orchestrator-plan-and-commit-ledger" — the
 # same stem `.claude/plans/<stem>.md` is archived under, with no directory and no
-# extension. The ledger is named identically, `.jsonl` in place of `.md`.
+# extension. The plan's event log is named identically, `.jsonl` in place of `.md`.
 PLAN_PATTERN = r"^\d{4}-\d{2}-\d{2}-[a-z0-9]+(-[a-z0-9]+)*$"
 PlanSlug = Annotated[str, Field(pattern=PLAN_PATTERN, min_length=11, max_length=200)]
 _PLAN_ADAPTER = TypeAdapter(PlanSlug)
@@ -58,8 +60,7 @@ class _Strict(BaseModel):
 # --- Findings models -------------------------------------------------------
 # A findings payload is a verification claim: it asserts that checks actually ran.
 # `checks: list[...] = Field(min_length=1)` on every findings model below rejects an
-# empty-checks payload at the schema layer, before the tool body ever runs — see the
-# note at the bottom of the module on why the old runtime check is now redundant.
+# empty-checks payload at the schema layer, before the tool body ever runs.
 
 
 class Check(_Strict):
@@ -362,7 +363,7 @@ PlanEvent = Annotated[
 
 
 # --- Internal, server-built event models ------------------------------------------
-# Never accepted directly from a caller — write_findings/write_report (Task 3)
+# Never accepted directly from a caller — write_findings/write_report (spec §4.1)
 # build these from a subagent's Findings/Report plus the caller's plan-scoped
 # parameters, and pass the dumped dict into _append.
 
@@ -426,7 +427,41 @@ class TaskEscalation(_Strict):
     detail: str
 
 
-# --- Plan event write-path constants ----------------------------------------------
+# --- Plan/task state models (get_plan_state's return shape) -----------------------
+
+
+class TaskState(_Strict):
+    task: int
+    status: Literal[
+        "complete", "complete-with-parked", "reverted", "commit_failed", "dropped", "in_progress"
+    ] | None
+    ready: bool
+    in_flight: bool
+    last_attempt: int
+    forced_fix_used: bool
+    sha: str | None
+    sha_valid: bool | None
+    files: list[str] | None
+    round_count: int
+
+
+class PlanState(_Strict):
+    plan: str
+    epoch: int
+    closed: bool
+    auto_commit: Literal["confirmed", "declined"] | None
+    base_sha: str | None
+    base_sha_valid: bool | None
+    current_wip: list[str] | None
+    tasks: dict[int, TaskState]
+    ready_for_final_review: bool
+    next_seq: dict[str, int]
+    current_branch_round: int
+    current_branch_round_verifiers: list[str]
+    branch_round_complete: bool
+
+
+# --- Plan event write-path constants and serialization ----------------------------
 
 # §4.2's "always written, nullable" serialization exception list: these fields are
 # written even when None, unlike every other optional field (omitted when unset).
@@ -439,21 +474,18 @@ ALWAYS_WRITTEN_NULLABLE: dict[str, frozenset[str]] = {
     "epoch_start": frozenset({"wip"}),
 }
 
-_SHA_PATTERN = re.compile(r"^[0-9a-f]{7,40}$")
 
-# The closed 7-kind list TaskState.last_attempt/ready are defined over (§2, §4.1) —
-# no other task-scoped kind carries an `attempt` field at all.
-_ATTEMPT_KINDS = frozenset(
-    {
-        "writer_dispatched",
-        "writer_returned",
-        "verify_round",
-        "escalation",
-        "task_complete",
-        "commit_failed",
-        "task_reverted",
-    }
-)
+def _serialize(event: BaseModel) -> dict:
+    """The plan-event write serialization rule (§4.2): dump excluding None, then
+    re-add every ALWAYS_WRITTEN_NULLABLE[kind] field (as None when absent), then
+    the task_amended rule (keep "files": None only when explicitly set)."""
+    dumped = event.model_dump(mode="json", exclude_none=True)
+    kind = dumped["kind"]
+    for field in ALWAYS_WRITTEN_NULLABLE.get(kind, frozenset()):
+        dumped.setdefault(field, None)
+    if kind == "task_amended" and "files" in event.model_fields_set:
+        dumped["files"] = getattr(event, "files", None)
+    return dumped
 
 
 # --- Platform shim (locking + positional reads) -----------------------------------
@@ -497,6 +529,44 @@ def _read_at(fd: int, offset: int, n: int) -> bytes:
         os.lseek(fd, offset, os.SEEK_SET)
         return os.read(fd, n)
     return os.pread(fd, n, offset)
+
+
+# --- Shared line parsing (read path and write path both use these) ----------------
+
+
+def _iter_lines(data: bytes) -> Iterator[dict]:
+    """Yields every complete, JSON-object line in `data`, tolerating any unparseable
+    line at any position (REQ-019) — never raises. Used by both the write path
+    (_fold) and the read path (_read_all_lines) so the two never disagree on what
+    counts as a parseable line."""
+    for line in data.split(b"\n"):
+        if not line:
+            continue
+        try:
+            ev = json.loads(line)
+        except (ValueError, RecursionError):
+            continue
+        if not isinstance(ev, dict):
+            continue
+        yield ev
+
+
+def _first_line_identity(data: bytes) -> str | None:
+    """Extracts the plan slug from `data`'s first line if it is a valid
+    plan_archived shape, else None. Shared by _append's first-write/existing-file
+    gate and get_plan_state's gate — the two must never diverge (CON-012)."""
+    first_line = data.split(b"\n", 1)[0]
+    try:
+        first_ev = json.loads(first_line)
+    except (ValueError, RecursionError):
+        return None
+    if (
+        not isinstance(first_ev, dict)
+        or first_ev.get("kind") != "plan_archived"
+        or not isinstance(first_ev.get("plan"), str)
+    ):
+        return None
+    return first_ev["plan"]
 
 
 # --- Dedup cache -------------------------------------------------------------------
@@ -550,15 +620,7 @@ def _natural_key(ev: dict) -> tuple:
 def _fold(cache: _PlanCache, data: bytes) -> None:
     """Folds every complete line in `data` into `cache`'s dedup/dispatch maps.
     Unparseable lines are skipped silently (REQ-019) — never raised."""
-    for line in data.split(b"\n"):
-        if not line:
-            continue
-        try:
-            ev = json.loads(line)
-        except (ValueError, RecursionError):
-            continue
-        if not isinstance(ev, dict):
-            continue
+    for ev in _iter_lines(data):
         try:
             key = _natural_key(ev)
             ts = ev["ts"]
@@ -577,9 +639,7 @@ def _append(plan: str, events: list[dict]) -> list[dict]:
     if not md_path.exists():
         raise ValueError(f"plan archive not found: .claude/plans/{plan}.md")
 
-    plans_dir = PROJECT_DIR / ".claude/plans"
-    plans_dir.mkdir(parents=True, exist_ok=True)
-    path = plans_dir / f"{plan}.jsonl"
+    path = PROJECT_DIR / ".claude/plans" / f"{plan}.jsonl"
 
     fd = os.open(str(path), _OPEN_FLAGS)
     try:
@@ -607,8 +667,8 @@ def _append(plan: str, events: list[dict]) -> list[dict]:
                 if size == 0:
                     # First-ever write to this file: seed identity from the
                     # incoming plan_archived event itself (REQ-017 special case).
-                    # Identity already validated above (M3). Not stored into
-                    # `_CACHE` until after the write below succeeds.
+                    # Identity already validated above (§4.2's first-write case).
+                    # Not stored into `_CACHE` until after the write below succeeds.
                     cache = _PlanCache(
                         plan_identity=plan,
                         offset=0,
@@ -620,19 +680,11 @@ def _append(plan: str, events: list[dict]) -> list[dict]:
                     seed_deferred = True
                 else:
                     data = _read_at(fd, 0, size)
-                    first_line = data.split(b"\n", 1)[0]
-                    try:
-                        first_ev = json.loads(first_line)
-                    except (ValueError, RecursionError):
-                        first_ev = None
-                    if (
-                        not isinstance(first_ev, dict)
-                        or first_ev.get("kind") != "plan_archived"
-                        or not isinstance(first_ev.get("plan"), str)
-                    ):
+                    plan_identity = _first_line_identity(data)
+                    if plan_identity is None:
                         raise ValueError("plan log has no valid plan_archived first line")
                     cache = _PlanCache(
-                        plan_identity=first_ev["plan"],
+                        plan_identity=plan_identity,
                         offset=0,
                         size=0,
                         mtime_ns=0,
@@ -717,19 +769,6 @@ def _append(plan: str, events: list[dict]) -> list[dict]:
         os.close(fd)
 
 
-def _serialize(event: BaseModel) -> dict:
-    """The plan-event write serialization rule (§4.2): dump excluding None, then
-    re-add every ALWAYS_WRITTEN_NULLABLE[kind] field (as None when absent), then
-    the task_amended rule (keep "files": None only when explicitly set)."""
-    dumped = event.model_dump(mode="json", exclude_none=True)
-    kind = dumped["kind"]
-    for field in ALWAYS_WRITTEN_NULLABLE.get(kind, frozenset()):
-        dumped.setdefault(field, None)
-    if kind == "task_amended" and "files" in event.model_fields_set:
-        dumped["files"] = getattr(event, "files", None)
-    return dumped
-
-
 mcp = FastMCP("dev-tools")
 
 
@@ -807,8 +846,9 @@ def write_findings(
     attempt: the attempt this review evaluates — requires `task`.
     branch_round: whole-branch review round — requires `plan`; mutually exclusive
         with `task`/`attempt`.
-    seq: this caller's next sequence number for its (task, source) or
-        (branch_round, source) slot — REQUIRED whenever `plan` is set.
+    seq: the seq value the orchestrator supplied in the dispatch (from
+        get_plan_state.next_seq[<kind>]); echo it back unchanged — never invented by
+        the caller. REQUIRED whenever `plan` is set.
     """
     _LABEL_ADAPTER.validate_python(label)
 
@@ -915,7 +955,9 @@ def write_report(
         same call when `report.context_request` is set. The return string then gains
         a " | events: <json>" suffix; the pipeline file itself is unaffected.
     task: the task this writer report belongs to — requires `plan` and `attempt`.
-    attempt: the attempt this writer report belongs to — requires `plan` and `task`.
+    attempt: the attempt value the orchestrator supplied in the dispatch (from
+        get_plan_state.tasks[task].last_attempt + 1, or equivalent); echo it back
+        unchanged — never invented by the caller. Requires `plan` and `task`.
     """
     _LABEL_ADAPTER.validate_python(label)
 
@@ -994,94 +1036,27 @@ def write_plan_event(event: PlanEvent, plan: PlanSlug) -> str:
     return "events: " + json.dumps(outcomes)
 
 
-def _read_all_lines(path: Path) -> list[dict]:
-    """Reads every line of a plan's .jsonl, tolerating any unparseable line at any
-    position (REQ-019) — never raises. Missing/0-byte file -> []."""
-    if not path.exists():
-        return []
-    events: list[dict] = []
-    for line in path.read_bytes().split(b"\n"):
-        if not line:
-            continue
-        try:
-            ev = json.loads(line)
-        except (ValueError, RecursionError):
-            continue
-        if not isinstance(ev, dict):
-            continue
-        events.append(ev)
-    return events
+# --- Plan state read-path (constants + helpers shared by read_plan_events and
+# get_plan_state) -------------------------------------------------------------------
+
+_SHA_PATTERN = re.compile(r"^[0-9a-f]{7,40}$")
+
+# The closed 7-kind list TaskState.last_attempt/ready are defined over (§2, §4.1) —
+# no other task-scoped kind carries an `attempt` field at all.
+_ATTEMPT_KINDS = frozenset(
+    {
+        "writer_dispatched",
+        "writer_returned",
+        "verify_round",
+        "escalation",
+        "task_complete",
+        "commit_failed",
+        "task_reverted",
+    }
+)
 
 
-@mcp.tool()
-def read_plan_events(
-    plan: PlanSlug,
-    kind: str | None = None,
-    task: int | None = None,
-    since_ts: int | None = None,
-    limit: int | None = None,
-) -> list[dict]:
-    """
-    Returns raw, unreconstructed lines from .claude/plans/<plan>.jsonl, in file order
-    (oldest first), filtered by every supplied parameter (`since_ts` means ts >=
-    since_ts; `limit` keeps the first N matches). No lock is taken — this is a plain
-    read. Any unparseable line, at any position, is silently skipped (REQ-019). A
-    missing or 0-byte file returns [] rather than raising — unlike get_plan_state,
-    this tool makes no existence claim about the plan.
-    """
-    _PLAN_ADAPTER.validate_python(plan)
-    path = PROJECT_DIR / ".claude/plans" / f"{plan}.jsonl"
-    out: list[dict] = []
-    for ev in _read_all_lines(path):
-        ev_kind = ev.get("kind")
-        if not isinstance(ev_kind, str):
-            continue
-        if kind is not None and ev_kind != kind:
-            continue
-        if task is not None and ev.get("task") != task:
-            continue
-        if since_ts is not None:
-            ts = ev.get("ts")
-            if not isinstance(ts, int) or isinstance(ts, bool) or ts < since_ts:
-                continue
-        out.append(ev)
-        if limit is not None and len(out) >= limit:
-            break
-    return out
-
-
-class TaskState(_Strict):
-    task: int
-    status: Literal[
-        "complete", "complete-with-parked", "reverted", "commit_failed", "dropped", "in_progress"
-    ] | None
-    ready: bool
-    in_flight: bool
-    last_attempt: int
-    forced_fix_used: bool
-    sha: str | None
-    sha_valid: bool | None
-    files: list[str] | None
-    round_count: int
-
-
-class PlanState(_Strict):
-    plan: str
-    epoch: int
-    closed: bool
-    auto_commit: Literal["confirmed", "declined"] | None
-    base_sha: str | None
-    base_sha_valid: bool | None
-    current_wip: list[str] | None
-    tasks: dict[int, TaskState]
-    ready_for_final_review: bool
-    next_seq: dict[str, int]
-    current_branch_round: int
-    current_branch_round_verifiers: list[str]
-    branch_round_complete: bool
-
-
-def _is_int(x: object) -> bool:
+def _is_int(x: object) -> TypeIs[int]:
     """int-typed check that excludes bool (a bool subclasses int in Python)."""
     return isinstance(x, int) and not isinstance(x, bool)
 
@@ -1148,6 +1123,51 @@ _SEQ_KEYED_KINDS = frozenset(
 )
 
 _BRANCH_KINDS = ("branch_check", "branch_review", "branch_test")
+
+
+def _read_all_lines(path: Path) -> list[dict]:
+    """Reads every line of a plan's .jsonl, tolerating any unparseable line at any
+    position (REQ-019) — never raises. Missing/0-byte file -> []."""
+    if not path.exists():
+        return []
+    return list(_iter_lines(path.read_bytes()))
+
+
+@mcp.tool()
+def read_plan_events(
+    plan: PlanSlug,
+    kind: str | None = None,
+    task: int | None = None,
+    since_ts: int | None = None,
+    limit: int | None = None,
+) -> list[dict]:
+    """
+    Returns raw, unreconstructed lines from .claude/plans/<plan>.jsonl, in file order
+    (oldest first), filtered by every supplied parameter (`since_ts` means ts >=
+    since_ts; `limit` keeps the first N matches). No lock is taken — this is a plain
+    read. Any unparseable line, at any position, is silently skipped (REQ-019). A
+    missing or 0-byte file returns [] rather than raising — unlike get_plan_state,
+    this tool makes no existence claim about the plan.
+    """
+    _PLAN_ADAPTER.validate_python(plan)
+    path = PROJECT_DIR / ".claude/plans" / f"{plan}.jsonl"
+    out: list[dict] = []
+    for ev in _read_all_lines(path):
+        ev_kind = ev.get("kind")
+        if not isinstance(ev_kind, str):
+            continue
+        if kind is not None and ev_kind != kind:
+            continue
+        if task is not None and ev.get("task") != task:
+            continue
+        if since_ts is not None:
+            ts = ev.get("ts")
+            if not _is_int(ts) or ts < since_ts:
+                continue
+        out.append(ev)
+        if limit is not None and len(out) >= limit:
+            break
+    return out
 
 
 def _sha_valid(sha: str | None, validate_shas: bool) -> bool | None:
@@ -1267,8 +1287,8 @@ def _task_state(task: int, evs: list[dict], validate_shas: bool) -> TaskState:
         ]
     )
 
-    # M4: an attempt whose writer_dispatched.reason == "branch_fix" is excluded
-    # from round_count regardless of its verify_round results.
+    # An attempt whose writer_dispatched.reason == "branch_fix" is excluded from
+    # round_count regardless of its verify_round results (plan decision, §4.1).
     branch_fix_attempts = {
         e["attempt"]
         for e in window
@@ -1320,19 +1340,11 @@ def get_plan_state(plan: PlanSlug, validate_shas: bool = True) -> PlanState:
     if not path.exists() or path.stat().st_size == 0:
         raise ValueError(f"plan log not found or not valid: {plan}")
 
-    first_line = path.read_bytes().split(b"\n", 1)[0]
-    try:
-        first_ev = json.loads(first_line)
-    except (ValueError, RecursionError):
-        first_ev = None
-    if (
-        not isinstance(first_ev, dict)
-        or first_ev.get("kind") != "plan_archived"
-        or not isinstance(first_ev.get("plan"), str)
-    ):
+    data = path.read_bytes()
+    if _first_line_identity(data) is None:
         raise ValueError(f"plan log not found or not valid: {plan}")
 
-    events = _read_all_lines(path)
+    events = list(_iter_lines(data))
 
     epoch = 0
     closed = False
@@ -1376,7 +1388,7 @@ def get_plan_state(plan: PlanSlug, validate_shas: bool = True) -> PlanState:
             next_seq[kind] = max(next_seq[kind], ev["seq"] + 1)
 
         task = ev.get("task")
-        if isinstance(task, int) and not isinstance(task, bool):
+        if _is_int(task):
             tasks_events.setdefault(task, []).append(ev)
 
     tasks = {t: _task_state(t, tasks_events.get(t, []), validate_shas) for t in tasks_order}

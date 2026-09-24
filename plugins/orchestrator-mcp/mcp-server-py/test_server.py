@@ -11,6 +11,7 @@ import multiprocessing
 import os
 import threading
 import time
+import typing
 from pathlib import Path
 from typing import Any
 
@@ -1847,3 +1848,92 @@ def test_deeply_nested_first_line_raises(plan):
 
     with pytest.raises(ValueError):
         get_plan_state(plan)
+
+
+# --- Drift guard: every line shape write_plan_event/write_findings/write_report can
+# produce is accepted by _validate_line, and _KIND_TO_MODEL stays in sync with the
+# PlanEvent union plus the internal derived models ------------------------------
+
+
+def _one_of_each_plan_event(plan_stem):
+    """One instance of each of the 16 PlanEvent kinds."""
+    return [
+        server.PlanArchived(kind="plan_archived", plan=plan_stem, archive="a", title="t"),
+        server.TaskCreated(kind="task_created", task=1, deliverable="d", files=["f.py"]),
+        server.TaskAmended(kind="task_amended", task=1, seq=1, why="w"),
+        server.TaskDropped(kind="task_dropped", task=2, why="w"),
+        server.Decision(kind="decision", text="t", who="user", seq=2),
+        server.AutoCommit(kind="auto_commit", status="confirmed", seq=3),
+        server.BaseRecorded(kind="base_recorded", sha="a" * 40, seq=4, reason="initial"),
+        server.EpochStart(
+            kind="epoch_start", epoch=1, wip=None, excluded_tasks=[], after_compaction=False
+        ),
+        server.PlanEscalation(kind="escalation", topic="base_rebased", seq=5, detail="d"),
+        server.PlanComplete(kind="plan_complete", status="clean"),
+        server.PlanAbandoned(kind="plan_abandoned", why="w"),
+        server.WriterDispatched(
+            kind="writer_dispatched", task=1, attempt=1, reason="initial", files=["f.py"]
+        ),
+        server.Ruling(kind="ruling", task=1, seq=6, text="t"),
+        server.TaskComplete(
+            kind="task_complete", task=1, attempt=1, status="complete", sha="b" * 40,
+            files=["f.py"], no_sha_reason=None,
+        ),
+        server.CommitFailed(kind="commit_failed", task=1, attempt=1, seq=7, reason="r", files=["f.py"]),
+        server.TaskReverted(kind="task_reverted", task=1, attempt=1, sha="c" * 40, reverts="b" * 40),
+    ]
+
+
+def test_every_line_shape_accepted_by_validate_line(plan):
+    for ev in _one_of_each_plan_event(plan):
+        write_plan_event(ev, plan)
+
+    write_findings(_checker_findings(), "vr", plan=plan, task=1, attempt=1, seq=1)
+    write_findings(_checker_findings(), "bc", plan=plan, branch_round=1, seq=2)
+    write_findings(_reviewer_findings(), "br", plan=plan, branch_round=1, seq=3)
+    write_findings(_tester_findings(), "bt", plan=plan, branch_round=1, seq=4)
+
+    write_report(_writer_report(), "wr", plan=plan, task=1, attempt=2)
+    write_report(
+        _writer_report(context_request=server.ContextRequest(needs=["x"], why="y")),
+        "wr-esc",
+        plan=plan,
+        task=1,
+        attempt=3,
+    )
+
+    lines = _lines(plan)
+    seen_kinds = set()
+    for line in lines:
+        assert server._validate_line(line) is not None, line
+        seen_kinds.add(line["kind"])
+
+    expected_kinds = {
+        "plan_archived", "task_created", "task_amended", "task_dropped", "decision",
+        "auto_commit", "base_recorded", "epoch_start", "escalation", "plan_complete",
+        "plan_abandoned", "writer_dispatched", "ruling", "task_complete", "commit_failed",
+        "task_reverted", "verify_round", "branch_check", "branch_review", "branch_test",
+        "writer_returned",
+    }
+    assert seen_kinds == expected_kinds
+    assert any(
+        l["kind"] == "escalation" and l.get("task") == 1 and l.get("attempt") == 3
+        for l in lines
+    )
+
+
+def _kind_literal(model):
+    return typing.get_args(model.model_fields["kind"].annotation)[0]
+
+
+def test_kind_to_model_matches_plan_event_and_internal_models():
+    plan_event_members = typing.get_args(typing.get_args(server.PlanEvent)[0])
+    plan_event_kinds = {_kind_literal(m) for m in plan_event_members}
+
+    internal_models = [
+        server.VerifyRound, server.BranchCheck, server.BranchReview, server.BranchTest,
+        server.WriterReturned,
+    ]
+    internal_kinds = {_kind_literal(m) for m in internal_models}
+
+    assert set(server._KIND_TO_MODEL) | {"escalation"} == plan_event_kinds | internal_kinds
