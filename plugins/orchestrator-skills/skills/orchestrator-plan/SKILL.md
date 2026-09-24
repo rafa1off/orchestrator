@@ -101,52 +101,11 @@ Call `ExitPlanMode`. Claude Code reads the plan file from Step 4 and presents it
 **The plan was just approved. Execute this step now — no further user input is needed.**
 
 1. Write the plan to `.claude/plans/YYYY-MM-DD-<feature-name>.md`. The system plan file from Step 4 is session-scoped and will not survive a new session — this archive is what makes deferred or repeated execution possible, and what gets committed to git as a decision record.
-2. Create `.claude/plans/progress.md` from the plan's `## Tasks` section — one line per numbered item (`- [ ] N. <deliverable> — <file set>`, or `- [ ] N. <deliverable>` with no trailing `—` at all when the task is verification-only, no file set), plus a `**Plan:**` header pointing at the archive path from step 1, an `**Updated:**` timestamp, a `**Base:**` header line reading `not yet captured`, an `**Auto-commit:**` header line reading `not yet confirmed`, a `## Decisions` section seeded with any decisions the user made while planning, and an empty `## Verify Rounds` section. Overwrite any existing `progress.md` — it describes one active effort.
-3. The plan's commit ledger, `.claude/plans/<same stem as step 1's .md file>.jsonl`, is **not** created here — it comes into existence on its first `write_ledger_entry` call (see `verification.md`), one per plan, never overwritten across different plans (unlike `progress.md`, above). Deriving its path is always: take `progress.md`'s `**Plan:**` value and swap the `.md` extension for `.jsonl`.
+2. Emit the plan's first events with `write_plan_event`, `plan` set to the archive stem from step 1 (no directory, no extension). The archive `.md` must already exist — the server rejects any event for a plan whose archive is missing. The first event creates the log. Write, in order:
+   - `plan_archived{plan, archive, title}` — must be the log's first line.
+   - One `task_created{task, deliverable, files}` per `## Tasks` item, in task order — `files` is the task's file set, or `null` (never `[]`) for a verification-only task.
+   - One `decision{text, who: "user", seq}` per decision made while planning, `seq` numbered 1, 2, ….
 
-```markdown
-# Progress — <feature name>
-
-**Plan:** `.claude/plans/YYYY-MM-DD-<feature>.md`
-**Updated:** YYYY-MM-DDTHH:MMZ
-**Base:** not yet captured
-**Auto-commit:** not yet confirmed
-
-## Deliverables
-
-- [x] 1. <deliverable> — `file`, `file`
-- [ ] 2. <deliverable> — `file`
-- [ ] 3. <deliverable>
-
-## Decisions
-
-- <decision> (YYYY-MM-DD, user)
-
-## Verify Rounds
-
-- Task 1: writer dispatched.
-- Task 1, round 1: 3 findings.
-- Task 1, round 2: 0 findings.
-```
-
-`**Auto-commit:**` is read by its first whitespace-delimited token (the stored value carries
-a trailing date). When that token is `confirmed`, a file-authoring deliverable's marker is
-sourced from the plan's ledger (`.claude/plans/<same stem>.jsonl` — see `verification.md`'s
-`## Commit Recipe`), never hand-edited: `[ ]` is pending (including reverted), `[x]`
-is complete, `[x~]` is complete with a parked finding — rendered inline as `- [x~] N.
-<deliverable> — \`file\` (parked: <ruling text>)`, so every session renders it the same way
-rather than inventing a footnote scheme — `[!]` needs attention (a commit could not be made,
-or its recorded sha no longer validates). If the Deliverables rendering ever disagrees with a
-fresh read of the ledger (e.g. a hand-edit was made to `progress.md`), the ledger wins —
-`progress.md`'s markers are a cached rendering, not an independent record; this comparison is
-never made for a `declined` plan (nothing in the ledger to compare against) or for a
-verification-only task (which never has a ledger line). When the token is `declined`, or
-before it is ever confirmed (`not yet confirmed` or absent), or for a verification-only
-deliverable (no file set) regardless of Auto-commit, only `[ ]`/`[x]` are used, set directly
-by the orchestrator based on the outcome of the check it names — there is no ledger line to
-source from in any of these cases. The numeric prefix makes each line a unique edit target
-even when two deliverables share text. One line per numbered §7 task, full stop: a task's
-`**Consumes:**`/`**Produces:**` sub-lines are plan content, not Deliverables-list content —
-they are never rendered into `progress.md`'s Deliverables list.
+Execution state is read back with `get_plan_state(plan)`; nothing further is written here.
 
 The plan is now done. Execution is the orchestrator's.
