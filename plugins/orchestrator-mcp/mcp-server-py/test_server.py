@@ -25,6 +25,8 @@ _spec.loader.exec_module(server)
 write_plan_event = getattr(server.write_plan_event, "fn", server.write_plan_event)
 read_plan_events = getattr(server.read_plan_events, "fn", server.read_plan_events)
 get_plan_state = getattr(server.get_plan_state, "fn", server.get_plan_state)
+write_findings = getattr(server.write_findings, "fn", server.write_findings)
+write_report = getattr(server.write_report, "fn", server.write_report)
 
 PLAN = "2026-09-24-test-plan"
 
@@ -1274,6 +1276,363 @@ def test_ac_031(plan):
     ts = state.tasks[3]
     assert ts.round_count == 1
     assert ts.last_attempt == 5
+
+
+# --- Task 3: write_findings / write_report plan-scoped parameters --------------
+
+
+def _checker_findings(status="PASS", n_fail=0):
+    checks = [server.Check(name="c", status="PASS", exit_code=0, output="")]
+    checks += [
+        server.Check(name=f"f{i}", status="FAIL", exit_code=1, output="")
+        for i in range(n_fail)
+    ]
+    return server.CheckerFindings(source="checker", status=status, checks=checks)
+
+
+def _reviewer_findings(status="PASS", n_issues=0):
+    checks = [server.Check(name="c", status="PASS", exit_code=0, output="")]
+    issues = [
+        server.Issue(file="f.py", line=None, description="d") for _ in range(n_issues)
+    ]
+    return server.ReviewerFindings(source="reviewer", status=status, checks=checks, issues=issues)
+
+
+def _tester_findings(status="PASS", n_fail=0):
+    checks = [server.Check(name="c", status="PASS", exit_code=0, output="")]
+    failures = [
+        server.Failure(test="t", classification="REGRESSION", evidence="e", recommendation="r")
+        for _ in range(n_fail)
+    ]
+    return server.TesterFindings(source="tester", status=status, checks=checks, failures=failures)
+
+
+def _writer_report(modified=None, context_request=None):
+    return server.WriterReport(
+        source="writer", modified=modified or [], context_request=context_request
+    )
+
+
+def _reader_report():
+    return server.ReaderReport(source="reader", relevant_files=[])
+
+
+def _event_path(result):
+    """Extracts the pipeline-file path out of a write_findings/write_report result,
+    tolerating both the plan-absent and the ' | events: ...'-suffixed forms."""
+    body = result[len("wrote "):]
+    return body.split(" | events:")[0].strip()
+
+
+# --- AC-003 ---------------------------------------------------------------------
+
+
+def test_ac_003(plan):
+    _archive(plan)
+    result = write_findings(_checker_findings(), "lbl", plan=plan, task=3, attempt=2, seq=1)
+    assert (server.PROJECT_DIR / _event_path(result)).exists()
+    lines = [l for l in _lines(plan) if l["kind"] == "verify_round"]
+    assert len(lines) == 1
+    assert lines[0]["source"] == "checker"
+    assert lines[0]["task"] == 3
+    assert lines[0]["attempt"] == 2
+
+
+# --- AC-004 ---------------------------------------------------------------------
+
+
+def test_ac_004(plan):
+    _archive(plan)
+    write_findings(_checker_findings(), "lbl", plan=plan, branch_round=1, seq=1)
+    lines = _lines(plan)
+    assert any(l["kind"] == "branch_check" for l in lines)
+    assert not any(l["kind"] == "verify_round" for l in lines)
+
+
+# --- AC-005 ---------------------------------------------------------------------
+
+
+def test_ac_005(plan):
+    with pytest.raises(ValueError, match="reader/researcher/thinker"):
+        write_report(_reader_report(), "lbl", plan=plan)
+    assert not _log_path(plan).exists()
+    assert not (server.PROJECT_DIR / server.DEFAULT_PIPELINE).exists()
+
+
+# --- AC-012 ---------------------------------------------------------------------
+
+
+def test_ac_012(tmp_path, monkeypatch):
+    monkeypatch.setattr(server, "PROJECT_DIR", tmp_path)
+    result = write_findings(_checker_findings(), "lbl", pipeline=None)
+    assert result == f"wrote {server.DEFAULT_PIPELINE}/checker-lbl-findings.json"
+    assert not (tmp_path / ".claude" / "plans").exists()
+
+    result2 = write_report(_writer_report(), "lbl2", pipeline=None)
+    assert result2 == f"wrote {server.DEFAULT_PIPELINE}/writer-lbl2-report.json"
+    assert not (tmp_path / ".claude" / "plans").exists()
+
+    with pytest.raises(ValueError):
+        write_findings(_checker_findings(), "lbl3", task=1)
+    with pytest.raises(ValueError):
+        write_report(_writer_report(), "lbl4", task=1)
+
+
+# --- AC-015 ---------------------------------------------------------------------
+
+
+def test_ac_015(plan):
+    with pytest.raises(ValueError):
+        write_findings(_checker_findings(), "lbl", task=1)
+    with pytest.raises(ValueError):
+        write_report(_writer_report(), "lbl", task=1)
+    assert not _log_path(plan).exists()
+    assert not (server.PROJECT_DIR / server.DEFAULT_PIPELINE).exists()
+
+
+# --- AC-015a --------------------------------------------------------------------
+
+
+def test_ac_015a(plan):
+    with pytest.raises(ValueError, match="attempt"):
+        write_findings(_checker_findings(), "lbl", plan=plan, attempt=1, branch_round=1, seq=1)
+    with pytest.raises(ValueError):
+        write_findings(_checker_findings(), "lbl", attempt=1)
+    assert not _log_path(plan).exists()
+    assert not (server.PROJECT_DIR / server.DEFAULT_PIPELINE).exists()
+
+
+# --- AC-015b --------------------------------------------------------------------
+
+
+def test_ac_015b(plan):
+    with pytest.raises(ValueError):
+        write_findings(
+            _checker_findings(), "lbl", plan=plan, task=1, attempt=1, branch_round=1, seq=1
+        )
+    assert not _log_path(plan).exists()
+    assert not (server.PROJECT_DIR / server.DEFAULT_PIPELINE).exists()
+
+
+# --- AC-015c --------------------------------------------------------------------
+
+
+def test_ac_015c(plan):
+    with pytest.raises(ValueError):
+        write_findings(_checker_findings(), "lbl", plan=plan, task=1, attempt=1)
+    with pytest.raises(ValueError):
+        write_findings(_checker_findings(), "lbl", plan=plan, branch_round=1)
+    assert not _log_path(plan).exists()
+    assert not (server.PROJECT_DIR / server.DEFAULT_PIPELINE).exists()
+
+
+# --- AC-018 ---------------------------------------------------------------------
+
+
+def test_ac_018(plan, monkeypatch):
+    _archive(plan)
+    report = _writer_report(modified=[server.ModifiedFile(path="f.py", change="c")])
+
+    real_write = server._write_report_file
+    state = {"n": 0}
+
+    def fake_write(*a, **kw):
+        state["n"] += 1
+        if state["n"] == 1:
+            raise RuntimeError("boom")
+        return real_write(*a, **kw)
+
+    monkeypatch.setattr(server, "_write_report_file", fake_write)
+
+    with pytest.raises(RuntimeError):
+        write_report(report, "lbl", plan=plan, task=1, attempt=1)
+
+    lines = [l for l in _lines(plan) if l["kind"] == "writer_returned"]
+    assert len(lines) == 1
+
+    result = write_report(report, "lbl", plan=plan, task=1, attempt=1)
+    events = json.loads(result.split(" | events: ")[1])
+    assert events == [{"kind": "writer_returned", "status": "duplicate", "ts": lines[0]["ts"]}]
+    assert (server.PROJECT_DIR / _event_path(result)).exists()
+
+    lines_after = [l for l in _lines(plan) if l["kind"] == "writer_returned"]
+    assert len(lines_after) == 1
+
+
+# --- AC-021 ---------------------------------------------------------------------
+
+
+def test_ac_021(plan):
+    _archive(plan)
+    findings = _checker_findings()
+    r1 = write_findings(findings, "lbl-a", pipeline=None)
+    r2 = write_findings(findings, "lbl-b", plan=plan, task=1, attempt=1, seq=1)
+
+    d1 = json.loads((server.PROJECT_DIR / _event_path(r1)).read_text())
+    d2 = json.loads((server.PROJECT_DIR / _event_path(r2)).read_text())
+    d1.pop("written_at")
+    d2.pop("written_at")
+    assert d1 == d2
+
+
+# --- AC-028 ---------------------------------------------------------------------
+
+
+def test_ac_028(plan):
+    _archive(plan)
+    seq = 1
+    for source, findings in (
+        ("checker", _checker_findings()),
+        ("reviewer", _reviewer_findings()),
+        ("tester", _tester_findings()),
+    ):
+        write_findings(findings, f"{source}-t", plan=plan, task=1, attempt=1, seq=seq)
+        seq += 1
+        write_findings(findings, f"{source}-b", plan=plan, branch_round=1, seq=seq)
+        seq += 1
+
+    for source, report in (
+        ("reader", _reader_report()),
+        ("researcher", server.ResearcherReport(source="researcher", recommended_approach="x")),
+        ("thinker", server.ThinkerReport(source="thinker", mode="qa", recommendation="r")),
+    ):
+        with pytest.raises(ValueError):
+            write_report(report, f"{source}-x", plan=plan)
+        write_report(report, f"{source}-y")  # ad-hoc path, no plan — must succeed
+
+    write_report(_writer_report(), "writer-a", plan=plan, task=2, attempt=1)
+    write_report(
+        _writer_report(context_request=server.ContextRequest(needs=["x"], why="y")),
+        "writer-b",
+        plan=plan,
+        task=3,
+        attempt=1,
+    )
+
+    lines = _lines(plan)
+    assert not any(l["kind"] in ("decision", "ruling") for l in lines)
+
+
+# --- write_report escalation pair (writer_returned then escalation) -------------
+
+
+def test_write_report_escalation_pair(plan):
+    _archive(plan)
+    report = _writer_report(
+        modified=[server.ModifiedFile(path="f.py", change="c")],
+        context_request=server.ContextRequest(needs=["a", "b"], why="blocked"),
+    )
+    write_report(report, "lbl", plan=plan, task=5, attempt=2)
+
+    lines = [l for l in _lines(plan) if l.get("task") == 5 and l.get("attempt") == 2]
+    assert [l["kind"] for l in lines] == ["writer_returned", "escalation"]
+    assert lines[1]["detail"] == "blocked (needs: a, b)"
+
+
+# --- findings_total per source, task-scoped and branch-scoped ------------------
+
+
+@pytest.mark.parametrize(
+    "source, findings, expected_total",
+    [
+        ("checker", _checker_findings(status="FAIL", n_fail=2), 2),
+        ("reviewer", _reviewer_findings(status="FAIL", n_issues=3), 3),
+        ("tester", _tester_findings(status="FAIL", n_fail=1), 1),
+    ],
+)
+def test_findings_total_per_source(plan, source, findings, expected_total):
+    _archive(plan)
+
+    write_findings(findings, "task-scoped", plan=plan, task=1, attempt=1, seq=1)
+    task_line = next(l for l in _lines(plan) if l["kind"] == "verify_round")
+    assert task_line["findings_total"] == expected_total
+
+    write_findings(findings, "branch-scoped", plan=plan, branch_round=1, seq=2)
+    branch_kind = {"checker": "branch_check", "reviewer": "branch_review", "tester": "branch_test"}[
+        source
+    ]
+    branch_line = next(l for l in _lines(plan) if l["kind"] == branch_kind)
+    assert branch_line["findings_total"] == expected_total
+
+
+# --- branch routing: reviewer -> branch_review, tester -> branch_test ----------
+
+
+def test_branch_routing_reviewer_and_tester(plan):
+    _archive(plan)
+    write_findings(_reviewer_findings(), "lbl-r", plan=plan, branch_round=1, seq=1)
+    write_findings(_tester_findings(), "lbl-t", plan=plan, branch_round=1, seq=2)
+
+    lines = _lines(plan)
+    assert any(l["kind"] == "branch_review" for l in lines)
+    assert any(l["kind"] == "branch_test" for l in lines)
+    assert not any(l["kind"] in ("branch_check", "verify_round") for l in lines)
+
+
+# --- write_report in_scope/out_of_scope split -----------------------------------
+
+
+def test_write_report_in_scope_split(plan):
+    _archive(plan)
+    report = _writer_report(
+        modified=[
+            server.ModifiedFile(path="a.py", change="c1", in_scope=True),
+            server.ModifiedFile(path="b.py", change="c2", in_scope=False, note="unplanned"),
+        ]
+    )
+    write_report(report, "lbl", plan=plan, task=1, attempt=1)
+
+    line = next(l for l in _lines(plan) if l["kind"] == "writer_returned")
+    assert line["in_scope"] == ["a.py"]
+    assert line["out_of_scope"] == ["b.py"]
+
+
+# --- writer_returned + escalation round-trip via get_plan_state/read_plan_events -
+
+
+def test_writer_returned_escalation_round_trip(plan):
+    _archive(plan)
+    write_plan_event(
+        server.TaskCreated(kind="task_created", task=9, deliverable="x", files=["f.py"]), plan
+    )
+    write_plan_event(
+        server.WriterDispatched(
+            kind="writer_dispatched", task=9, attempt=1, reason="initial", files=["f.py"]
+        ),
+        plan,
+    )
+    report = _writer_report(
+        modified=[server.ModifiedFile(path="f.py", change="c")],
+        context_request=server.ContextRequest(needs=["x"], why="blocked"),
+    )
+    write_report(report, "lbl", plan=plan, task=9, attempt=1)
+
+    state = get_plan_state(plan, validate_shas=False)
+    assert state.tasks[9].in_flight is False
+
+    events = read_plan_events(plan, task=9)
+    kinds = [e["kind"] for e in events if e["kind"] in ("writer_returned", "escalation")]
+    assert kinds == ["writer_returned", "escalation"]
+    assert all(e["task"] == 9 and e["attempt"] == 1 for e in events if e["kind"] in kinds)
+    escalation = next(e for e in events if e["kind"] == "escalation")
+    assert escalation["topic"] == "writer_blocked"
+
+
+# --- write_findings forced_fix derivation ---------------------------------------
+
+
+def test_write_findings_forced_fix_derived(plan):
+    _archive(plan)
+    write_plan_event(
+        server.WriterDispatched(
+            kind="writer_dispatched", task=7, attempt=1, reason="forced_fix", files=["f.py"]
+        ),
+        plan,
+    )
+    write_findings(_checker_findings(), "lbl", plan=plan, task=7, attempt=1, seq=1)
+    lines = [l for l in _lines(plan) if l["kind"] == "verify_round"]
+    assert len(lines) == 1
+    assert lines[0]["forced_fix"] is True
 
 
 # --- Plan decision M4: round_count excludes branch_fix attempts -----------------

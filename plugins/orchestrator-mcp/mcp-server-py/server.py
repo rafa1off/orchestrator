@@ -724,7 +724,7 @@ def _serialize(event: BaseModel) -> dict:
     dumped = event.model_dump(mode="json", exclude_none=True)
     kind = dumped["kind"]
     for field in ALWAYS_WRITTEN_NULLABLE.get(kind, frozenset()):
-        dumped[field] = getattr(event, field)
+        dumped.setdefault(field, None)
     if kind == "task_amended" and "files" in event.model_fields_set:
         dumped["files"] = getattr(event, "files", None)
     return dumped
@@ -749,9 +749,40 @@ def _unique_path(pipeline_dir: Path, source: str, label: str, kind: str) -> Path
     return path
 
 
+def _write_findings_file(findings: Findings, label: Label, pipeline: str | None) -> str:
+    pipeline_dir = _pipeline_dir(pipeline)
+    payload = findings.model_dump(mode="json")
+    payload.pop("source", None)
+    payload.pop("status", None)
+    out = {
+        "source": findings.source,
+        "status": findings.status,
+        "written_at": int(time.time()),
+        **payload,
+    }
+    out_path = _unique_path(pipeline_dir, findings.source, label, "findings")
+    out_path.write_text(json.dumps(out, indent=2))
+    return f"wrote {pipeline or DEFAULT_PIPELINE}/{out_path.name}"
+
+
+def _findings_total(findings: Findings) -> int:
+    if findings.source == "checker":
+        return sum(1 for c in findings.checks if c.status != "PASS")
+    if findings.source == "reviewer":
+        return len(findings.issues)
+    return len(findings.failures)  # tester
+
+
 @mcp.tool()
 def write_findings(
-    findings: Findings, label: Label, pipeline: str | None = None
+    findings: Findings,
+    label: Label,
+    pipeline: str | None = None,
+    plan: PlanSlug | None = None,
+    task: int | None = None,
+    attempt: int | None = None,
+    branch_round: int | None = None,
+    seq: int | None = None,
 ) -> str:
     """
     Write findings to .claude/pipeline/<source>-<label>-findings.json. Always call — even
@@ -765,27 +796,106 @@ def write_findings(
         collision, a random 4-hex-char disambiguator is appended rather than
         overwriting the earlier file.
     pipeline: optional override for multi-track runs, e.g. '.claude/pipeline/track-a'
+    plan: when set, also appends a plan-event-log line BEFORE the pipeline file is
+        written (see spec/spec-architecture-plan-event-log.md §4.1). `seq` is then
+        REQUIRED, and exactly one of `task`+`attempt` (routes to `verify_round`) or
+        `branch_round` (routes to `branch_check`/`branch_review`/`branch_test` by
+        `findings.source`) is REQUIRED too. The return string then gains a
+        " | events: <json>" suffix; the pipeline file itself is unaffected.
+    task: task-scoped review target — requires `plan` and `attempt`; mutually
+        exclusive with `branch_round`.
+    attempt: the attempt this review evaluates — requires `task`.
+    branch_round: whole-branch review round — requires `plan`; mutually exclusive
+        with `task`/`attempt`.
+    seq: this caller's next sequence number for its (task, source) or
+        (branch_round, source) slot — REQUIRED whenever `plan` is set.
     """
     _LABEL_ADAPTER.validate_python(label)
-    pipeline_dir = _pipeline_dir(pipeline)
 
-    payload = findings.model_dump(mode="json")
+    if plan is None:
+        if task is not None or attempt is not None or branch_round is not None or seq is not None:
+            raise ValueError(
+                "task/attempt/branch_round/seq require plan to be set"
+            )
+        return _write_findings_file(findings, label, pipeline)
+
+    _PLAN_ADAPTER.validate_python(plan)
+    if seq is None:
+        raise ValueError("seq is required when plan is set")
+
+    if task is not None:
+        if attempt is None:
+            raise ValueError("attempt is required when task is set")
+        if branch_round is not None:
+            raise ValueError("branch_round must not be set when task is set")
+        event: BaseModel = VerifyRound(
+            kind="verify_round",
+            task=task,
+            attempt=attempt,
+            source=findings.source,
+            seq=seq,
+            status=findings.status,
+            findings_total=_findings_total(findings),
+            forced_fix=False,  # overwritten server-side by _append
+        )
+    else:
+        if branch_round is None:
+            raise ValueError("branch_round is required when task is absent")
+        if attempt is not None:
+            raise ValueError("attempt must not be set when task is absent")
+        if findings.source == "checker":
+            event = BranchCheck(
+                kind="branch_check",
+                round=branch_round,
+                seq=seq,
+                status=findings.status,
+                findings_total=_findings_total(findings),
+            )
+        elif findings.source == "reviewer":
+            event = BranchReview(
+                kind="branch_review",
+                round=branch_round,
+                seq=seq,
+                status=findings.status,
+                findings_total=_findings_total(findings),
+            )
+        else:
+            event = BranchTest(
+                kind="branch_test",
+                round=branch_round,
+                seq=seq,
+                status=findings.status,
+                findings_total=_findings_total(findings),
+            )
+
+    outcomes = _append(plan, [_serialize(event)])
+    result = _write_findings_file(findings, label, pipeline)
+    return f"{result} | events: {json.dumps(outcomes)}"
+
+
+def _write_report_file(report: Report, label: Label, pipeline: str | None) -> str:
+    pipeline_dir = _pipeline_dir(pipeline)
+    payload = report.model_dump(mode="json")
     payload.pop("source", None)
-    payload.pop("status", None)
     out = {
-        "source": findings.source,
-        "status": findings.status,
+        "source": report.source,
         "written_at": int(time.time()),
         **payload,
     }
-
-    out_path = _unique_path(pipeline_dir, findings.source, label, "findings")
+    out_path = _unique_path(pipeline_dir, report.source, label, "report")
     out_path.write_text(json.dumps(out, indent=2))
     return f"wrote {pipeline or DEFAULT_PIPELINE}/{out_path.name}"
 
 
 @mcp.tool()
-def write_report(report: Report, label: Label, pipeline: str | None = None) -> str:
+def write_report(
+    report: Report,
+    label: Label,
+    pipeline: str | None = None,
+    plan: PlanSlug | None = None,
+    task: int | None = None,
+    attempt: int | None = None,
+) -> str:
     """
     Write a report to .claude/pipeline/<source>-<label>-report.json. Always call, even
     when there is nothing noteworthy to say. `context_request` is how an agent signals it
@@ -798,21 +908,65 @@ def write_report(report: Report, label: Label, pipeline: str | None = None) -> s
         collision, a random 4-hex-char disambiguator is appended rather than
         overwriting the earlier file.
     pipeline: optional override for multi-track runs, e.g. '.claude/pipeline/track-a'
+    plan: when set, also appends a plan-event-log line BEFORE the pipeline file is
+        written. Rejected at runtime for reader/researcher/thinker reports — only a
+        writer report is plan-scoped. Requires `task` and `attempt` both set. Always
+        emits `writer_returned`; additionally emits a task-scoped `escalation` in the
+        same call when `report.context_request` is set. The return string then gains
+        a " | events: <json>" suffix; the pipeline file itself is unaffected.
+    task: the task this writer report belongs to — requires `plan` and `attempt`.
+    attempt: the attempt this writer report belongs to — requires `plan` and `task`.
     """
     _LABEL_ADAPTER.validate_python(label)
-    pipeline_dir = _pipeline_dir(pipeline)
 
-    payload = report.model_dump(mode="json")
-    payload.pop("source", None)
-    out = {
-        "source": report.source,
-        "written_at": int(time.time()),
-        **payload,
-    }
+    if plan is None:
+        if task is not None or attempt is not None:
+            raise ValueError("task/attempt require plan to be set")
+        return _write_report_file(report, label, pipeline)
 
-    out_path = _unique_path(pipeline_dir, report.source, label, "report")
-    out_path.write_text(json.dumps(out, indent=2))
-    return f"wrote {pipeline or DEFAULT_PIPELINE}/{out_path.name}"
+    _PLAN_ADAPTER.validate_python(plan)
+    if not isinstance(report, WriterReport):
+        # ValueError, not TypeError: every tool rejection in this server is a ValueError.
+        raise ValueError(  # noqa: TRY004
+            "reader/researcher/thinker reports do not accept plan-scoped parameters"
+        )
+    if task is None or attempt is None:
+        raise ValueError("task and attempt are both required when plan is set")
+
+    context_request = (
+        WriterReturnedContextRequest(
+            needs=report.context_request.needs, why=report.context_request.why
+        )
+        if report.context_request is not None
+        else None
+    )
+    events: list[BaseModel] = [
+        WriterReturned(
+            kind="writer_returned",
+            task=task,
+            attempt=attempt,
+            in_scope=[m.path for m in report.modified if m.in_scope],
+            out_of_scope=[m.path for m in report.modified if not m.in_scope],
+            context_request=context_request,
+        )
+    ]
+    if report.context_request is not None:
+        events.append(
+            TaskEscalation(
+                kind="escalation",
+                task=task,
+                attempt=attempt,
+                topic="writer_blocked",
+                detail=(
+                    f"{report.context_request.why} "
+                    f"(needs: {', '.join(report.context_request.needs)})"
+                ),
+            )
+        )
+
+    outcomes = _append(plan, [_serialize(e) for e in events])
+    result = _write_report_file(report, label, pipeline)
+    return f"{result} | events: {json.dumps(outcomes)}"
 
 
 @mcp.tool()
