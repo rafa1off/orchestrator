@@ -255,10 +255,11 @@ Hook suite that automates the orchestrator's pipeline contracts:
 Every guard here asserts **positive evidence**, not merely well-formed failure reporting.
 A checker, reviewer, or tester result is trusted only when it carries one `checks[]` entry per
 check actually executed, each with the real process exit code. Absent or empty `checks[]` is
-refused by the MCP tool's schema on every call; a `PASS` check with a null exit code, or an
-overall `PASS` over an `ERROR` check, is refused by the `PostToolUse` hook always, by the MCP
-tool itself when the call is plan-scoped (`plan` is set), and again by `SubagentStop`. A missing
-`jq` blocks rather than silently disabling the guard. The guards'
+refused by the MCP tool's schema on every call. A `PASS` check with a null exit code, or an
+overall `PASS` over an `ERROR` check, is refused by the `PostToolUse` hook (when `jq` is
+installed) and by the MCP tool itself when the call is plan-scoped (`plan` is set).
+`SubagentStop` re-checks for empty `checks[]` and `PASS`-with-null-exit-code, and a missing
+`jq` makes it block rather than silently disabling the guard. The guards'
 *presence* is what makes a green result meaningful, so failing open is worse than having no
 guard at all.
 

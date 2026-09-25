@@ -3,7 +3,7 @@
 # dependencies = ["fastmcp>=2.0.0"]
 # ///
 """MCP dev-tools server — pipeline findings/report writer and the per-plan, append-only
-Plan Event Log (spec/spec-architecture-plan-event-log.md)."""
+Plan Event Log."""
 
 import errno
 import json
@@ -536,7 +536,7 @@ def _read_at(fd: int, offset: int, n: int) -> bytes:
 
 def _iter_lines(data: bytes) -> Iterator[dict]:
     """Yields every complete, JSON-object line in `data`, tolerating any unparseable
-    line at any position (REQ-019) — never raises. Used by both the write path
+    line at any position — never raises. Used by both the write path
     (_fold) and the read path (_read_all_lines) so the two never disagree on what
     counts as a parseable line."""
     for line in data.split(b"\n"):
@@ -619,7 +619,7 @@ def _natural_key(ev: dict) -> tuple:
 
 def _fold(cache: _PlanCache, data: bytes) -> None:
     """Folds every complete line in `data` into `cache`'s dedup/dispatch maps.
-    Unparseable lines are skipped silently (REQ-019) — never raised."""
+    Unparseable lines are skipped silently — never raised."""
     for ev in _iter_lines(data):
         try:
             key = _natural_key(ev)
@@ -860,7 +860,7 @@ def write_findings(
         call raises ValueError and writes NEITHER the plan-event-log line NOR the
         pipeline file, so a corrected retry with the same `seq` is accepted as new.
         Otherwise, also appends a plan-event-log line BEFORE the pipeline file is
-        written (see spec/spec-architecture-plan-event-log.md §4.1). `seq` is then
+        written. `seq` is then
         REQUIRED, and exactly one of `task`+`attempt` (routes to `verify_round`) or
         `branch_round` (routes to `branch_check`/`branch_review`/`branch_test` by
         `findings.source`) is REQUIRED too. The return string then gains a
@@ -1041,7 +1041,7 @@ def write_report(
 def write_plan_event(event: PlanEvent, plan: PlanSlug) -> str:
     """
     Append one event to .claude/plans/<plan>.jsonl — the per-plan, append-only Plan
-    Event Log (spec/spec-architecture-plan-event-log.md). Orchestrator-only: this tool
+    Event Log. Orchestrator-only: this tool
     MUST NOT appear in any subagent's tool list. Supports exactly these 16 kinds:
     plan_archived, task_created, task_amended, task_dropped, decision, auto_commit,
     base_recorded, epoch_start, escalation (plan-level trigger, task=null),
@@ -1117,7 +1117,7 @@ _KIND_TO_MODEL: dict[str, type[BaseModel]] = {
 
 def _validate_line(ev: dict) -> dict | None:
     """Validates one already-JSON-parsed line's shape against its kind's model
-    (REQ-019: a bad line is skipped, never raised). Requires `kind` to be a str and
+    (a bad line is skipped, never raised). Requires `kind` to be a str and
     `ts` an int (not bool); the line minus `ts` is validated against the kind's model,
     with `escalation` routed to PlanEscalation or TaskEscalation by `task`. Returns
     the original dict (including `ts`) on success, None otherwise."""
@@ -1153,7 +1153,7 @@ _BRANCH_KINDS = ("branch_check", "branch_review", "branch_test")
 
 def _read_all_lines(path: Path) -> list[dict]:
     """Reads every line of a plan's .jsonl, tolerating any unparseable line at any
-    position (REQ-019) — never raises. Missing/0-byte file -> []."""
+    position — never raises. Missing/0-byte file -> []."""
     if not path.exists():
         return []
     return list(_iter_lines(path.read_bytes()))
@@ -1171,7 +1171,7 @@ def read_plan_events(
     Returns raw, unreconstructed lines from .claude/plans/<plan>.jsonl, in file order
     (oldest first), filtered by every supplied parameter (`since_ts` means ts >=
     since_ts; `limit` keeps the first N matches). No lock is taken — this is a plain
-    read. Any unparseable line, at any position, is silently skipped (REQ-019). A
+    read. Any unparseable line, at any position, is silently skipped. A
     missing or 0-byte file returns [] rather than raising — unlike get_plan_state,
     this tool makes no existence claim about the plan.
     """
@@ -1353,11 +1353,11 @@ def _task_state(task: int, evs: list[dict], validate_shas: bool) -> TaskState:
 def get_plan_state(plan: PlanSlug, validate_shas: bool = True) -> PlanState:
     """
     Reconstructs a plan's current state from a full sequential read of its event log
-    (spec §4.1) — no lock is taken. Fails with the SAME ValueError, never a PlanState
+    — no lock is taken. Fails with the SAME ValueError, never a PlanState
     with default/guessed fields, when .claude/plans/<plan>.jsonl is missing, is 0
-    bytes (REQ-003's stray-empty-file case), or its first line is missing,
-    unparseable, not a dict, or not a plan_archived event (CON-012's torn-first-line
-    case). Any OTHER unparseable line, at any position, is silently skipped (REQ-019)
+    bytes (a stray empty file), or its first line is missing,
+    unparseable, not a dict, or not a plan_archived event (a torn first
+    line). Any OTHER unparseable line, at any position, is silently skipped
     rather than causing a failure. `validate_shas=False` sets every sha_valid field
     to None without running git at all.
     """
