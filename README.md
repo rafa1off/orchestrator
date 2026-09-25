@@ -195,12 +195,12 @@ Two workflow skills for the orchestrator session:
 
 | Agent | Model | Effort | Type | Role |
 |---|---|---|---|---|
-| `orchestrator-agents:reader` | haiku | *(absent — inert on haiku)* | readonly | Maps code paths, writes `reader-report.json` with structured context snapshots |
-| `orchestrator-agents:researcher` | sonnet | low | readonly | Finds external patterns, library APIs, prior project decisions; writes `researcher-report.json` |
-| `orchestrator-agents:thinker` | opus | medium | readonly | Deep reasoning, tradeoff analysis, brainstorming; isolates verbose analysis from main context; writes `thinker-report.json` |
-| `orchestrator-agents:writer` | sonnet | low | read+write | Produces minimal, focused code changes from a context block; writes `writer-report.json` listing modified files |
-| `orchestrator-agents:checker` | haiku | *(absent — inert on haiku)* | readonly | Lint + typecheck + build only — no diff review; call any time, writes `checker-findings.json` |
-| `orchestrator-agents:reviewer` | opus | medium | readonly | Diff review only — no lint/typecheck; always spawned fresh, writes `reviewer-findings.json` |
+| `orchestrator-agents:reader` | haiku | *(absent — inert on haiku)* | readonly | Maps code paths, writes `reader-<label>-report.json` with structured context snapshots |
+| `orchestrator-agents:researcher` | sonnet | low | readonly | Finds external patterns, library APIs, prior project decisions; writes `researcher-<label>-report.json` |
+| `orchestrator-agents:thinker` | opus | medium | readonly | Deep reasoning, tradeoff analysis, brainstorming; isolates verbose analysis from main context; writes `thinker-<label>-report.json` |
+| `orchestrator-agents:writer` | sonnet | low | read+write | Produces minimal, focused code changes from a context block; writes `writer-<label>-report.json` listing modified files |
+| `orchestrator-agents:checker` | haiku | *(absent — inert on haiku)* | readonly | Lint + typecheck + build only — no diff review; call any time, writes `checker-<label>-findings.json` |
+| `orchestrator-agents:reviewer` | opus | medium | readonly | Diff review only — no lint/typecheck; always spawned fresh, writes `reviewer-<label>-findings.json` |
 | `orchestrator-agents:tester` | sonnet | low | readonly | Runs the suite and classifies each failure (REGRESSION / STALE TEST / FLAKY / UNCLEAR) with evidence — never writes or fixes tests |
 
 **Dispatch mode:** agents always run as background subagents — fork mode is on by default in
@@ -247,7 +247,7 @@ Hook suite that automates the orchestrator's pipeline contracts:
 | `PreToolUse` (`Write`/`Edit`) | thinker/researcher write | **Blocks** any path outside `.claude/agent-memory/` |
 | `PostToolUse` (`write_findings`\|`write_report`) | Findings or report file written | Proof-of-execution guard for findings, presence-and-freshness guard for reports, then injects the file's content as `additionalContext` |
 | `PostToolUse` (`Write`/`Edit`) | writer edits a file | Logs `agent_id`→path to `.claude/pipeline/write-log.tsv` and flags the file when a *different* writer already touched it (invariant 2) |
-| `PreCompact` | Context compaction begins | Snapshots the findings files (`checker-findings.json`, `reviewer-findings.json`, `tester-findings.json`) and the report files (`reader-report.json`, `writer-report.json`, `thinker-report.json`, `researcher-report.json`) to `.claude/pipeline/pre-compact-snapshot.md` |
+| `PreCompact` | Context compaction begins | Snapshots every `<source>-<label>-findings.json` (checker, reviewer, tester) and `<source>-<label>-report.json` (reader, writer, thinker, researcher) file to `.claude/pipeline/pre-compact-snapshot.md` |
 | `SessionEnd` | Session terminates | Appends to `.claude/pipeline/session-log.txt` (capped at 500 lines) and clears findings, reports, stamps, and the write log; `.claude/plans/*.jsonl` and `.claude/metrics/` are untouched — both are persistent |
 
 ### Fail-closed principle

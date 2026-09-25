@@ -15,13 +15,13 @@ The main Claude Code session acts as orchestrator. Agents are tools — call the
 | Agent | Model | Effort | Type | When to call |
 |-------|-------|--------|------|--------------|
 | Explore *(built-in)* | haiku | *(none)* | readonly | Broad codebase discovery — "survey the repo", "find all usages of X". Use `Agent(subagent_type="Explore", ...)` |
-| orchestrator-agents:reader | haiku | *(none)* | readonly | Map files, interfaces, and conventions before writing. Writes guarded reports to `reader-report.json`; call multiple times as new paths surface. |
-| orchestrator-agents:researcher | sonnet | low | readonly | External APIs, library patterns, prior decisions in `docs/`. Writes guarded reports to `researcher-report.json`. |
-| orchestrator-agents:thinker | opus | medium | readonly | Analysis, brainstorming, architectural decisions. Isolates verbose reasoning from main context. Writes guarded reports to `thinker-report.json`. |
-| orchestrator-agents:writer | sonnet | low | read+write | Produce code changes from a context block. Writes guarded reports to `writer-report.json`. |
-| orchestrator-agents:checker | haiku | *(none)* | readonly | Lint + typecheck + build checks only — no diff review. Writes guarded findings to `checker-findings.json`; call any time. |
-| orchestrator-agents:reviewer | opus | medium | readonly | Diff review only — no lint/typecheck. Writes guarded findings to `reviewer-findings.json`; always spawn fresh for a clean diff baseline. |
-| orchestrator-agents:tester | sonnet | low | readonly | Run the suite and diagnose each failure (regression vs stale test vs flaky). Never writes or fixes tests. Writes guarded findings to `tester-findings.json`. |
+| orchestrator-agents:reader | haiku | *(none)* | readonly | Map files, interfaces, and conventions before writing. Writes guarded reports to `reader-<label>-report.json`; call multiple times as new paths surface. |
+| orchestrator-agents:researcher | sonnet | low | readonly | External APIs, library patterns, prior decisions in `docs/`. Writes guarded reports to `researcher-<label>-report.json`. |
+| orchestrator-agents:thinker | opus | medium | readonly | Analysis, brainstorming, architectural decisions. Isolates verbose reasoning from main context. Writes guarded reports to `thinker-<label>-report.json`. |
+| orchestrator-agents:writer | sonnet | low | read+write | Produce code changes from a context block. Writes guarded reports to `writer-<label>-report.json`. |
+| orchestrator-agents:checker | haiku | *(none)* | readonly | Lint + typecheck + build checks only — no diff review. Writes guarded findings to `checker-<label>-findings.json`; call any time. |
+| orchestrator-agents:reviewer | opus | medium | readonly | Diff review only — no lint/typecheck. Writes guarded findings to `reviewer-<label>-findings.json`; always spawn fresh for a clean diff baseline. |
+| orchestrator-agents:tester | sonnet | low | readonly | Run the suite and diagnose each failure (regression vs stale test vs flaky). Never writes or fixes tests. Writes guarded findings to `tester-<label>-findings.json`. |
 
 > **Trust is in the guard, not the agent's word.** All seven agents return through a
 > validated tool call — `checker`, `reviewer`, and `tester` write structured findings through

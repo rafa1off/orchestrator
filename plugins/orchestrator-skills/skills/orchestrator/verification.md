@@ -128,9 +128,9 @@ Run Start runs its checks in this order:
 
 **1 — Clear stale findings:**
 ```bash
-rm -f .claude/pipeline/checker-findings.json .claude/pipeline/reviewer-findings.json .claude/pipeline/tester-findings.json
+rm -f .claude/pipeline/checker-*-findings.json .claude/pipeline/reviewer-*-findings.json .claude/pipeline/tester-*-findings.json
 # or for multi-track:
-rm -f .claude/pipeline/<track>/checker-findings.json .claude/pipeline/<track>/reviewer-findings.json .claude/pipeline/<track>/tester-findings.json
+rm -f .claude/pipeline/<track>/checker-*-findings.json .claude/pipeline/<track>/reviewer-*-findings.json .claude/pipeline/<track>/tester-*-findings.json
 ```
 
 **Note:** reviewer is always spawned fresh (never reused) — a deliberate correctness-over-cache
@@ -176,11 +176,11 @@ you usually receive them without a manual read. This mirrors the auto-injection 
 written by `write_report`, though reports are not this file's concern — findings are the
 proof-of-execution signal verification acts on. To read explicitly:
 ```bash
-cat .claude/pipeline/checker-findings.json .claude/pipeline/reviewer-findings.json .claude/pipeline/tester-findings.json
+cat .claude/pipeline/checker-*-findings.json .claude/pipeline/reviewer-*-findings.json .claude/pipeline/tester-*-findings.json
 ```
-`checker-findings.json` carries `checks[]` only (no `issues[]`). `reviewer-findings.json`
+`checker-<label>-findings.json` carries `checks[]` only (no `issues[]`). `reviewer-<label>-findings.json`
 carries `issues[]` at `file:line` plus a `checks[]` entry for the review pass.
-`tester-findings.json` carries the per-suite `checks` table plus a `failures` list, each
+`tester-<label>-findings.json` carries the per-suite `checks` table plus a `failures` list, each
 `{ test, classification, evidence, recommendation }`.
 
 **5 — Branch on result. The two signals are handled differently:**
@@ -190,7 +190,7 @@ ordinary writer dispatch:
 - `status: PASS` + `review: APPROVED` → that side is clear
 - `FAIL` or open `issues[]` → read the findings file(s) and dispatch a writer with its single
   input contract:
-  - `## Context` — the findings from `checker-findings.json` / `reviewer-findings.json`
+  - `## Context` — the findings from `checker-<label>-findings.json` / `reviewer-<label>-findings.json`
   - `## Task` — the required fix, lint and typecheck failures addressed before diff-review issues
   - `## Files to modify` — the affected files
 
