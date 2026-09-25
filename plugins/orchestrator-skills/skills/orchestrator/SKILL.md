@@ -53,7 +53,7 @@ On session start, or after a context compaction, find the active plan before doi
 else: `Glob` `.claude/plans/*.jsonl`, discard any 0-byte file, rank the rest by mtime (newest
 first), and take the first candidate whose `get_plan_state(plan)` succeeds and returns
 `closed == false`. A candidate whose `get_plan_state` raises (e.g. an old-format ledger with
-no `plan_archived` line) is skipped, not fatal (REQ-004) — move to the next candidate. Read
+no `plan_archived` line) is skipped, not fatal — move to the next candidate. Read
 state only from `get_plan_state`'s `PlanState` projection, falling back to
 `read_plan_events(plan)` only for a detail the projection doesn't carry. Also read
 `.claude/pipeline/pre-compact-snapshot.md` if it exists. Resuming does not dispatch anything
@@ -82,9 +82,13 @@ plan-backed run's first writer dispatch.
 
 ## Final Full-Branch Review
 
-For a plan-backed run, once `PlanState.ready_for_final_review` is true (and, for L2/L3, after
-the existing integration pass in `dispatch-levels.md`), checker, reviewer, and tester are
-dispatched together every round, all carrying the same `branch_round` (REQ-021) — reviewer
+Mandatory for confirmed runs. A declined run (`auto_commit: "declined"`) skips this review
+entirely: once `ready_for_final_review` is true, it writes `plan_complete{status: "clean"}`
+directly — see [verification.md](verification.md#final-full-branch-review) for that path.
+
+For a `"confirmed"` plan-backed run, once `PlanState.ready_for_final_review` is true (and, for
+L2/L3, after the existing integration pass in `dispatch-levels.md`), checker, reviewer, and
+tester are dispatched together every round, all carrying the same `branch_round` — reviewer
 scoped to the whole branch, diffed against the recorded `PlanState.base_sha`. While
 `branch_round_complete` is false, the next action for this plan — in any epoch — is to
 dispatch only the missing kind(s) at that same round, never the full triad again and never a

@@ -17,9 +17,11 @@ There is a round cap of 5 (see the Adjudication Protocol below) and no requireme
 dispatch checker, reviewer, and tester together. Call whichever of the three the task needs,
 whenever it's warranted.
 
-The Final Full-Branch Review (below) is the one exception: for a plan-backed run it is
-**mandatory and synchronous** — it always runs once every file-authoring task is complete,
-and always dispatches all three verifiers together.
+The Final Full-Branch Review (below) is the one exception: for a plan-backed run with
+`auto_commit: "confirmed"` it is **mandatory and synchronous** — it always runs once every
+file-authoring task is complete, and always dispatches all three verifiers together. A
+declined run (`auto_commit: "declined"`) skips this review entirely — see `## Final
+Full-Branch Review` below for how a declined run closes instead.
 
 ---
 
@@ -55,11 +57,8 @@ Run Start runs its checks in this order:
      sha=None, files=<paths>, no_sha_reason="auto_commit_declined")` — this is what lets
      readiness and `plan_complete` still work with no commits ever made. A verification-only
      task (`files: null`) closes the same way regardless of `auto_commit`: `TaskComplete(...,
-     sha=None, files=None, no_sha_reason="verification_only")`. Once
-     `get_plan_state(plan).ready_for_final_review` is true, the orchestrator writes
-     `PlanComplete(kind="plan_complete", status="parked" if any task closed
-     complete-with-parked else "clean")` — a declined run skips the Final Full-Branch Review
-     entirely (REQ-004), so this is the only place a declined run closes.
+     sha=None, files=None, no_sha_reason="verification_only")`. See `## Final Full-Branch
+     Review` below for how and when a declined run writes `plan_complete`.
    - **`"confirmed"`:** proceed to step 2.
    - **`None` (not yet decided):** state in one line that this run will commit each accepted
      task individually as it is approved, and ask the user to confirm — the natural point to
@@ -141,13 +140,18 @@ warm reuse.
 **2 — Before dispatching a writer, record the attempt:**
 
 `write_plan_event(WriterDispatched(kind="writer_dispatched", task=N, attempt=<last_attempt +
-1>, reason=<"initial" | "fix" | "forced_fix" | "redo" | "branch_fix">, files=[...]), plan)` —
+1>, reason=<"initial" | "fix" | "forced_fix" | "redo" | "branch_fix" | "report_lost">, files=[...]), plan)` —
 `attempt` comes from `get_plan_state(plan).tasks[N].last_attempt + 1`. **Attempt rule:**
 attempt increments on every hand-off of new work to the writer, with no exception — the
 initial dispatch, every ordinary fix-loop round, a forced fix, and a post-revert redispatch
 each get a fresh attempt number.
 
 **3 — Dispatch what the task calls for:**
+
+A verifier's `attempt` is the attempt *under review*, not the next one:
+`attempt: get_plan_state(plan).tasks[N].last_attempt` — never `+ 1`, which is only for
+dispatching a writer (step 2, above). A verification-only task (no writer dispatched for it)
+uses `attempt: 1` for both its `verify_round` and its eventual `task_complete`.
 ```
 Agent({ description: "Checker: lint + typecheck + build",  subagent_type: "orchestrator-agents:checker",  prompt: "Files: [list]. Pipeline: .claude/pipeline/[track if multi]. plan: <stem>, task: N, attempt: <n>, seq: <next_seq['verify_round']>." })
 Agent({ description: "Reviewer: diff review",              subagent_type: "orchestrator-agents:reviewer", prompt: "Task: [desc]. Modified files: [list]. Diff base: [sha, or omit for the default per-task HEAD diff]. Pipeline: .claude/pipeline/[track if multi]. plan: <stem>, task: N, attempt: <n>, seq: <next_seq['verify_round']>." })
@@ -228,8 +232,13 @@ git commit -m 'task <N>: <deliverable phrase>' -- <paths>
   catch foreign dirt swept in on those paths).
   Instead: `read_plan_events(plan, kind="writer_returned", task=N)`, take the last line for
   that attempt, and commit from its `in_scope` list. If that list is empty too (the prior
-  edits are still in the working tree — only the report was lost), do not commit from it
-  either — ask the user how to proceed, and record
+  edits are still in the working tree — only the report was lost, and there is no
+  `writer_returned` for this attempt), do not commit from it either. Redispatch the writer
+  instead of escalating immediately: `write_plan_event(WriterDispatched(kind=
+  "writer_dispatched", task=N, attempt=<last_attempt + 1>, reason="report_lost",
+  files=[...]), plan)`, have it re-report the same (already-acceptable) work, and commit from
+  the new attempt's `writer_returned.in_scope`. Only if that redispatch also fails to produce
+  a usable report does the orchestrator ask the user how to proceed, recording
   `write_plan_event(PlanEscalation(kind="escalation", topic="writer_report_lost",
   seq=next_seq["escalation"], detail=...), plan)`.
 - `git add` is required before the pathspec commit for any newly-created file (a bare
@@ -273,17 +282,40 @@ below** — never a hand-rolled `Read`/`Write` append:
   sha=<revert-sha>, reverts=<original-sha>), plan)`.
 - Task not yet committed → discard the writer's edits; no event is written.
 
+**`task_amended`:** write `write_plan_event(TaskAmended(kind="task_amended", task=N,
+seq=next_seq["task_amended"], files=<full new file set for the task, not just the addition>,
+deliverable=<new deliverable text, if it changed>, why=...), plan)` for any mid-run amendment
+to a task's plan — not only `branch_fix` waves — whenever a task's file set or deliverable
+changes after it was originally planned. `files`/`deliverable` are only the fields that
+changed; omit whichever did not.
+
 **`branch_fix` waves** (writer dispatches made to resolve Final Full-Branch Review findings,
 below): one writer dispatch, one return, and one commit per task. A file shared by more than
 one task's fix is assigned to exactly one task for that wave; any file the fix touches that
-belongs to no task's file set needs a `write_plan_event(TaskAmended(kind="task_amended",
-task=N, seq=next_seq["task_amended"], files=<full new file set for the task, not just the
-addition>, why=...), plan)` recording it first (spec §4.2) before it can be committed under a
-task.
+belongs to no task's file set needs a `task_amended` event (as above) recording the full new
+file set before it can be committed under a task.
+
+**`task_dropped`:** write `write_plan_event(TaskDropped(kind="task_dropped", task=N,
+why=...), plan)` when the user cuts a task from the plan mid-run. A dropped task is excluded
+from `ready_for_final_review` and from the Final Full-Branch Review's `<files>` union — see
+the precondition in `## Final Full-Branch Review` below.
+
+**`plan_abandoned`:** write `write_plan_event(PlanAbandoned(kind="plan_abandoned", why=...,
+superseded_by=<new plan stem, if the user is replacing this plan with another>), plan)` when
+the user abandons a plan outright or replaces it with a new one, instead of letting it run to
+`plan_complete`. See `orchestrator-plan/SKILL.md` Step 6 for the matching
+`plan_archived.supersedes` write on the new plan.
 
 ---
 
 ## Final Full-Branch Review
+
+**A declined run (`auto_commit: "declined"`) skips this review entirely** — once
+`get_plan_state(plan).ready_for_final_review` is true, write `write_plan_event(PlanComplete(
+kind="plan_complete", status="clean"), plan)` and stop; there is no final-review pass to park
+findings from, so `status` is always `"clean"` for a declined run (`"parked"` means this
+review parked a finding, which never happens when the review itself is skipped). This is the
+only place a declined run closes. Everything below applies to a `"confirmed"` run only.
 
 A step after the last task's commit (and, for L2/L3, after the existing integration pass in
 `dispatch-levels.md`) — applies to multi-task L1 work too, which is why the pointer to this
@@ -301,7 +333,7 @@ signal). A
 verification-only task (`files: null`) never participates in this precondition or in `<files>`
 below.
 
-This review is **mandatory and synchronous**: checker, reviewer, and tester are dispatched
+This review is **mandatory for confirmed runs, and synchronous**: checker, reviewer, and tester are dispatched
 together every round, all three carrying the same `branch_round` — `PlanState.
 current_branch_round + 1` for a fresh round, or `current_branch_round` itself while the round
 is still incomplete (see below) — and each its own `seq` from
@@ -365,8 +397,9 @@ attempts strictly after the highest-attempt `task_reverted` for that task: the c
 a revert. This is derived from the event log on every read, including after a compaction, so
 there is no silent-reset risk — `get_plan_state` always recomputes it from the full history.
 
-**Every writer dispatch for a task — the task's first, a fix, a forced fix, or a
-redo — is recorded the moment it is dispatched** via `writer_dispatched` (step 2 of `## Steps`,
+**Every writer dispatch for a task — the task's first, a fix, a forced fix, a
+redo, or a report-lost redispatch — is recorded the moment it is dispatched** via
+`writer_dispatched` (step 2 of `## Steps`,
 above), with `reason` distinguishing the kind of dispatch. This is what makes `## Run Start`,
 step 3's dispatched-but-not-completed exclusion (above) actually work in its stated common case
 (a compaction landing between a writer returning and its first verify dispatch): `last_attempt`
@@ -389,7 +422,7 @@ never silently dropped:
   enforced across a compaction, not just in-session. Before authorizing a forced fix, check
   `forced_fix_used`; if true, a second forced fix is never authorized — the still-open finding
   escalates to the user instead, exactly as an unresolved load-bearing finding does after the
-  one permitted forced fix (below). `forced_fix_used` resets after a revert (REQ-020), the same
+  one permitted forced fix (below). `forced_fix_used` resets after a revert, the same
   as `round_count`. Whatever the re-verify pass finds after that single fix is adjudicated
   immediately, not re-looped: still-open, non-load-bearing findings park with a ruling as
   above; a still-open load-bearing finding after this one forced fix escalates to the user
@@ -407,11 +440,14 @@ seq=next_seq["escalation"], detail=<why>), plan)`, with `task` omitted or `null`
 **Concurrent lens-split results for one attempt are combined, not overwritten:** when a single
 attempt's review is split across parallel lenses (see `dispatch-levels.md`), their
 `verify_round` events for that `(task, attempt, source)` are combined as FAIL if any lens
-reports FAIL — "last in file order wins" applies only to a *sequential* re-run of the same
-check (a genuine retry, same `seq` reused), never to concurrent lens-split results for the same
-attempt (M1). To land distinctly rather than dedupe as a repeat of the same call, each
-concurrent lens must be given its own `seq` (`next_seq["verify_round"]`, `next_seq["verify_round"]+1`,
-...) — never the same `seq` reused across lenses.
+reports FAIL — "last in file order wins" applies only to a *sequential re-run* of the same
+check (e.g. a FLAKY tester re-run, or one filling a branch-round gap), which takes a fresh
+`next_seq[kind]` and is resolved last-in-file-order; reusing a `seq` is only an idempotent
+retry of an identical call (e.g. a timeout retry) and never produces a second line — it is
+deduped, never treated as a re-run's result. Concurrent lens-split results for the same
+attempt are a distinct case from either: to land distinctly rather than dedupe as a repeat of
+the same call, each concurrent lens must be given its own `seq` (`next_seq["verify_round"]`,
+`next_seq["verify_round"]+1`, ...) — never the same `seq` reused across lenses.
 
 **Exception — tester findings are never force-fixed at the cap.** Core Invariant 3 already
 governs tester diagnoses: REGRESSION and STALE_TEST have opposite fixes, so a tester finding

@@ -102,7 +102,7 @@ Agent({ description: "Reader: map module Y", subagent_type: "orchestrator-agents
 
 ## Level 3 — Large scale (4+ tracks OR >15 files total)
 
-Workflow moves orchestration into a script outside Claude's context, making runs resumable and context-free. Workflow-run tracks don't write to the plan event log.
+Workflow moves orchestration into a script outside Claude's context, making runs resumable and context-free. Workflow-run tracks don't write to the plan event log themselves — the script runs outside the orchestrator's context, so it has no `write_plan_event` access. For a plan-backed run, after the Workflow barrier the orchestrator (back in its own context) records each task's outcome directly — `write_plan_event(TaskComplete(...))` per task, from the returned results — so the plan can close normally through `ready_for_final_review` and the Final Full-Branch Review.
 
 > **Opt-in (required before calling `Workflow`):** the `Workflow` tool refuses to run without explicit user opt-in. Loading the orchestrator skill authorizes it for L3a — but still confirm the scale with the user in one line before spawning ("L3 task, N tracks — run as a Workflow (~N agents)?"). Their go-ahead is the explicit request the tool wants. **If they decline, or `Workflow` is unavailable, fall back to batched parallel `Agent()` dispatch** — run the tracks as L2-style parallel writer subagents in waves (no opt-in needed). You forgo resumability and per-track context isolation, but the work still parallelizes.
 
@@ -144,7 +144,7 @@ After the workflow completes: serial integration pass on shared files (`pyprojec
 
 **Divide-and-conquer patterns** (author inline in the workflow as needed):
 
-- **Adversarial / perspective-diverse verify** — after a write phase, fan out N skeptic agents, each with a distinct lens (security, correctness, performance, test coverage). Collect all findings before proceeding. More thorough than a single verify agent; use when the change surface is wide or high-risk. Concurrent reviewers over the same attempt are combined — FAIL if any FAIL — not "last result wins". Each concurrent lens gets its own distinct `seq` so none is deduped.
+- **Adversarial / perspective-diverse verify** — after a write phase, fan out N skeptic agents, each with a distinct lens (security, correctness, performance, test coverage). Collect all findings before proceeding. More thorough than a single verify agent; use when the change surface is wide or high-risk. Workflow-run lenses don't write to the plan event log themselves (see above); the orchestrator records the combined outcome after the barrier. The per-lens distinct-`seq` rule applies to Agent-dispatched lenses only (see the L2 pattern above), not to a Workflow script's own agents.
 - **Completeness critic** — after the main work agents finish, spawn a final "what did we miss?" agent that receives all prior outputs and surfaces gaps. Useful for API-design or schema-change tasks where omissions are costly.
 - **Loop-until-dry** — keep fanning out finder agents (e.g., "find all callers of deprecated API") until K consecutive rounds (K=3) find nothing new. Use for open-ended discovery before a large-scale rename or removal.
 

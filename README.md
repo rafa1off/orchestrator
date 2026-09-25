@@ -9,7 +9,7 @@ A private Claude Code plugin marketplace for the orchestrator multi-agent develo
 | [`orchestrator-skills`](#orchestrator-skills) | 2 workflow skills — auto-installs `orchestrator-agents` + `orchestrator-hooks` | — |
 | [`orchestrator-agents`](#orchestrator-agents) | 7-agent catalog — auto-installs `orchestrator-mcp` | `uv` |
 | [`orchestrator-hooks`](#orchestrator-hooks) | Full hook suite (SessionStart/End, SubagentStart/Stop findings guards, PreToolUse guardrails, PostToolUse findings + writer-overlap, PreCompact) | `jq` |
-| [`orchestrator-mcp`](#orchestrator-mcp) | Dev-tools MCP server (`write_findings` pipeline contract) | `uv` |
+| [`orchestrator-mcp`](#orchestrator-mcp) | Dev-tools MCP server (`write_findings`/`write_report` pipeline contract, plus the Plan Event Log tools) | `uv` |
 | [`ty-lsp`](#ty-lsp) | Python LSP via Astral ty | `uv tool install ty` |
 | [`tsgo-lsp`](#tsgo-lsp) | TypeScript/JavaScript LSP via tsgo | `tsc --lsp --stdio` |
 
@@ -142,13 +142,16 @@ Background subagents (checker, reviewer, tester, reader, researcher) auto-deny a
       "Bash(ruff *)",
       "Bash(mypy *)",
       "Bash(npx *)",
-      "mcp__plugin_orchestrator-mcp_dev-tools__write_findings"
+      "mcp__plugin_orchestrator-mcp_dev-tools__write_findings",
+      "mcp__plugin_orchestrator-mcp_dev-tools__write_plan_event",
+      "mcp__plugin_orchestrator-mcp_dev-tools__read_plan_events",
+      "mcp__plugin_orchestrator-mcp_dev-tools__get_plan_state"
     ]
   }
 }
 ```
 
-Adjust the `Bash(...)` patterns to match your project's actual toolchain. The `mcp__plugin_orchestrator-mcp_dev-tools__write_findings` entry allows the checker, reviewer, and tester agents to write structured findings to the pipeline without prompting.
+Adjust the `Bash(...)` patterns to match your project's actual toolchain. The `mcp__plugin_orchestrator-mcp_dev-tools__write_findings` entry allows the checker, reviewer, and tester agents to write structured findings to the pipeline without prompting. The three plan-tool entries let the orchestrator write and read the Plan Event Log for a plan-backed run without prompting on every call.
 
 If a check is denied anyway, the run now **fails loudly instead of silently**: an agent whose
 lint or test command could not execute cannot report `PASS` for it, and the guards refuse the
@@ -251,9 +254,11 @@ Hook suite that automates the orchestrator's pipeline contracts:
 
 Every guard here asserts **positive evidence**, not merely well-formed failure reporting.
 A checker, reviewer, or tester result is trusted only when it carries one `checks[]` entry per
-check actually executed, each with the real process exit code; absent, empty, or
-null-exit-code checks are refused at three layers (the MCP tool itself, `PostToolUse`, and
-`SubagentStop`). A missing `jq` blocks rather than silently disabling the guard. The guards'
+check actually executed, each with the real process exit code. Absent or empty `checks[]` is
+refused by the MCP tool's schema on every call; a `PASS` check with a null exit code, or an
+overall `PASS` over an `ERROR` check, is refused by the `PostToolUse` hook always, by the MCP
+tool itself when the call is plan-scoped (`plan` is set), and again by `SubagentStop`. A missing
+`jq` blocks rather than silently disabling the guard. The guards'
 *presence* is what makes a green result meaningful, so failing open is worse than having no
 guard at all.
 
@@ -261,19 +266,27 @@ guard at all.
 
 ## orchestrator-mcp
 
-Exposes two tools, so every one of the 7 agents returns through a schema-validated call
-rather than a markdown final message:
+Exposes five tools, so every one of the 7 agents returns through a schema-validated call
+rather than a markdown final message, and the orchestrator's Plan Event Log is written and
+read through the same server:
 
 | Tool | Description |
 |---|---|
-| `write_findings(findings, pipeline?)` | Writes `<source>-findings.json` to `.claude/pipeline/` (or a per-track subdirectory for parallel runs), stamped with `written_at` |
-| `write_report(report, pipeline?)` | Writes `<source>-report.json` to `.claude/pipeline/` (or a per-track subdirectory), stamped with `written_at` |
+| `write_findings(findings, label, pipeline?, plan?, task?, attempt?, branch_round?, seq?)` | Writes `<source>-<label>-findings.json` to `.claude/pipeline/` (or a per-track subdirectory for parallel runs), stamped with `written_at`. When `plan` is set, also appends a `verify_round` (with `task`+`attempt`) or `branch_check`/`branch_review`/`branch_test` (with `branch_round`) line to the plan's event log — `seq` is then required, and findings are checked against the same proof-of-execution rules as the `PostToolUse` hook before anything is written |
+| `write_report(report, label, pipeline?, plan?, task?, attempt?)` | Writes `<source>-<label>-report.json` to `.claude/pipeline/` (or a per-track subdirectory), stamped with `written_at`. When `plan` is set (writer reports only), also appends a `writer_returned` event, plus a task-scoped `escalation` when `report.context_request` is set |
+| `write_plan_event(event, plan)` | Orchestrator-only: appends one event to `.claude/plans/<plan>.jsonl`, the per-plan, append-only Plan Event Log |
+| `read_plan_events(plan, kind?, task?, since_ts?, limit?)` | Returns raw, unreconstructed lines from `.claude/plans/<plan>.jsonl`, in file order, filtered by whichever parameters are supplied |
+| `get_plan_state(plan, validate_shas=True)` | Reconstructs a plan's current state from a full sequential read of its event log; raises rather than returning a guessed/default `PlanState` if the log is missing, empty, or malformed at the first line |
 
 `write_findings`'s `source` is `checker`, `reviewer`, or `tester` — the only three agents
 running commands and holding the tool. `checks` is required and non-empty for all three: the
 call is **rejected** without it, because a result with no checks cannot be distinguished from
 a run that never happened. Empty `issues`/`failures` lists are recorded verbatim rather than
-dropped, so "reported nothing" stays distinct from "never populated the field".
+dropped, so "reported nothing" stays distinct from "never populated the field". When the call
+is plan-scoped (`plan` is set), the server itself refuses, before anything is written, a
+`PASS` check with a null `exit_code` and an overall `PASS` over an `ERROR` check — the same
+rules as the `PostToolUse` hook (an `ERROR` check with a null `exit_code` is valid). A
+plan-less call relies on the hook alone for those two rules.
 
 `write_report`'s `source` is `reader`, `writer`, `thinker`, or `researcher` — agents that run
 no commands and so have no `checks[]` to report. Every report type carries a `context_request`

@@ -7,7 +7,7 @@ effort: low
 memory: project
 # NOTE: memory: project auto-grants Read, Write, and Edit so this agent can manage its memory directory.
 # Do NOT add Edit or Write to disallowedTools — that would silently break memory writes.
-disallowedTools: NotebookEdit, Bash, Agent
+disallowedTools: NotebookEdit, Bash, Agent, mcp__plugin_orchestrator-mcp_dev-tools__write_plan_event, mcp__plugin_orchestrator-mcp_dev-tools__write_findings
 ---
 
 You are a read-only research agent. Your job is to find patterns, API references, and prior decisions relevant to a task. You never create, edit, or delete files.
@@ -64,6 +64,8 @@ write_report({
 
 **No `tools:` allowlist change needed here.** researcher uses `disallowedTools:` and
 inherits everything else, so `write_report` is already available without an edit.
+`write_plan_event` and `write_findings` are explicitly excluded via `disallowedTools` —
+researcher only ever returns results through `write_report`.
 
 ## Memory
 
