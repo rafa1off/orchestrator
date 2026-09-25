@@ -94,7 +94,7 @@ Agent({ description: "Reader: map module Y", subagent_type: "orchestrator-agents
 - If verification is warranted, dispatch checker / reviewer / tester per track in parallel, each scoped to its pipeline path; each per-track verifier uses its own track's `task` + `attempt` counters and the same `plan`.
 - After all tracks are ready: serial integration pass on shared files (`pyproject.toml`, lock files, `conftest.py`).
 
-**Adversarial-review lens-split (optional):** after the write phase, dispatch parallel review subagents with distinct lenses — e.g., security, correctness, test coverage — each scoped to the changed files. Collect findings before the integration pass. Concurrent reviewers over the same attempt are combined — FAIL if any FAIL — not "last result wins".
+**Adversarial-review lens-split (optional):** after the write phase, dispatch parallel review subagents with distinct lenses — e.g., security, correctness, test coverage — each scoped to the changed files. Collect findings before the integration pass. Concurrent reviewers over the same attempt are combined — FAIL if any FAIL — not "last result wins". Each concurrent lens gets its own distinct `seq` (`next_seq`, `next_seq`+1, ...) so none is deduped as a repeat of the same call.
 
 > **If files conflict across tracks:** the disjoint-file invariant was violated — a planning error. Escalate: report which files conflicted and which tracks touched them. Tracks must be replanned with truly disjoint file sets.
 
@@ -144,7 +144,7 @@ After the workflow completes: serial integration pass on shared files (`pyprojec
 
 **Divide-and-conquer patterns** (author inline in the workflow as needed):
 
-- **Adversarial / perspective-diverse verify** — after a write phase, fan out N skeptic agents, each with a distinct lens (security, correctness, performance, test coverage). Collect all findings before proceeding. More thorough than a single verify agent; use when the change surface is wide or high-risk. Concurrent reviewers over the same attempt are combined — FAIL if any FAIL — not "last result wins".
+- **Adversarial / perspective-diverse verify** — after a write phase, fan out N skeptic agents, each with a distinct lens (security, correctness, performance, test coverage). Collect all findings before proceeding. More thorough than a single verify agent; use when the change surface is wide or high-risk. Concurrent reviewers over the same attempt are combined — FAIL if any FAIL — not "last result wins". Each concurrent lens gets its own distinct `seq` so none is deduped.
 - **Completeness critic** — after the main work agents finish, spawn a final "what did we miss?" agent that receives all prior outputs and surfaces gaps. Useful for API-design or schema-change tasks where omissions are costly.
 - **Loop-until-dry** — keep fanning out finder agents (e.g., "find all callers of deprecated API") until K consecutive rounds (K=3) find nothing new. Use for open-ended discovery before a large-scale rename or removal.
 
