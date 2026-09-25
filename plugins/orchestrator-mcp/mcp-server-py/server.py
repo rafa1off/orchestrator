@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # /// script
+# requires-python = ">=3.14"
 # dependencies = ["fastmcp>=2.0.0"]
 # ///
 """MCP dev-tools server — pipeline findings/report writer and the per-plan, append-only

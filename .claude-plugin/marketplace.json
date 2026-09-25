@@ -12,7 +12,7 @@
     {
       "name": "orchestrator-mcp",
       "source": "./plugins/orchestrator-mcp",
-      "version": "1.9.0",
+      "version": "1.9.1",
       "description": "Dev-tools MCP server for the orchestrator ecosystem \u2014 write_findings pipeline contract (checks + issues + failures schema) for the checker, reviewer, and tester agents, and write_report (context_request + per-agent fields) for reader, writer, thinker, and researcher. Rejects checker/reviewer/tester findings with no checks[], and stamps written_at for freshness checks on both. write_plan_event (orchestrator-only), read_plan_events and get_plan_state maintain a plan's append-only .claude/plans/<plan>.jsonl event log; write_findings/write_report append verify_round/branch_*/writer_returned/escalation events when given a plan.",
       "strict": true
     },
