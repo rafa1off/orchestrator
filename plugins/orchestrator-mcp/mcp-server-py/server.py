@@ -812,6 +812,26 @@ def _findings_total(findings: Findings) -> int:
     return len(findings.failures)  # tester
 
 
+def _reject_unproven_findings(findings: Findings) -> None:
+    """
+    Mirror the PostToolUse hook's proof-of-execution rules (see
+    plugins/orchestrator-hooks/hooks/post-tool-findings.sh) so an unproven PASS is
+    rejected before anything is written, not after. Rule (a) — checks absent or
+    empty — is already enforced by `Field(min_length=1)` on every findings model, so
+    only (b) and (c) are checked here.
+    """
+    checks = findings.checks
+    if findings.status == "PASS" and any(c.status == "ERROR" for c in checks):
+        raise ValueError(
+            "overall status is PASS but a checks[] entry is ERROR — a check that "
+            "did not run cannot be part of a pass"
+        )
+    if any(c.status == "PASS" and c.exit_code is None for c in checks):
+        raise ValueError(
+            "a checks[] entry claims PASS with no real exit_code"
+        )
+
+
 @mcp.tool()
 def write_findings(
     findings: Findings,
@@ -835,7 +855,11 @@ def write_findings(
         collision, a random 4-hex-char disambiguator is appended rather than
         overwriting the earlier file.
     pipeline: optional override for multi-track runs, e.g. '.claude/pipeline/track-a'
-    plan: when set, also appends a plan-event-log line BEFORE the pipeline file is
+    plan: when set, findings are first checked against the same proof-of-execution
+        rules enforced by the PostToolUse hook (post-tool-findings.sh); a rejected
+        call raises ValueError and writes NEITHER the plan-event-log line NOR the
+        pipeline file, so a corrected retry with the same `seq` is accepted as new.
+        Otherwise, also appends a plan-event-log line BEFORE the pipeline file is
         written (see spec/spec-architecture-plan-event-log.md §4.1). `seq` is then
         REQUIRED, and exactly one of `task`+`attempt` (routes to `verify_round`) or
         `branch_round` (routes to `branch_check`/`branch_review`/`branch_test` by
@@ -862,6 +886,8 @@ def write_findings(
     _PLAN_ADAPTER.validate_python(plan)
     if seq is None:
         raise ValueError("seq is required when plan is set")
+
+    _reject_unproven_findings(findings)
 
     if task is not None:
         if attempt is None:

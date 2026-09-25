@@ -1391,6 +1391,63 @@ def test_ac_015(plan):
     assert not (server.PROJECT_DIR / server.DEFAULT_PIPELINE).exists()
 
 
+# --- write_findings: proof-of-execution rejected before write (plan-scoped) -----
+
+
+def _pass_with_error_check():
+    checks = [
+        server.Check(name="c", status="PASS", exit_code=0, output=""),
+        server.Check(name="e", status="ERROR", exit_code=None, output=""),
+    ]
+    return server.CheckerFindings(source="checker", status="PASS", checks=checks)
+
+
+def _pass_with_null_exit_code():
+    checks = [server.Check(name="c", status="PASS", exit_code=None, output="")]
+    return server.CheckerFindings(source="checker", status="PASS", checks=checks)
+
+
+def test_write_findings_rejects_pass_over_error_check_plan_scoped(plan):
+    _archive(plan)
+    with pytest.raises(ValueError, match="ERROR"):
+        write_findings(_pass_with_error_check(), "lbl", plan=plan, task=1, attempt=1, seq=1)
+    assert [l["kind"] for l in _lines(plan)] == ["plan_archived"]
+    assert not (server.PROJECT_DIR / server.DEFAULT_PIPELINE).exists()
+
+    # Corrected retry with the SAME seq is accepted.
+    write_findings(_checker_findings(), "lbl", plan=plan, task=1, attempt=1, seq=1)
+    lines = [l for l in _lines(plan) if l["kind"] == "verify_round"]
+    assert len(lines) == 1
+    assert lines[0]["seq"] == 1
+    assert (server.PROJECT_DIR / server.DEFAULT_PIPELINE).exists()
+
+
+def test_write_findings_rejects_pass_with_null_exit_code_plan_scoped(plan):
+    _archive(plan)
+    with pytest.raises(ValueError, match="exit_code"):
+        write_findings(_pass_with_null_exit_code(), "lbl", plan=plan, task=1, attempt=1, seq=1)
+    assert [l["kind"] for l in _lines(plan)] == ["plan_archived"]
+    assert not (server.PROJECT_DIR / server.DEFAULT_PIPELINE).exists()
+
+    # Corrected retry with the SAME seq is accepted.
+    write_findings(_checker_findings(), "lbl", plan=plan, task=1, attempt=1, seq=1)
+    lines = [l for l in _lines(plan) if l["kind"] == "verify_round"]
+    assert len(lines) == 1
+    assert lines[0]["seq"] == 1
+    assert (server.PROJECT_DIR / server.DEFAULT_PIPELINE).exists()
+
+
+def test_write_findings_ad_hoc_path_unaffected_by_unproven_findings(plan):
+    """The ad-hoc (plan-absent) path must stay byte-for-byte unchanged: it still
+    writes the pipeline file for findings the hook would block — the hook, not
+    write_findings, is what blocks it."""
+    result = write_findings(_pass_with_error_check(), "lbl", pipeline=None)
+    assert (server.PROJECT_DIR / _event_path(result)).exists()
+
+    result2 = write_findings(_pass_with_null_exit_code(), "lbl2", pipeline=None)
+    assert (server.PROJECT_DIR / _event_path(result2)).exists()
+
+
 # --- AC-015a --------------------------------------------------------------------
 
 
