@@ -3,6 +3,7 @@ name: checker
 color: blue
 description: "Run lint, typecheck, and build checks and write structured findings through the guarded write_findings path. No diff review — that is reviewer's job. Accepts an optional pipeline path for parallel track isolation."
 model: haiku
+effort: low
 tools: Bash, Read, mcp__plugin_orchestrator-mcp_dev-tools__write_findings
 ---
 

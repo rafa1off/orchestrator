@@ -195,13 +195,13 @@ Two workflow skills for the orchestrator session:
 
 | Agent | Model | Effort | Type | Role |
 |---|---|---|---|---|
-| `orchestrator-agents:reader` | haiku | *(absent — inert on haiku)* | readonly | Maps code paths, writes `reader-<label>-report.json` with structured context snapshots |
-| `orchestrator-agents:researcher` | sonnet | low | readonly | Finds external patterns, library APIs, prior project decisions; writes `researcher-<label>-report.json` |
+| `orchestrator-agents:reader` | haiku | medium | readonly | Maps code paths, writes `reader-<label>-report.json` with structured context snapshots |
+| `orchestrator-agents:researcher` | haiku | medium | readonly | Finds external patterns, library APIs, prior project decisions; writes `researcher-<label>-report.json` |
 | `orchestrator-agents:thinker` | opus | medium | readonly | Deep reasoning, tradeoff analysis, brainstorming; isolates verbose analysis from main context; writes `thinker-<label>-report.json` |
 | `orchestrator-agents:writer` | sonnet | low | read+write | Produces minimal, focused code changes from a context block; writes `writer-<label>-report.json` listing modified files |
-| `orchestrator-agents:checker` | haiku | *(absent — inert on haiku)* | readonly | Lint + typecheck + build only — no diff review; call any time, writes `checker-<label>-findings.json` |
+| `orchestrator-agents:checker` | haiku | low | readonly | Lint + typecheck + build only — no diff review; call any time, writes `checker-<label>-findings.json` |
 | `orchestrator-agents:reviewer` | opus | medium | readonly | Diff review only — no lint/typecheck; always spawned fresh, writes `reviewer-<label>-findings.json` |
-| `orchestrator-agents:tester` | sonnet | low | readonly | Runs the suite and classifies each failure (REGRESSION / STALE TEST / FLAKY / UNCLEAR) with evidence — never writes or fixes tests |
+| `orchestrator-agents:tester` | haiku | high | readonly | Runs the suite and classifies each failure (REGRESSION / STALE TEST / FLAKY / UNCLEAR) with evidence — never writes or fixes tests |
 
 **Dispatch mode:** agents always run as background subagents — fork mode is on by default in
 interactive sessions and Claude cannot request the foreground. Background subagents keep all
