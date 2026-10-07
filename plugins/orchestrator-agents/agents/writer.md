@@ -1,7 +1,7 @@
 ---
 name: writer
 color: green
-description: "Produce minimal code changes from a structured context block provided by reader and researcher. Invoke after reader and researcher have completed — never for initial exploration."
+description: "Produce minimal code changes from a structured context block. Invoke when code must change and the context is already gathered — never for initial exploration."
 model: sonnet
 effort: low
 tools: Read, Grep, Glob, Edit, Write, Skill, mcp__plugin_orchestrator-mcp_dev-tools__write_report

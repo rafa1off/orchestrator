@@ -12,21 +12,23 @@ The main Claude Code session acts as orchestrator. Agents are tools — call the
 
 ## Agent Catalog
 
-| Agent | Model | Effort | Type | When to call |
-|-------|-------|--------|------|--------------|
-| Explore *(built-in)* | haiku | *(none)* | readonly | Broad codebase discovery — "survey the repo", "find all usages of X". Use `Agent(subagent_type="Explore", ...)` |
-| orchestrator-agents:reader | haiku | medium | readonly | Map files, interfaces, and conventions before writing. Writes guarded reports to `reader-<label>-report.json`; call multiple times as new paths surface. |
-| orchestrator-agents:researcher | haiku | medium | readonly | External APIs, library patterns, prior decisions in `docs/`. Writes guarded reports to `researcher-<label>-report.json`. |
-| orchestrator-agents:thinker | opus | medium | readonly | Analysis, brainstorming, architectural decisions. Isolates verbose reasoning from main context. Writes guarded reports to `thinker-<label>-report.json`. |
-| orchestrator-agents:writer | sonnet | low | read+write | Produce code changes from a context block. Writes guarded reports to `writer-<label>-report.json`. |
-| orchestrator-agents:checker | haiku | low | readonly | Lint + typecheck + build checks only — no diff review. Writes guarded findings to `checker-<label>-findings.json`; call any time. |
-| orchestrator-agents:reviewer | opus | medium | readonly | Diff review only — no lint/typecheck. Writes guarded findings to `reviewer-<label>-findings.json`; always spawn fresh for a clean diff baseline. |
-| orchestrator-agents:tester | haiku | high | readonly | Run the suite and diagnose each failure (regression vs stale test vs flaky). Never writes or fixes tests. Writes guarded findings to `tester-<label>-findings.json`. |
+| Agent | Model | Effort | Type | When to call | Give it |
+|-------|-------|--------|------|--------------|---------|
+| Explore *(built-in)* | haiku | not configurable | readonly | You don't know yet which files matter — "survey the repo", "find all usages of X". Returns locations and excerpts; it does not review code. | A search goal and breadth (`medium` / `very thorough`) |
+| orchestrator-agents:reader | haiku | medium | readonly | You know which files matter and need their interfaces, conventions, and call paths before writing or reviewing. Paths still unknown → Explore first. | Task description + file paths (without paths it stops with a `context_request`) |
+| orchestrator-agents:researcher | haiku | medium | readonly | The task depends on knowledge outside the code: a library or API, an external pattern, or a prior decision recorded in project docs. | Task description + one specific research question |
+| orchestrator-agents:thinker | opus | medium | readonly | There is a question to decide rather than code to change: architecture, tradeoffs, brainstorming, root-cause analysis, "what should we do". | The question + reader/researcher output if any; it may answer with a `context_request` |
+| orchestrator-agents:writer | sonnet | low | read+write | Code must change and the context is already gathered. Never for exploration. | `## Context` (reader/researcher output or files you read) + bounded `## Task` + exact `## Files to modify` |
+| orchestrator-agents:checker | haiku | low | readonly | You need to know whether the code lints, typechecks, and builds — after a change or any time. Not a diff review. | Optional: files to scope lint, stack hint, pipeline path |
+| orchestrator-agents:reviewer | opus | medium | readonly | A diff needs judging for correctness against the task, breakage in its callers, and project conventions. Not lint/typecheck. Always spawn fresh. | Task context (what and why) + modified files; diff base only for the full-branch review |
+| orchestrator-agents:tester | haiku | high | readonly | You need the tests run and every failure diagnosed — after a change, or as a status check outside a plan. Never fixes anything. | Task + intended behavior change (`none (status check)` when nothing changed) + changed files + what to test |
+| general-purpose *(built-in)* | haiku — pass `model="haiku"`, otherwise it inherits the session model | low = extract/reformat · medium = summarise/classify by given criteria · high = judgment-heavy triage | read+write, unguarded | Bulk readonly work none of the seven own: log triage, classifying a list, extracting fields from many files. Its result is input to your reasoning, never verification evidence; design judgment → thinker. | Output shape (fields or table), permission to answer `unknown`, and "do not edit files" |
 
 > **Trust is in the guard, not the agent's word.** All seven agents return through a
 > validated tool call — `checker`, `reviewer`, and `tester` write structured findings through
 > `write_findings`; `reader`, `researcher`, `thinker`, and `writer` write structured reports
-> through `write_report`. A final markdown message is no longer any agent's deliverable.
+> through `write_report` — landing in `.claude/pipeline/<agent>-<label>-findings.json` or
+> `-report.json`. A final markdown message is no longer any agent's deliverable.
 > Findings additionally carry proof-of-execution (every check must carry a real process exit
 > code recorded during the run being judged); reports carry presence and freshness only,
 > because those four agents run no commands to attest to. The `SubagentStop` guard enforces
