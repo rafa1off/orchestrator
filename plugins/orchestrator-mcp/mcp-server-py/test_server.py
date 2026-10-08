@@ -1,7 +1,10 @@
 """Tests for the Plan Event Log write path (Task 1 of
 spec/spec-architecture-plan-event-log.md v8.1) — write_plan_event, _append, the
-dedup cache, and the platform shim. Run via:
-    uv run --with pytest --with 'fastmcp>=2.0.0' pytest plugins/orchestrator-mcp/mcp-server-py
+dedup cache, and the platform shim. Run from the repo root
+(dev env from the root pyproject.toml):
+    uv sync --all-groups && uv run pytest
+or, without touching the repo's .venv:
+    uv run --no-project --with pytest --with 'fastmcp>=2.0.0' pytest plugins/orchestrator-mcp/mcp-server-py
 """
 
 import errno
@@ -11,17 +14,16 @@ import multiprocessing
 import os
 import threading
 import time
+import tomllib
 import typing
 from pathlib import Path
 from typing import Any
 
 import pytest
 
-_SERVER_PATH = Path(__file__).parent / "server.py"
-_spec = importlib.util.spec_from_file_location("server", str(_SERVER_PATH))
-assert _spec is not None and _spec.loader is not None
-server: Any = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(server)
+import dev_tools as server
+
+_MODULE_PATH = Path(server.__file__)
 
 write_plan_event = getattr(server.write_plan_event, "fn", server.write_plan_event)
 read_plan_events = getattr(server.read_plan_events, "fn", server.read_plan_events)
@@ -270,7 +272,7 @@ def test_ac_006(plan):
         seq_start = 5000 + p * per_proc
         proc = multiprocessing.Process(
             target=_mp_worker,
-            args=(str(_SERVER_PATH), str(server.PROJECT_DIR), plan, seq_start, per_proc),
+            args=(str(_MODULE_PATH), str(server.PROJECT_DIR), plan, seq_start, per_proc),
         )
         procs.append(proc)
         proc.start()
@@ -457,7 +459,7 @@ def test_ac_025(plan):
         calls.append(offset)
         return real_read_at(fd, offset, n)
 
-    server._read_at = spying_read_at
+    server._read_at = spying_read_at  # ty: ignore[invalid-assignment]
     try:
         write_plan_event(server.Decision(kind="decision", text="t", who="user", seq=60), plan)
         first_call_count = len([c for c in calls if c == 0])
@@ -841,7 +843,7 @@ def _returned(plan_stem, task, attempt):
 
 
 def test_ac_001a():
-    src = _SERVER_PATH.read_text()
+    src = _MODULE_PATH.read_text()
     assert "progress.md" not in src
     assert "write_ledger_entry" not in src
 
@@ -1658,11 +1660,11 @@ def test_report_decisions_round_trip(plan):
 
 def test_report_decision_strict():
     with pytest.raises(ValueError):
-        server.ReportDecision(decision="d", why="w", extra="x")
+        server.ReportDecision(decision="d", why="w", extra="x")  # ty: ignore[unknown-argument]
     with pytest.raises(ValueError):
-        server.ReportDecision(why="w")
+        server.ReportDecision(why="w")  # ty: ignore[missing-argument]
     with pytest.raises(ValueError):
-        server.ReportDecision(decision="d")
+        server.ReportDecision(decision="d")  # ty: ignore[missing-argument]
 
 
 def test_report_decisions_not_in_writer_returned(plan):
@@ -2042,3 +2044,31 @@ def test_kind_to_model_matches_plan_event_and_internal_models():
     internal_kinds = {_kind_literal(m) for m in internal_models}
 
     assert set(server._KIND_TO_MODEL) | {"escalation"} == plan_event_kinds | internal_kinds
+
+
+# --- launcher -------------------------------------------------------------------
+
+_LAUNCHER_PATH = _MODULE_PATH.parent / "server.py"
+_PYPROJECT_PATH = _MODULE_PATH.parents[3] / "pyproject.toml"  # repo root
+
+
+def _script_block(text):
+    lines = text.splitlines()
+    start = lines.index("# /// script")
+    end = lines.index("# ///", start + 1)
+    return "\n".join(line.removeprefix("# ").removeprefix("#") for line in lines[start + 1 : end])
+
+
+def test_launcher_dependencies_match_pyproject():
+    script = tomllib.loads(_script_block(_LAUNCHER_PATH.read_text()))
+    project = tomllib.loads(_PYPROJECT_PATH.read_text())["project"]
+    assert script["dependencies"] == project["dependencies"]
+    assert script["requires-python"] == project["requires-python"]
+
+
+def test_launcher_exports_dev_tools_mcp():
+    spec = importlib.util.spec_from_file_location("server_launcher", str(_LAUNCHER_PATH))
+    assert spec is not None and spec.loader is not None
+    launcher: Any = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(launcher)
+    assert launcher.mcp.name == "dev-tools"

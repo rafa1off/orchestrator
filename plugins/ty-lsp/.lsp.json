@@ -6,6 +6,11 @@
     ],
     "extensionToLanguage": {
       ".py": "python"
+    },
+    "initializationOptions": {
+      "experimental": {
+        "useUv": "scripts"
+      }
     }
   }
 }

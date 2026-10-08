@@ -305,6 +305,23 @@ from `CLAUDE.md` first and falling back to marker-file detection (`uv.lock` → 
 `package.json` → eslint/tsc, etc.). Reviewer runs the diff-review pass and reports issues at
 `file:line`.
 
+**Layout and development:** `mcp-server-py/dev_tools.py` holds the implementation as a plain
+module; `mcp-server-py/server.py` is the launcher the plugin runs (`uv run server.py`), and its
+inline script metadata is what installs the dependencies at launch. The repo-root
+`pyproject.toml` is a dev-only project that declares the same dependencies (a test keeps the
+two lists in sync) and points ty, ruff and pytest at `mcp-server-py/`. To work on it:
+
+```bash
+uv sync --all-groups   # builds the repo-root .venv, which ty and ty-lsp pick up on their own
+uv run pytest
+```
+
+Lint and typecheck with `uv run ruff check` and `uv run ty check`. Any `uv run` inside the repo
+first syncs the root `.venv` to `uv.lock`, so install tools through the `dev` group rather than
+by hand. With that `.venv` in place, imports, types, and cross-file references — tests included —
+resolve in the editor and for the agents. Without it nothing breaks; imports just stay
+unresolved.
+
 ---
 
 ## ty-lsp
@@ -312,6 +329,10 @@ from `CLAUDE.md` first and falling back to marker-file detection (`uv.lock` → 
 Python LSP via [Astral ty](https://github.com/astral-sh/ty). Provides go-to-definition, find-references, hover, and document-symbol on `.py` files.
 
 **Prerequisite:** `uv tool install ty`
+
+Starts `ty server` with `initializationOptions: {"experimental": {"useUv": "scripts"}}`, so ty
+builds and uses the uv environment of PEP 723 scripts (files with a `# /// script` block)
+instead of looking for a `.venv` they never use. Requires uv 0.12.3 or later.
 
 ---
 

@@ -1,0 +1,23 @@
+# Dev-only project for this repo's Python: the dev-tools MCP server in
+# plugins/orchestrator-mcp/mcp-server-py. The plugin does not use this file at runtime —
+# it launches server.py from that script's inline metadata.
+[project]
+name = "orchestrator-dev"
+version = "0.0.0"
+requires-python = ">=3.14"
+dependencies = ["fastmcp>=2.0.0"]
+
+[dependency-groups]
+dev = ["pytest", "ruff", "ty"]
+
+[tool.uv]
+package = false
+
+[tool.ty.environment]
+root = ["plugins/orchestrator-mcp/mcp-server-py"]
+
+[tool.ruff]
+src = ["plugins/orchestrator-mcp/mcp-server-py"]
+
+[tool.pytest.ini_options]
+testpaths = ["plugins/orchestrator-mcp/mcp-server-py"]
