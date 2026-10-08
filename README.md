@@ -274,7 +274,7 @@ read through the same server:
 | Tool | Description |
 |---|---|
 | `write_findings(findings, label, pipeline?, plan?, task?, attempt?, branch_round?, seq?)` | Writes `<source>-<label>-findings.json` to `.claude/pipeline/` (or a per-track subdirectory for parallel runs), stamped with `written_at`. When `plan` is set, also appends a `verify_round` (with `task`+`attempt`) or `branch_check`/`branch_review`/`branch_test` (with `branch_round`) line to the plan's event log — `seq` is then required, and findings are checked against the same proof-of-execution rules as the `PostToolUse` hook before anything is written |
-| `write_report(report, label, pipeline?, plan?, task?, attempt?)` | Writes `<source>-<label>-report.json` to `.claude/pipeline/` (or a per-track subdirectory), stamped with `written_at`. When `plan` is set (writer reports only), also appends a `writer_returned` event, plus a task-scoped `escalation` when `report.context_request` is set |
+| `write_report(report, label, pipeline?, plan?, task?, attempt?)` | Writes `<source>-<label>-report.json` to `.claude/pipeline/` (or a per-track subdirectory), stamped with `written_at`. When `plan` is set (writer reports only), also appends a `writer_returned` event, plus a task-scoped `escalation` when `report.context_request` is set. Every report type may carry an optional `decisions` list |
 | `write_plan_event(event, plan)` | Orchestrator-only: appends one event to `.claude/plans/<plan>.jsonl`, the per-plan, append-only Plan Event Log |
 | `read_plan_events(plan, kind?, task?, since_ts?, limit?)` | Returns raw, unreconstructed lines from `.claude/plans/<plan>.jsonl`, in file order, filtered by whichever parameters are supplied |
 | `get_plan_state(plan, validate_shas=True)` | Reconstructs a plan's current state from a full sequential read of its event log; raises rather than returning a guessed/default `PlanState` if the log is missing, empty, or malformed at the first line |
@@ -293,7 +293,9 @@ plan-less call relies on the hook alone for those two rules.
 no commands and so have no `checks[]` to report. Every report type carries a `context_request`
 field (`needs`, `why`) in place of a `## Context Request` markdown heading, and a handful of
 fields are required outright to enforce a quality bar: `Convention.precedent`,
-`Reference.source`, and `ThinkerReport.recommendation`.
+`Reference.source`, and `ThinkerReport.recommendation`. Every report type also accepts an
+optional `decisions` list (`decision`, `why`, `alternative?`, `location?`) for judgment calls
+the dispatch did not settle; it travels in the report file only, never in the plan event log.
 
 Checker runs lint, typecheck, and build directly via `Bash`, reading the project's commands
 from `CLAUDE.md` first and falling back to marker-file detection (`uv.lock` → ruff/mypy,

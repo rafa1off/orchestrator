@@ -139,6 +139,13 @@ class Convention(_Strict):
     split: str | None = None  # set when the rule holds in some files and not others
 
 
+class ReportDecision(_Strict):
+    decision: str  # the call that was made
+    why: str  # what settled it
+    alternative: str | None = None  # the option not taken, when there was a real one
+    location: str | None = None  # "file:line" when it lands in code
+
+
 class ReaderReport(_Strict):
     source: Literal["reader"]
     relevant_files: list[FileEntry]
@@ -146,6 +153,7 @@ class ReaderReport(_Strict):
     conventions: list[Convention] = []
     entry_points: list[str] = []
     test_files: list[str] = []
+    decisions: list[ReportDecision] = []
     context_request: ContextRequest | None = None
 
 
@@ -159,6 +167,7 @@ class ModifiedFile(_Strict):
 class WriterReport(_Strict):
     source: Literal["writer"]
     modified: list[ModifiedFile]
+    decisions: list[ReportDecision] = []
     context_request: ContextRequest | None = None
 
 
@@ -178,6 +187,7 @@ class ThinkerReport(_Strict):
     evidence: str | None = None  # qa mode
     recommendation: str  # REQUIRED in every mode
     caveats: list[str] = []
+    decisions: list[ReportDecision] = []
     context_request: ContextRequest | None = None
 
 
@@ -193,6 +203,7 @@ class ResearcherReport(_Strict):
     api_reference: list[Reference] = []
     recommended_approach: str
     caveats: list[str] = []
+    decisions: list[ReportDecision] = []
     context_request: ContextRequest | None = None
 
 
@@ -968,7 +979,9 @@ def write_report(
     when there is nothing noteworthy to say. `context_request` is how an agent signals it
     cannot proceed — set it instead of writing a "## Context Request" heading in prose;
     the orchestrator branches on `report.context_request is not None`. A report is not
-    proof-of-execution: it carries no checks[] or exit codes.
+    proof-of-execution: it carries no checks[] or exit codes. `decisions` lists judgment
+    calls the agent made that its dispatch did not settle; it is carried in the report
+    file only, never in the plan event log.
     label: a short kebab-case slug describing what this call's result covers (e.g.
         "add-priority-field") — specific enough that two agents of the same type
         running in parallel are unlikely to pick the same one. On an actual on-disk

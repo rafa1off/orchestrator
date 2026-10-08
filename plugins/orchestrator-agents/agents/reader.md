@@ -54,6 +54,12 @@ what you found. Two things the schema cannot enforce, so hold yourself to them:
 - **Cite exact locations, not summaries.** "Four SELECTs" is checkable; "the SELECT
   statements" is not. Where a test asserts something shape-coupled, cite the line.
 
+`decisions` lists the judgment calls you made that your dispatch did not settle and that the
+orchestrator should know about — one entry each, with `why` naming what settled it and
+`alternative` the option you did not take. Routine work is not a decision; leave the list
+empty rather than padding it. Examples: a file you left out of scope, or which of two
+conflicting conventions you treated as the rule.
+
 If no file list was provided, or you cannot resolve the task without more, set
 `context_request.needs` and `context_request.why` and submit the report anyway rather than
 guessing or writing a prose block instead.

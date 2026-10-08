@@ -1627,6 +1627,54 @@ def test_branch_routing_reviewer_and_tester(plan):
     assert not any(l["kind"] in ("branch_check", "verify_round") for l in lines)
 
 
+# --- report decisions ------------------------------------------------------------
+
+
+def _decision():
+    return server.ReportDecision(
+        decision="d", why="w", alternative="a", location="f.py:1"
+    )
+
+
+def test_report_decisions_default_empty():
+    reports = [
+        _reader_report(),
+        _writer_report(),
+        server.ThinkerReport(source="thinker", mode="qa", recommendation="r"),
+        server.ResearcherReport(source="researcher", recommended_approach="x"),
+    ]
+    assert all(r.decisions == [] for r in reports)
+
+
+def test_report_decisions_round_trip(plan):
+    report = _writer_report()
+    report.decisions = [_decision()]
+    result = write_report(report, "lbl")
+    data = json.loads((server.PROJECT_DIR / _event_path(result)).read_text())
+    assert data["decisions"] == [
+        {"decision": "d", "why": "w", "alternative": "a", "location": "f.py:1"}
+    ]
+
+
+def test_report_decision_strict():
+    with pytest.raises(ValueError):
+        server.ReportDecision(decision="d", why="w", extra="x")
+    with pytest.raises(ValueError):
+        server.ReportDecision(why="w")
+    with pytest.raises(ValueError):
+        server.ReportDecision(decision="d")
+
+
+def test_report_decisions_not_in_writer_returned(plan):
+    _archive(plan)
+    report = _writer_report()
+    report.decisions = [_decision()]
+    write_report(report, "lbl", plan=plan, task=1, attempt=1)
+    lines = [l for l in _lines(plan) if l["kind"] == "writer_returned"]
+    assert len(lines) == 1
+    assert "decisions" not in lines[0]
+
+
 # --- write_report in_scope/out_of_scope split -----------------------------------
 
 

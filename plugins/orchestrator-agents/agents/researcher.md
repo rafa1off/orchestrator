@@ -46,6 +46,12 @@ from a recollection, and recollections about library behavior are how the wrong 
 API ends up in the code. When you could not find a source, say that explicitly in the claim
 itself rather than stating it bare with no source.
 
+`decisions` lists the judgment calls you made that your dispatch did not settle and that the
+orchestrator should know about — one entry each, with `why` naming what settled it and
+`alternative` the option you did not take. Routine work is not a decision; leave the list
+empty rather than padding it. Examples: which source you trusted when sources disagreed, or
+which API version you documented.
+
 Do not return raw search results or long excerpts. Synthesize — precision over completeness.
 
 If the research question itself is missing or unresolvable with the sources above, set

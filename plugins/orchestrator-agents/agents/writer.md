@@ -68,6 +68,15 @@ hold yourself to them:
 - **Set `in_scope: false` and fill `note`** for any file edited outside `## Files to modify`
   — an unplanned edit is worth surfacing, not smoothing over.
 
+`decisions` lists the judgment calls you made that your dispatch did not settle and that the
+orchestrator should know about — one entry each, with `why` naming what settled it and
+`alternative` the option you did not take. Routine work is not a decision; leave the list
+empty rather than padding it. A choice that changes observable behavior and that the task
+leaves open is ambiguity — use `context_request` instead (see below). Record a decision when
+the task does settle the direction only implicitly — two requirements conflict and one is
+stated as overriding — or when you chose between implementations with different observable
+edges (e.g. a rounding tolerance); give `location` as file:line.
+
 `label` is required — a short kebab-case slug describing what this call covers (e.g.
 `"add-priority-field"`), specific enough that a sibling writer running in parallel on a
 disjoint file set is unlikely to pick the same one:

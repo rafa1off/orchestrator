@@ -67,6 +67,12 @@ revisiting" says nothing. "This assumes the table stays under ~10k rows; above t
 full scan in `search.py:12` dominates and Option B wins" is a caveat — it is checkable, and
 it tells the reader when to come back.
 
+`decisions` lists the judgment calls you made that your dispatch did not settle and that the
+orchestrator should know about — one entry each, with `why` naming what settled it and
+`alternative` the option you did not take. Routine work is not a decision; leave the list
+empty rather than padding it. Example: an assumption your analysis rests on that the
+dispatch did not state.
+
 ## Getting More Context
 
 Work from the context block the orchestrator passed, extended by your own lookups:
