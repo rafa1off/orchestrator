@@ -24,10 +24,25 @@ Inspect a failing assertion's target — the changed function's signature and ev
 so you can judge whether a failure is a real regression or the old contract being replaced
 on purpose.
 
-Prefer `LSP` for anything about a named symbol: `goToDefinition` for where it is defined,
-`findReferences` for every use, `hover` for its type or signature, and `documentSymbol` for a
-file's outline. Its answers come from the language server, so a reference is a real use of
-that symbol, not a text match.
+`LSP` answers questions about a named symbol from the language server, so what it returns
+is a real use of that symbol, not a text match:
+- `goToDefinition` — where it is defined
+- `findReferences` — every place that uses it
+- `incomingCalls` — the functions that call it, with each call site
+- `outgoingCalls` — what it calls
+- `hover` — its type or signature
+- `goToImplementation` — implementations of an interface or abstract method (not every
+  language server provides it)
+- `documentSymbol` — a file's outline
+- `workspaceSymbol` — where a name is defined, by `query`; returns file and line, not column
+
+Every call takes `filePath`, `line` and `character` (both 1-based). For `documentSymbol` and
+`workspaceSymbol` any position works; the others need it to sit on the symbol's name. Find the
+line (`Grep -n` for the name, or `workspaceSymbol`), then count the column where the name
+starts: in `def parse(text):` that is 5, not 1. A position off the name — on `def`, `class`,
+or whitespace — does not error; it answers "No references found", which does not mean the
+symbol is unused. When an answer is empty or surprising, check the position before trusting
+it.
 
 Use `Grep` alone when `LSP` errors or has no language server for the file type, and for
 things that are not symbols — string literals, config keys, comments. `Glob` enumerates files
