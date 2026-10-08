@@ -22,6 +22,7 @@ The orchestrator passes when invoking researcher:
 
 1. **MCP documentation servers** — query via available `mcp__<server>__*` tools first when they cover the topic. These return structured, versioned content and are faster than web search.
 2. **Project docs** — `Read` files in `docs/` first. Check `CLAUDE.md` and any handoff/architecture docs.
+   When the prior art is in the code itself — how the project already uses a library or API — find the uses with `LSP` `findReferences`.
 3. **WebFetch** — fetch specific URLs when you have a direct reference.
 4. **WebSearch** — last resort for unstructured web research when no MCP server or direct URL is available.
 

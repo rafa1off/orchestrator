@@ -131,7 +131,7 @@ Add the following to your project's `.claude/settings.json` (or user settings at
 
 #### Permissions allow-rules
 
-Background subagents (checker, reviewer, tester, reader, researcher) auto-deny any tool that would prompt for permission — without allow-rules they silently skip lint, typecheck, and test runs. Add these entries to the `permissions.allow` block so backgrounded agents can execute their checks:
+Background subagents (checker, reviewer, tester, reader, researcher) run tools under your permission rules. Per the current Claude Code docs, a call that needs approval surfaces as a prompt in the main session naming the agent, and Esc denies it; older versions denied it outright, silently skipping lint, typecheck, and test runs. Either way, add these entries to the `permissions.allow` block so backgrounded agents run their checks without stopping on you:
 
 ```json
 {
@@ -204,10 +204,13 @@ Two workflow skills for the orchestrator session:
 | `orchestrator-agents:tester` | haiku | high | readonly | Runs the suite and classifies each failure (REGRESSION / STALE TEST / FLAKY / UNCLEAR) with evidence — never writes or fixes tests |
 
 **Dispatch mode:** agents always run as background subagents — fork mode is on by default in
-interactive sessions and Claude cannot request the foreground. Background subagents keep all
-MCP tools but only a fixed built-in set (`Read`, `Grep`, `Glob`, `Bash`, `Edit`, `Write`,
-`Skill`, …), which excludes `LSP` and the Task tools (`TaskGet`/`TaskUpdate`/…). No agent
-definition instructs either, so this never blocks a dispatch.
+interactive sessions and Claude cannot request the foreground (`CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1`
+forces it, but for every subagent, which serializes all dispatches). Background subagents keep
+all MCP tools and a fixed built-in set that includes `LSP` but not the Task tools
+(`TaskGet`/`TaskUpdate`/…). Every agent that touches code lists `LSP` in its `tools` and
+prefers it for symbol navigation — definitions, references, types — when a code-intelligence
+plugin ([`ty-lsp`](#ty-lsp), [`tsgo-lsp`](#tsgo-lsp), or an official one) is installed, and
+falls back to `Grep` otherwise.
 
 **Guarded findings:** `checker`, `reviewer`, and `tester` all write findings via
 `write_findings` and are covered by the proof-of-execution and `SubagentStop` guards — a PASS
