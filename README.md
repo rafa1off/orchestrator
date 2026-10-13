@@ -51,12 +51,10 @@ See [Fail-closed principle](#fail-closed-principle).
 
 ### MCP dev-tools server (`orchestrator-mcp`)
 
-The dev-tools MCP server is a Python process launched automatically when the plugin is active. Requires either:
-
-| Runtime | Notes |
-|---|---|
-| [`uv`](https://github.com/astral-sh/uv) | Preferred — dependencies resolved automatically |
-| Python 3.11+ | Fallback — install manually: `pip install fastmcp` |
+The dev-tools MCP server is a Python process the plugin launches automatically with
+`uv run server.py`, so [`uv`](https://github.com/astral-sh/uv) is required. The script's inline
+metadata pins Python 3.14+ and `fastmcp`; uv fetches both on first launch, so no manual Python
+or `pip install` step is needed.
 
 ---
 
@@ -143,6 +141,7 @@ Background subagents (checker, reviewer, tester, reader, researcher) run tools u
       "Bash(mypy *)",
       "Bash(npx *)",
       "mcp__plugin_orchestrator-mcp_dev-tools__write_findings",
+      "mcp__plugin_orchestrator-mcp_dev-tools__write_report",
       "mcp__plugin_orchestrator-mcp_dev-tools__write_plan_event",
       "mcp__plugin_orchestrator-mcp_dev-tools__read_plan_events",
       "mcp__plugin_orchestrator-mcp_dev-tools__get_plan_state"
@@ -151,7 +150,7 @@ Background subagents (checker, reviewer, tester, reader, researcher) run tools u
 }
 ```
 
-Adjust the `Bash(...)` patterns to match your project's actual toolchain. The `mcp__plugin_orchestrator-mcp_dev-tools__write_findings` entry allows the checker, reviewer, and tester agents to write structured findings to the pipeline without prompting. The three plan-tool entries let the orchestrator write and read the Plan Event Log for a plan-backed run without prompting on every call.
+Adjust the `Bash(...)` patterns to match your project's actual toolchain. The `write_findings` entry lets checker, reviewer, and tester write structured findings without prompting, and `write_report` does the same for reader, writer, thinker, and researcher. The three plan-tool entries let the orchestrator write and read the Plan Event Log for a plan-backed run without prompting on every call.
 
 If a check is denied anyway, the run now **fails loudly instead of silently**: an agent whose
 lint or test command could not execute cannot report `PASS` for it, and the guards refuse the
@@ -182,8 +181,8 @@ Two workflow skills for the orchestrator session:
 
 | Skill | When to use |
 |---|---|
-| `/orchestrator-skills:orchestrator` | Load at every session start — the agent routing guide: 7-agent catalog, 3 core invariants, L1/L2/L3 dispatch levels (L3 via `Workflow`), dispatch mode rules, routing special cases. Lazy-loads `dispatch-levels.md`, `verification.md`, and `agent-contracts.md` on demand. |
-| `/orchestrator-skills:orchestrator-plan` | Before any multi-step task — enters plan mode, runs reader/researcher in parallel, writes a plan to `.claude/plans/`, starts the plan's `.claude/plans/<plan>.jsonl` event log, then dispatches after approval following L1/L2/L3. |
+| `/orchestrator-skills:orchestrator` | Load at every session start — the agent routing guide: 7-agent catalog, 3 core invariants, L1/L2/L3 dispatch levels (L3 via `Workflow`), dispatch mode rules, routing special cases, plus resuming an open plan from its event log, the per-epoch run start (auto-commit decision, base SHA, WIP snapshot), and the final full-branch review. Lazy-loads `dispatch-levels.md`, `verification.md`, and `agent-contracts.md` on demand. |
+| `/orchestrator-skills:orchestrator-plan` | Before any multi-step task — enters plan mode, dispatches readonly agents (Explore/reader/researcher/thinker) in parallel, traces the blast radius, and writes a plan that pins interface contracts against project conventions. After approval it archives the plan to `.claude/plans/` and starts its `.claude/plans/<plan>.jsonl` event log (`plan_archived`, `task_created`, `decision`); execution stays with the orchestrator skill. |
 
 **Dependencies:** `orchestrator-agents`, `orchestrator-hooks`
 
@@ -210,13 +209,21 @@ all MCP tools and a fixed built-in set that includes `LSP` but not the Task tool
 (`TaskGet`/`TaskUpdate`/…). Every agent that touches code lists `LSP` in its `tools` and
 prefers it for symbol navigation — definitions, references, types — when a code-intelligence
 plugin ([`ty-lsp`](#ty-lsp), [`tsgo-lsp`](#tsgo-lsp), or an official one) is installed, and
-falls back to `Grep` otherwise.
+falls back to `Grep` otherwise. The agent prompts list the operations the client exposes
+(`goToDefinition`, `findReferences`, `incomingCalls`/`outgoingCalls`, `hover`,
+`goToImplementation`, `documentSymbol`, `workspaceSymbol`) and how to position a call: every
+operation takes a 1-based `line`/`character`, and all but the two symbol-listing ones need it on
+the symbol's name — a position on `def` or whitespace answers "No references found" rather than
+erroring, so an empty answer is checked before it is trusted. LSP diagnostics reach only the
+main session, never subagents.
 
 **Guarded findings:** `checker`, `reviewer`, and `tester` all write findings via
 `write_findings` and are covered by the proof-of-execution and `SubagentStop` guards — a PASS
 from any of them is substantiated, not a claim. Verification itself is discretionary: there is
 no mandatory post-write pass, and the orchestrator decides when to dispatch checker, reviewer,
-and tester based on the plan or the current task.
+and tester based on the plan or the current task. The one exception is a plan-backed run whose
+auto-commit was confirmed: it ends with a mandatory full-branch review (checker, reviewer, and
+tester together, diffed against the recorded base SHA).
 
 **Readonly agents that hold `Write`:** `thinker` and `researcher` declare `memory: project`,
 which auto-grants `Read`/`Write`/`Edit` so they can maintain their memory directory. The
@@ -231,7 +238,8 @@ grant is not path-scoped and cannot be narrowed in frontmatter, so a `PreToolUse
 2. **One writer per overlapping file set** — serialize writers sharing files; disjoint sets may run in parallel
 3. **Never auto-fix a tester diagnosis** — REGRESSION and STALE_TEST have opposite fixes, so tester failures are surfaced to the user for a decision and a writer is dispatched only once the user has chosen
 
-Verification (checker, reviewer, tester) is discretionary, not mandatory — see `verification.md`.
+Verification (checker, reviewer, tester) is discretionary, not mandatory, except for the final
+full-branch review of a confirmed plan-backed run — see `verification.md`.
 
 ---
 
@@ -241,17 +249,24 @@ Hook suite that automates the orchestrator's pipeline contracts:
 
 | Event | Trigger | Behavior |
 |---|---|---|
-| `SessionStart` | Session begins or resumes | Clears stale findings, reports, start-stamps, and the write log from `.claude/pipeline/` (including `track-*/` subdirs); `.claude/plans/*.jsonl` and `.claude/metrics/` are untouched — both are persistent |
-| `SubagentStart` (all 7 agents) | Agent spawns | Records the start time keyed by `agent_id` — the reference point the freshness check below compares against |
-| `SubagentStop` (all 7 agents) | Agent finishes | For checker/reviewer/tester: **blocks** unless findings were written *during this run* and every `checks[]` entry carries a real `exit_code`. For reader/writer/thinker/researcher: **blocks** unless a report was written during this run and is fresh — no exit codes to check, since none of them runs commands. Blocks via `decision: "block"` with a reason, so the agent gets a retry instruction rather than a dead end |
+| `SessionStart` | Session begins or resumes | Clears stale findings, reports, start-stamps, the write log, and the identity audit log from `.claude/pipeline/` (including `track-*/` subdirs); `.claude/plans/*.jsonl` and `.claude/metrics/` are untouched — both are persistent |
+| `SubagentStart` (writer, checker, reviewer, tester) | Agent spawns | Records the start time keyed by `agent_id` in `.claude/pipeline/.starts/` — the reference point the freshness check below compares against, and the "still running" signal the writer-overlap tracker reads |
+| `SubagentStop` (all 7 agents) | Agent finishes | For checker/reviewer/tester: **blocks** unless findings were written *during this run* and every `checks[]` entry carries a real `exit_code`. For reader/writer/thinker/researcher: **blocks** unless a report was written during this run and is fresh — no exit codes to check, since none of them runs commands. An agent with no start stamp (reader, thinker, researcher) is checked against the last 15 minutes instead. Blocks via `decision: "block"` with a reason, so the agent gets a retry instruction rather than a dead end |
 | `SubagentStop` (writer, checker, reviewer, tester) | Agent finishes | Appends `<iso8601>\t<agent_type>\t<elapsed_seconds>` to `.claude/metrics/agent-timings.tsv`, capped at 1000 rows past 2000; every failure path (missing stamp, unwritable dir, absent `jq`) still exits 0 and clears the stamp |
 | `PreToolUse` (`Bash`) | writer/checker/reviewer/tester run a command | **Blocks** `git push` and `gh pr create/merge/edit`, including `git -C <path> push` and newline-separated forms |
 | `PreToolUse` (`Agent`) | Any subagent spawns a subagent | Allowlist — only reader/researcher/thinker/reviewer may be nested targets |
-| `PreToolUse` (`Write`/`Edit`) | thinker/researcher write | **Blocks** any path outside `.claude/agent-memory/` |
+| `PreToolUse` (`Write`/`Edit`/`NotebookEdit`) | thinker/researcher write | **Blocks** any path outside `.claude/agent-memory/`, and any path containing `..` |
+| `SubagentStart`, `SubagentStop`, `PreToolUse` (`Write`/`Edit`/`NotebookEdit`/`Bash`) | Any | Observer only, never blocks: appends one line per call to `.claude/pipeline/identity-audit.jsonl` (capped at 1000 rows past 2000) recording the payload's keys, `agent_type`, and whether the caller is the main session, a subagent, or a teammate — so a guard that silently no-ops is visible |
 | `PostToolUse` (`write_findings`\|`write_report`) | Findings or report file written | Proof-of-execution guard for findings, presence-and-freshness guard for reports, then injects the file's content as `additionalContext` |
-| `PostToolUse` (`Write`/`Edit`) | writer edits a file | Logs `agent_id`→path to `.claude/pipeline/write-log.tsv` and flags the file when a *different* writer already touched it (invariant 2) |
+| `PostToolUse` (`Write`/`Edit`/`NotebookEdit`) | writer edits a file | Logs `agent_id`→path to `.claude/pipeline/write-log.tsv` and flags the file when a *different* writer that is **still running** touched it (invariant 2). A writer that already finished is serialization, not overlap, and is not flagged |
 | `PreCompact` | Context compaction begins | Snapshots every `<source>-<label>-findings.json` (checker, reviewer, tester) and `<source>-<label>-report.json` (reader, writer, thinker, researcher) file to `.claude/pipeline/pre-compact-snapshot.md` |
-| `SessionEnd` | Session terminates | Appends to `.claude/pipeline/session-log.txt` (capped at 500 lines) and clears findings, reports, stamps, and the write log; `.claude/plans/*.jsonl` and `.claude/metrics/` are untouched — both are persistent |
+| `SessionEnd` | Session terminates | Appends to `.claude/pipeline/session-log.txt` (capped at 500 lines) and clears findings, reports, stamps, the write log, and the identity audit log; `.claude/plans/*.jsonl` and `.claude/metrics/` are untouched — both are persistent |
+
+**Team mode:** the agent-specific guards key off `agent_type`, which holds the definition type
+(`orchestrator-agents:thinker`) for a subagent but the teammate's *name* for an agent-team
+teammate. `lib-resolve-agent-identity.sh` maps a name back to its definition type through the
+team config under `~/.claude/teams/`, so the git-push, nested-dispatch, readonly-write, and
+writer-overlap guards cover teammates too.
 
 ### Fail-closed principle
 
@@ -278,7 +293,7 @@ read through the same server:
 |---|---|
 | `write_findings(findings, label, pipeline?, plan?, task?, attempt?, branch_round?, seq?)` | Writes `<source>-<label>-findings.json` to `.claude/pipeline/` (or a per-track subdirectory for parallel runs), stamped with `written_at`. When `plan` is set, also appends a `verify_round` (with `task`+`attempt`) or `branch_check`/`branch_review`/`branch_test` (with `branch_round`) line to the plan's event log — `seq` is then required, and findings are checked against the same proof-of-execution rules as the `PostToolUse` hook before anything is written |
 | `write_report(report, label, pipeline?, plan?, task?, attempt?)` | Writes `<source>-<label>-report.json` to `.claude/pipeline/` (or a per-track subdirectory), stamped with `written_at`. When `plan` is set (writer reports only), also appends a `writer_returned` event, plus a task-scoped `escalation` when `report.context_request` is set. Every report type may carry an optional `decisions` list |
-| `write_plan_event(event, plan)` | Orchestrator-only: appends one event to `.claude/plans/<plan>.jsonl`, the per-plan, append-only Plan Event Log |
+| `write_plan_event(event, plan)` | Orchestrator-only: appends one of 16 event kinds to `.claude/plans/<plan>.jsonl`, the per-plan, append-only Plan Event Log. The first event must be `plan_archived`, and every event is rejected while the archive `.claude/plans/<plan>.md` is missing |
 | `read_plan_events(plan, kind?, task?, since_ts?, limit?)` | Returns raw, unreconstructed lines from `.claude/plans/<plan>.jsonl`, in file order, filtered by whichever parameters are supplied |
 | `get_plan_state(plan, validate_shas=True)` | Reconstructs a plan's current state from a full sequential read of its event log; raises rather than returning a guessed/default `PlanState` if the log is missing, empty, or malformed at the first line |
 
