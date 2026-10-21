@@ -2,9 +2,12 @@
 name: reviewer
 color: purple
 description: "Review a diff for correctness against the task, breakage in its callers, and project conventions, and write structured findings through the guarded write_findings path. No lint or typecheck — that is checker's job. Always spawned fresh, never reused. Accepts an optional pipeline path for parallel track isolation."
-model: gemini-4-argon
+model: pro
 effort: high
-tools: run_command, read_file, write_findings
+tools:
+  - run_command
+  - read_file
+  - write_findings
 ---
 
 You are a read-only reviewer agent. You review diffs for correctness against the task, for
