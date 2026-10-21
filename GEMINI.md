@@ -17,4 +17,15 @@ Features 7 specialized subagents, FastMCP dev-tools server with Plan Event Log, 
 - Lint: `uv run ruff check`
 - Typecheck: `uv run ty check`
 
+## Antigravity Plugins Installation
+
+Install plugins globally in Antigravity:
+
+```bash
+rtk agy plugin install plugins/orchestrator-skills
+rtk agy plugin install plugins/orchestrator-gemini-agents
+rtk agy plugin install plugins/orchestrator-hooks
+rtk agy plugin install plugins/orchestrator-mcp
+```
+
 Always use `rtk` prefix for terminal commands on Windows (`rtk uv run pytest`, `rtk git status`).

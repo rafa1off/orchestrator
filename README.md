@@ -175,6 +175,30 @@ To avoid cold-starting the prompt cache mid-session:
 
 ---
 
+## Google Antigravity (AGY CLI) Support
+
+This repository natively supports the **Google Antigravity (AGY CLI)** ecosystem powered by Gemini models (including **Gemini 4 Argon** for `thinker` and `reviewer`, and **Gemini 3.8 Flash** for `writer`, `checker`, `tester`, `reader`, and `researcher`).
+
+### Installation in Antigravity
+
+```bash
+agy plugin install plugins/orchestrator-skills
+agy plugin install plugins/orchestrator-gemini-agents
+agy plugin install plugins/orchestrator-hooks
+agy plugin install plugins/orchestrator-mcp
+```
+
+### Activation in Antigravity
+
+Add the orchestrator instructions to your project's `GEMINI.md`:
+
+```markdown
+# Multi-Agent Orchestrator
+Consult the skill `orchestrator` and dispatch subagents via `invoke_subagent`.
+```
+
+---
+
 ## orchestrator-skills
 
 Two workflow skills for the orchestrator session:

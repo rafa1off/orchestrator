@@ -53,18 +53,6 @@ def _get_project_dir() -> Path:
     return _detect_project_dir()
 
 
-def _is_gemini_ecosystem(project_dir: Path | None = None) -> bool:
-    """Determine if running under Antigravity / Gemini ecosystem."""
-    if os.environ.get("GEMINI_PROJECT_DIR") or os.environ.get("ANTIGRAVITY_PROJECT_ID"):
-        return True
-    if os.environ.get("PLUGIN_ROOT") and ".gemini" in os.environ.get("PLUGIN_ROOT", ""):
-        return True
-    if (Path.home() / ".gemini" / "active_workspace.txt").is_file():
-        return True
-    target_dir = project_dir or _get_project_dir()
-    return bool((target_dir / ".gemini").is_dir())
-
-
 def _plans_dir(plan: str | None = None) -> Path:
     """Resolve the directory where plan markdown and event logs live.
 
@@ -79,8 +67,8 @@ def _plans_dir(plan: str | None = None) -> Path:
     if env_data_dir := (os.environ.get("ORCHESTRATOR_DATA_DIR") or os.environ.get("GEMINI_DATA_DIR")):
         return project_dir / env_data_dir / "plans"
 
-    is_gemini = _is_gemini_ecosystem(project_dir)
-    candidates = [".gemini", ".orchestrator", ".claude"] if is_gemini else [".claude", ".orchestrator", ".gemini"]
+    is_gemini_runtime = bool(os.environ.get("GEMINI_PROJECT_DIR") or os.environ.get("ANTIGRAVITY_PROJECT_ID"))
+    candidates = [".gemini", ".orchestrator", ".claude"] if is_gemini_runtime else [".claude", ".orchestrator", ".gemini"]
 
     if plan:
         for candidate in candidates:
@@ -88,13 +76,13 @@ def _plans_dir(plan: str | None = None) -> Path:
             if (candidate_dir / f"{plan}.md").exists() or (candidate_dir / f"{plan}.jsonl").exists():
                 return candidate_dir
 
-    for candidate in candidates:
-        candidate_dir = project_dir / candidate / "plans"
-        if candidate_dir.is_dir():
-            return candidate_dir
+    if (project_dir / ".gemini" / "plans").is_dir() and (is_gemini_runtime or not (project_dir / ".claude" / "plans").is_dir()):
+        return project_dir / ".gemini" / "plans"
 
-    primary = ".gemini" if is_gemini else ".claude"
-    return project_dir / primary / "plans"
+    if (project_dir / ".orchestrator" / "plans").is_dir():
+        return project_dir / ".orchestrator" / "plans"
+
+    return project_dir / ".claude" / "plans"
 
 
 def _resolve_default_pipeline() -> str:
@@ -105,20 +93,22 @@ def _resolve_default_pipeline() -> str:
         return f"{env_data_dir}/pipeline"
 
     project_dir = _get_project_dir()
-    is_gemini = _is_gemini_ecosystem(project_dir)
+    has_gemini = (project_dir / ".gemini").is_dir()
+    has_claude = (project_dir / ".claude").is_dir()
 
-    if is_gemini:
-        if (project_dir / ".gemini").is_dir():
-            return ".gemini/pipeline"
-        if (project_dir / ".claude").is_dir() and not (project_dir / ".gemini").is_dir():
-            return ".claude/pipeline"
+    if has_gemini and not has_claude:
         return ".gemini/pipeline"
-    else:
-        if (project_dir / ".claude").is_dir():
-            return ".claude/pipeline"
-        if (project_dir / ".gemini").is_dir() and not (project_dir / ".claude").is_dir():
+    if has_claude and not has_gemini:
+        return ".claude/pipeline"
+    if has_gemini and has_claude:
+        if os.environ.get("GEMINI_PROJECT_DIR") or os.environ.get("ANTIGRAVITY_PROJECT_ID"):
             return ".gemini/pipeline"
-        return DEFAULT_PIPELINE
+        return ".claude/pipeline"
+
+    if (project_dir / ".orchestrator").is_dir():
+        return ".orchestrator/pipeline"
+
+    return DEFAULT_PIPELINE
 
 LABEL_PATTERN = r"^[a-z0-9]+(-[a-z0-9]+)*$"
 Label = Annotated[str, Field(pattern=LABEL_PATTERN, min_length=1, max_length=40)]
