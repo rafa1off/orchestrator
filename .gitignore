@@ -4,3 +4,4 @@ __pycache__/
 # Transient orchestrator state, not marketplace content. Note this does NOT
 # match .claude-plugin/ — plugin.json and marketplace.json must stay tracked.
 .claude/
+.gemini/pipeline/
