@@ -22,40 +22,79 @@ if sys.platform == "win32":
 else:
     import fcntl
 
-PROJECT_DIR = Path(
-    os.environ.get("ORCHESTRATOR_PROJECT_DIR")
-    or os.environ.get("GEMINI_PROJECT_DIR")
-    or os.environ.get("CLAUDE_PROJECT_DIR")
-    or os.getcwd()
-)
+def _detect_project_dir() -> Path:
+    for env_key in ("ORCHESTRATOR_PROJECT_DIR", "GEMINI_PROJECT_DIR", "CLAUDE_PROJECT_DIR"):
+        val = os.environ.get(env_key)
+        if val and val != ".":
+            p = Path(val).resolve()
+            if p.is_dir():
+                return p
+
+    workspace_marker = Path.home() / ".gemini" / "active_workspace.txt"
+    if workspace_marker.is_file():
+        try:
+            recorded = workspace_marker.read_text(encoding="utf-8").strip()
+            if recorded and Path(recorded).is_dir():
+                return Path(recorded).resolve()
+        except OSError:
+            pass
+
+    return Path.cwd().resolve()
+
+
+_DEFAULT_DETECTED_PROJECT_DIR = _detect_project_dir()
+PROJECT_DIR = _DEFAULT_DETECTED_PROJECT_DIR
 DEFAULT_PIPELINE = ".claude/pipeline"
+
+
+def _get_project_dir() -> Path:
+    if PROJECT_DIR != _DEFAULT_DETECTED_PROJECT_DIR:
+        return PROJECT_DIR
+    return _detect_project_dir()
+
+
+def _is_gemini_ecosystem(project_dir: Path | None = None) -> bool:
+    """Determine if running under Antigravity / Gemini ecosystem."""
+    if os.environ.get("GEMINI_PROJECT_DIR") or os.environ.get("ANTIGRAVITY_PROJECT_ID"):
+        return True
+    if os.environ.get("PLUGIN_ROOT") and ".gemini" in os.environ.get("PLUGIN_ROOT", ""):
+        return True
+    if (Path.home() / ".gemini" / "active_workspace.txt").is_file():
+        return True
+    target_dir = project_dir or _get_project_dir()
+    return bool((target_dir / ".gemini").is_dir())
 
 
 def _plans_dir(plan: str | None = None) -> Path:
     """Resolve the directory where plan markdown and event logs live.
 
     Checks environment overrides first (ORCHESTRATOR_PLANS_DIR or ORCHESTRATOR_DATA_DIR / GEMINI_DATA_DIR),
-    then inspects PROJECT_DIR for existing plan files or candidate directories
+    then inspects project dir for existing plan files or candidate directories
     (.gemini/plans, .orchestrator/plans, .claude/plans).
-    Defaults to PROJECT_DIR / '.claude' / 'plans' for backward compatibility.
+    Defaults to .gemini/plans (Gemini) or .claude/plans (Claude).
     """
+    project_dir = _get_project_dir()
     if env_dir := os.environ.get("ORCHESTRATOR_PLANS_DIR"):
-        return PROJECT_DIR / env_dir
+        return project_dir / env_dir
     if env_data_dir := (os.environ.get("ORCHESTRATOR_DATA_DIR") or os.environ.get("GEMINI_DATA_DIR")):
-        return PROJECT_DIR / env_data_dir / "plans"
+        return project_dir / env_data_dir / "plans"
+
+    is_gemini = _is_gemini_ecosystem(project_dir)
+    candidates = [".gemini", ".orchestrator", ".claude"] if is_gemini else [".claude", ".orchestrator", ".gemini"]
 
     if plan:
-        for candidate in [".gemini", ".orchestrator", ".claude"]:
-            candidate_dir = PROJECT_DIR / candidate / "plans"
+        for candidate in candidates:
+            candidate_dir = project_dir / candidate / "plans"
             if (candidate_dir / f"{plan}.md").exists() or (candidate_dir / f"{plan}.jsonl").exists():
                 return candidate_dir
 
-    for candidate in [".gemini", ".orchestrator"]:
-        candidate_dir = PROJECT_DIR / candidate / "plans"
+    for candidate in candidates:
+        candidate_dir = project_dir / candidate / "plans"
         if candidate_dir.is_dir():
             return candidate_dir
 
-    return PROJECT_DIR / ".claude" / "plans"
+    primary = ".gemini" if is_gemini else ".claude"
+    return project_dir / primary / "plans"
 
 
 def _resolve_default_pipeline() -> str:
@@ -64,11 +103,22 @@ def _resolve_default_pipeline() -> str:
         return env_pipeline
     if env_data_dir := (os.environ.get("ORCHESTRATOR_DATA_DIR") or os.environ.get("GEMINI_DATA_DIR")):
         return f"{env_data_dir}/pipeline"
-    if (PROJECT_DIR / ".gemini").is_dir() and not (PROJECT_DIR / ".claude").is_dir():
+
+    project_dir = _get_project_dir()
+    is_gemini = _is_gemini_ecosystem(project_dir)
+
+    if is_gemini:
+        if (project_dir / ".gemini").is_dir():
+            return ".gemini/pipeline"
+        if (project_dir / ".claude").is_dir() and not (project_dir / ".gemini").is_dir():
+            return ".claude/pipeline"
         return ".gemini/pipeline"
-    if (PROJECT_DIR / ".orchestrator").is_dir() and not (PROJECT_DIR / ".claude").is_dir():
-        return ".orchestrator/pipeline"
-    return DEFAULT_PIPELINE
+    else:
+        if (project_dir / ".claude").is_dir():
+            return ".claude/pipeline"
+        if (project_dir / ".gemini").is_dir() and not (project_dir / ".claude").is_dir():
+            return ".gemini/pipeline"
+        return DEFAULT_PIPELINE
 
 LABEL_PATTERN = r"^[a-z0-9]+(-[a-z0-9]+)*$"
 Label = Annotated[str, Field(pattern=LABEL_PATTERN, min_length=1, max_length=40)]
@@ -690,7 +740,8 @@ def _append(plan: str, events: list[dict]) -> list[dict]:
     plans_dir = _plans_dir(plan)
     md_path = plans_dir / f"{plan}.md"
     if not md_path.exists():
-        rel = md_path.relative_to(PROJECT_DIR).as_posix() if md_path.is_relative_to(PROJECT_DIR) else md_path
+        project_dir = _get_project_dir()
+        rel = md_path.relative_to(project_dir).as_posix() if md_path.is_relative_to(project_dir) else md_path
         raise ValueError(f"plan archive not found: {rel}")
 
     path = plans_dir / f"{plan}.jsonl"
@@ -828,7 +879,11 @@ mcp = FastMCP("dev-tools")
 
 def _pipeline_dir(pipeline: str | None) -> tuple[Path, str]:
     effective_pipeline = pipeline or _resolve_default_pipeline()
-    pipeline_dir = PROJECT_DIR / effective_pipeline
+    p = Path(effective_pipeline)
+    if p.is_absolute():
+        pipeline_dir = p
+    else:
+        pipeline_dir = _get_project_dir() / effective_pipeline
     pipeline_dir.mkdir(parents=True, exist_ok=True)
     return pipeline_dir, effective_pipeline
 
@@ -1262,7 +1317,7 @@ def _sha_valid(sha: str | None, validate_shas: bool) -> bool | None:
     try:
         result = subprocess.run(
             ["git", "merge-base", "--is-ancestor", sha, "HEAD"],
-            cwd=PROJECT_DIR,
+            cwd=_get_project_dir(),
             capture_output=True,
             check=False,
         )

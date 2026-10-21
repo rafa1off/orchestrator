@@ -2130,12 +2130,41 @@ def test_env_project_dir_resolution(tmp_path, monkeypatch):
     custom_dir.mkdir()
     monkeypatch.setenv("ORCHESTRATOR_PROJECT_DIR", str(custom_dir))
 
-    # Re-import or verify fallback
-    resolved = Path(
-        os.environ.get("ORCHESTRATOR_PROJECT_DIR")
-        or os.environ.get("GEMINI_PROJECT_DIR")
-        or os.environ.get("CLAUDE_PROJECT_DIR")
-        or os.getcwd()
-    )
+    resolved = server._detect_project_dir()
+    assert resolved == custom_dir
+
+
+def test_coexistence_gemini_and_claude(tmp_path, monkeypatch):
+    monkeypatch.setattr(server, "PROJECT_DIR", tmp_path)
+    (tmp_path / ".gemini" / "plans").mkdir(parents=True)
+    (tmp_path / ".claude" / "plans").mkdir(parents=True)
+    (tmp_path / ".gemini" / "pipeline").mkdir(parents=True)
+    (tmp_path / ".claude" / "pipeline").mkdir(parents=True)
+
+    monkeypatch.setenv("ANTIGRAVITY_PROJECT_ID", "test-project")
+
+    # In Gemini ecosystem, .gemini must be selected even if .claude exists
+    assert server._resolve_default_pipeline() == ".gemini/pipeline"
+    plan_slug = "2026-10-21-gemini-coexist-plan"
+    (tmp_path / ".gemini" / "plans" / f"{plan_slug}.md").write_text("# coexist\n")
+    assert server._plans_dir(plan_slug) == tmp_path / ".gemini" / "plans"
+
+
+def test_active_workspace_marker_resolution(tmp_path, monkeypatch):
+    custom_dir = tmp_path / "marker_workspace"
+    custom_dir.mkdir()
+    marker_file = tmp_path / "active_workspace.txt"
+    marker_file.write_text(str(custom_dir), encoding="utf-8")
+
+    monkeypatch.delenv("ORCHESTRATOR_PROJECT_DIR", raising=False)
+    monkeypatch.delenv("GEMINI_PROJECT_DIR", raising=False)
+    monkeypatch.delenv("CLAUDE_PROJECT_DIR", raising=False)
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+    # Put marker in tmp_path/.gemini/active_workspace.txt
+    (tmp_path / ".gemini").mkdir(parents=True, exist_ok=True)
+    (tmp_path / ".gemini" / "active_workspace.txt").write_text(str(custom_dir), encoding="utf-8")
+
+    resolved = server._detect_project_dir()
     assert resolved == custom_dir
 

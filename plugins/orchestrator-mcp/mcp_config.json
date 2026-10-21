@@ -5,10 +5,7 @@
       "args": [
         "run",
         "E:/Projetos/orchestrator/plugins/orchestrator-mcp/mcp-server-py/server.py"
-      ],
-      "env": {
-        "ORCHESTRATOR_PROJECT_DIR": "."
-      }
+      ]
     }
   }
 }
