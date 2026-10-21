@@ -1,6 +1,6 @@
 ---
 name: orchestrator-plan
-description: "Designs the implementation before any code is written: previews every artifact and side effect the change produces, pins the exact interface contracts against discovered project conventions, and saves the plan to .claude/plans/. Describes the code, not the work of producing it — execution and dispatch stay with the orchestrator routing guide."
+description: "Designs the implementation before any code is written: previews every artifact and side effect the change produces, pins the exact interface contracts against discovered project conventions, and saves the plan to .gemini/plans/ (or .claude/plans/). Describes the code, not the work of producing it — execution and dispatch stay with the orchestrator routing guide."
 when_to_use: "Use when the user is thinking ahead — scoping what needs to change and in what order, not yet implementing. Triggers on: \"plan this out\", \"write up a plan\", \"map out how we'd\", \"let's plan\", \"before we start\", or any request to design/outline an implementation spanning multiple files, schema changes, API additions, or refactors."
 argument-hint: "[task description]"
 ---
@@ -44,7 +44,7 @@ honestly without them:
 - **Conventions must arrive with line references.** Ask reader for the `file:line` behind
   each one. A convention you cannot cite is a preference, and it will not survive review.
 - **Call sites must be enumerated, not recalled.** For every symbol whose signature the
-  change touches, get its references from `LSP` (or `rg` as fallback) and keep the
+  change touches, get its references from `rg` (ripgrep) and keep the
   `file:line` list. This is the raw material for the blast-radius section.
 
 ---
@@ -100,7 +100,7 @@ Call `ExitPlanMode`. Claude Code reads the plan file from Step 4 and presents it
 
 **The plan was just approved. Execute this step now — no further user input is needed.**
 
-1. Write the plan to `.claude/plans/YYYY-MM-DD-<feature-name>.md`. The system plan file from Step 4 is session-scoped and will not survive a new session — this archive is what makes deferred or repeated execution possible, and what gets committed to git as a decision record.
+1. Write the plan to `.gemini/plans/YYYY-MM-DD-<feature-name>.md` (or `.claude/plans/...`). The system plan file from Step 4 is session-scoped and will not survive a new session — this archive is what makes deferred or repeated execution possible, and what gets committed to git as a decision record.
    - **If this new plan replaces a still-active plan** (an earlier plan with `get_plan_state(old_plan).closed == false` that this plan supersedes rather than continues), set `supersedes` on the new plan's `plan_archived` event to the old plan's stem, and write `write_plan_event(PlanAbandoned(kind="plan_abandoned", why=..., superseded_by=<new plan stem>), old_plan)` on the old plan so it stops being a `## Resuming` candidate.
 2. Emit the plan's first events with `write_plan_event`, `plan` set to the archive stem from step 1 (no directory, no extension). The archive `.md` must already exist — the server rejects any event for a plan whose archive is missing. The first event creates the log. Write, in order:
    - `plan_archived{plan, archive, title, supersedes?}` — must be the log's first line; `supersedes` is set only when this plan replaces an active one (see above).

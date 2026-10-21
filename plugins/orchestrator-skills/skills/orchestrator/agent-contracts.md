@@ -21,12 +21,12 @@ covers (e.g. `checker-lint-typecheck-build-findings.json`) — it is what lets t
 the same type running in parallel land on distinct filenames instead of overwriting each
 other; a real on-disk collision is resolved server-side with a random suffix.
 
-Both paths are validated tool calls, guarded by the same `SubagentStop` check for presence
-and freshness — a final markdown message is no longer any agent's deliverable. They diverge
+Both paths are validated tool calls, enforced by the orchestrator's Active Return Validation
+protocol — a final markdown message is never any agent's deliverable. They diverge
 on what they can claim: findings additionally carry proof-of-execution, one `checks[]` entry
 per check actually run with a real exit code, because checker, reviewer, and tester ran
 commands. Reports carry no `checks[]` and no exit code, because reader, researcher, thinker,
-and writer run none — the guard demands only that the report is present and fresh, never
+and writer run none — the contract demands only that the report is present and fresh, never
 that it is substantiated by a process outcome.
 
 File deletion is an orchestrator action: no agent holds `Bash`, and `Write`/`Edit` cannot remove a file, so a task requiring a file to be deleted must have the orchestrator perform the deletion — a writer asked to do it can only empty the file and report.
