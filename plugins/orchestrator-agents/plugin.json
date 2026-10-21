@@ -1,0 +1,5 @@
+{
+  "name": "orchestrator-agents",
+  "version": "1.27.0",
+  "description": "7-agent catalog adapted for Google Antigravity and Gemini models"
+}
