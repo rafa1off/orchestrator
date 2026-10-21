@@ -14,10 +14,11 @@ dev = ["pytest", "ruff", "ty"]
 package = false
 
 [tool.ty.environment]
-root = ["plugins/orchestrator-mcp/mcp-server-py"]
+root = ["plugins/orchestrator-mcp/mcp-server-py", "plugins/orchestrator-hooks"]
 
 [tool.ruff]
-src = ["plugins/orchestrator-mcp/mcp-server-py"]
+src = ["plugins/orchestrator-mcp/mcp-server-py", "plugins/orchestrator-hooks"]
 
 [tool.pytest.ini_options]
-testpaths = ["plugins/orchestrator-mcp/mcp-server-py"]
+testpaths = ["plugins/orchestrator-mcp/mcp-server-py", "plugins/orchestrator-hooks"]
+pythonpath = ["plugins/orchestrator-mcp/mcp-server-py", "plugins/orchestrator-hooks"]

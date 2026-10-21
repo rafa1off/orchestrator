@@ -1,0 +1,42 @@
+{
+  "orchestrator-lifecycle": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "uv run python -m orchestrator_hooks.session_start",
+        "timeout": 15
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "run_command",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run python -m orchestrator_hooks.pre_tool_use",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "write_findings|write_report",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run python -m orchestrator_hooks.post_tool_use",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "type": "command",
+        "command": "uv run python -m orchestrator_hooks.session_stop",
+        "timeout": 15
+      }
+    ]
+  }
+}

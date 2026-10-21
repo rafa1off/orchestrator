@@ -1,0 +1,5 @@
+{
+  "name": "orchestrator-hooks",
+  "version": "1.11.0",
+  "description": "Cross-platform Python lifecycle hooks for orchestrator pipeline contracts"
+}
