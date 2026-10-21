@@ -2072,3 +2072,70 @@ def test_launcher_exports_dev_tools_mcp():
     launcher: Any = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(launcher)
     assert launcher.mcp.name == "dev-tools"
+
+
+# --- Antigravity / Gemini compatibility ---------------------------------------
+
+
+def test_gemini_plans_and_pipeline_resolution(tmp_path, monkeypatch):
+    monkeypatch.setattr(server, "PROJECT_DIR", tmp_path)
+    gemini_plans = tmp_path / ".gemini" / "plans"
+    gemini_plans.mkdir(parents=True)
+    plan_slug = "2026-10-21-gemini-test-plan"
+    (gemini_plans / f"{plan_slug}.md").write_text("# gemini test plan\n")
+
+    assert server._plans_dir(plan_slug) == gemini_plans
+    assert server._resolve_default_pipeline() == ".gemini/pipeline"
+
+    # Write plan event to .gemini/plans
+    event = server.PlanArchived(
+        kind="plan_archived", plan=plan_slug, archive="rev1", title="Gemini Test"
+    )
+    outcomes_str = write_plan_event(event, plan_slug)
+    assert "plan_archived" in outcomes_str
+    assert (gemini_plans / f"{plan_slug}.jsonl").exists()
+
+    # Read plan state
+    state = get_plan_state(plan_slug, validate_shas=False)
+    assert state.plan == plan_slug
+    assert state.epoch == 0
+    assert state.closed is False
+
+    # Write findings to .gemini/pipeline
+    result = write_findings(
+        _checker_findings(),
+        "check",
+        plan=plan_slug,
+        task=1,
+        attempt=1,
+        seq=1,
+    )
+    assert "wrote .gemini/pipeline/" in result
+    assert (tmp_path / ".gemini" / "pipeline" / "checker-check-findings.json").exists()
+
+    # Write report to .gemini/pipeline
+    report_res = write_report(
+        _writer_report(),
+        "rep",
+        plan=plan_slug,
+        task=1,
+        attempt=1,
+    )
+    assert "wrote .gemini/pipeline/" in report_res
+    assert (tmp_path / ".gemini" / "pipeline" / "writer-rep-report.json").exists()
+
+
+def test_env_project_dir_resolution(tmp_path, monkeypatch):
+    custom_dir = tmp_path / "custom_workspace"
+    custom_dir.mkdir()
+    monkeypatch.setenv("ORCHESTRATOR_PROJECT_DIR", str(custom_dir))
+
+    # Re-import or verify fallback
+    resolved = Path(
+        os.environ.get("ORCHESTRATOR_PROJECT_DIR")
+        or os.environ.get("GEMINI_PROJECT_DIR")
+        or os.environ.get("CLAUDE_PROJECT_DIR")
+        or os.getcwd()
+    )
+    assert resolved == custom_dir
+

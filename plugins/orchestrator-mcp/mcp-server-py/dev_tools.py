@@ -22,8 +22,53 @@ if sys.platform == "win32":
 else:
     import fcntl
 
-PROJECT_DIR = Path(os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd()))
+PROJECT_DIR = Path(
+    os.environ.get("ORCHESTRATOR_PROJECT_DIR")
+    or os.environ.get("GEMINI_PROJECT_DIR")
+    or os.environ.get("CLAUDE_PROJECT_DIR")
+    or os.getcwd()
+)
 DEFAULT_PIPELINE = ".claude/pipeline"
+
+
+def _plans_dir(plan: str | None = None) -> Path:
+    """Resolve the directory where plan markdown and event logs live.
+
+    Checks environment overrides first (ORCHESTRATOR_PLANS_DIR or ORCHESTRATOR_DATA_DIR / GEMINI_DATA_DIR),
+    then inspects PROJECT_DIR for existing plan files or candidate directories
+    (.gemini/plans, .orchestrator/plans, .claude/plans).
+    Defaults to PROJECT_DIR / '.claude' / 'plans' for backward compatibility.
+    """
+    if env_dir := os.environ.get("ORCHESTRATOR_PLANS_DIR"):
+        return PROJECT_DIR / env_dir
+    if env_data_dir := (os.environ.get("ORCHESTRATOR_DATA_DIR") or os.environ.get("GEMINI_DATA_DIR")):
+        return PROJECT_DIR / env_data_dir / "plans"
+
+    if plan:
+        for candidate in [".gemini", ".orchestrator", ".claude"]:
+            candidate_dir = PROJECT_DIR / candidate / "plans"
+            if (candidate_dir / f"{plan}.md").exists() or (candidate_dir / f"{plan}.jsonl").exists():
+                return candidate_dir
+
+    for candidate in [".gemini", ".orchestrator"]:
+        candidate_dir = PROJECT_DIR / candidate / "plans"
+        if candidate_dir.is_dir():
+            return candidate_dir
+
+    return PROJECT_DIR / ".claude" / "plans"
+
+
+def _resolve_default_pipeline() -> str:
+    """Resolve default pipeline path relative to PROJECT_DIR."""
+    if env_pipeline := os.environ.get("ORCHESTRATOR_PIPELINE_DIR"):
+        return env_pipeline
+    if env_data_dir := (os.environ.get("ORCHESTRATOR_DATA_DIR") or os.environ.get("GEMINI_DATA_DIR")):
+        return f"{env_data_dir}/pipeline"
+    if (PROJECT_DIR / ".gemini").is_dir() and not (PROJECT_DIR / ".claude").is_dir():
+        return ".gemini/pipeline"
+    if (PROJECT_DIR / ".orchestrator").is_dir() and not (PROJECT_DIR / ".claude").is_dir():
+        return ".orchestrator/pipeline"
+    return DEFAULT_PIPELINE
 
 LABEL_PATTERN = r"^[a-z0-9]+(-[a-z0-9]+)*$"
 Label = Annotated[str, Field(pattern=LABEL_PATTERN, min_length=1, max_length=40)]
@@ -642,11 +687,13 @@ def _fold(cache: _PlanCache, data: bytes) -> None:
 def _append(plan: str, events: list[dict]) -> list[dict]:
     """Implements REQ-011 steps 0-7 for one or more already-validated event dicts,
     under a single lock acquisition. Returns [{"kind", "status", "ts"}, ...]."""
-    md_path = PROJECT_DIR / ".claude/plans" / f"{plan}.md"
+    plans_dir = _plans_dir(plan)
+    md_path = plans_dir / f"{plan}.md"
     if not md_path.exists():
-        raise ValueError(f"plan archive not found: .claude/plans/{plan}.md")
+        rel = md_path.relative_to(PROJECT_DIR).as_posix() if md_path.is_relative_to(PROJECT_DIR) else md_path
+        raise ValueError(f"plan archive not found: {rel}")
 
-    path = PROJECT_DIR / ".claude/plans" / f"{plan}.jsonl"
+    path = plans_dir / f"{plan}.jsonl"
 
     fd = os.open(str(path), _OPEN_FLAGS)
     try:
@@ -779,10 +826,11 @@ def _append(plan: str, events: list[dict]) -> list[dict]:
 mcp = FastMCP("dev-tools")
 
 
-def _pipeline_dir(pipeline: str | None) -> Path:
-    pipeline_dir = PROJECT_DIR / (pipeline or DEFAULT_PIPELINE)
+def _pipeline_dir(pipeline: str | None) -> tuple[Path, str]:
+    effective_pipeline = pipeline or _resolve_default_pipeline()
+    pipeline_dir = PROJECT_DIR / effective_pipeline
     pipeline_dir.mkdir(parents=True, exist_ok=True)
-    return pipeline_dir
+    return pipeline_dir, effective_pipeline
 
 
 def _unique_path(pipeline_dir: Path, source: str, label: str, kind: str) -> Path:
@@ -796,7 +844,7 @@ def _unique_path(pipeline_dir: Path, source: str, label: str, kind: str) -> Path
 
 
 def _write_findings_file(findings: Findings, label: Label, pipeline: str | None) -> str:
-    pipeline_dir = _pipeline_dir(pipeline)
+    pipeline_dir, effective_pipeline = _pipeline_dir(pipeline)
     payload = findings.model_dump(mode="json")
     payload.pop("source", None)
     payload.pop("status", None)
@@ -808,7 +856,7 @@ def _write_findings_file(findings: Findings, label: Label, pipeline: str | None)
     }
     out_path = _unique_path(pipeline_dir, findings.source, label, "findings")
     out_path.write_text(json.dumps(out, indent=2))
-    return f"wrote {pipeline or DEFAULT_PIPELINE}/{out_path.name}"
+    return f"wrote {effective_pipeline}/{out_path.name}"
 
 
 def _findings_total(findings: Findings) -> int:
@@ -947,7 +995,7 @@ def write_findings(
 
 
 def _write_report_file(report: Report, label: Label, pipeline: str | None) -> str:
-    pipeline_dir = _pipeline_dir(pipeline)
+    pipeline_dir, effective_pipeline = _pipeline_dir(pipeline)
     payload = report.model_dump(mode="json")
     payload.pop("source", None)
     out = {
@@ -957,7 +1005,7 @@ def _write_report_file(report: Report, label: Label, pipeline: str | None) -> st
     }
     out_path = _unique_path(pipeline_dir, report.source, label, "report")
     out_path.write_text(json.dumps(out, indent=2))
-    return f"wrote {pipeline or DEFAULT_PIPELINE}/{out_path.name}"
+    return f"wrote {effective_pipeline}/{out_path.name}"
 
 
 @mcp.tool()
@@ -1185,7 +1233,7 @@ def read_plan_events(
     this tool makes no existence claim about the plan.
     """
     _PLAN_ADAPTER.validate_python(plan)
-    path = PROJECT_DIR / ".claude/plans" / f"{plan}.jsonl"
+    path = _plans_dir(plan) / f"{plan}.jsonl"
     out: list[dict] = []
     for ev in _read_all_lines(path):
         ev_kind = ev.get("kind")
@@ -1371,7 +1419,7 @@ def get_plan_state(plan: PlanSlug, validate_shas: bool = True) -> PlanState:
     to None without running git at all.
     """
     _PLAN_ADAPTER.validate_python(plan)
-    path = PROJECT_DIR / ".claude/plans" / f"{plan}.jsonl"
+    path = _plans_dir(plan) / f"{plan}.jsonl"
     if not path.exists() or path.stat().st_size == 0:
         raise ValueError(f"plan log not found or not valid: {plan}")
 

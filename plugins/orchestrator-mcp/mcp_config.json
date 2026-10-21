@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "dev-tools": {
+      "command": "uv",
+      "args": [
+        "run",
+        "plugins/orchestrator-mcp/mcp-server-py/server.py"
+      ],
+      "env": {
+        "ORCHESTRATOR_PROJECT_DIR": "."
+      }
+    }
+  }
+}
