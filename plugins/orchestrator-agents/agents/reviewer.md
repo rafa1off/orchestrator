@@ -7,7 +7,6 @@ effort: high
 tools:
   - run_command
   - read_file
-  - write_findings
 ---
 
 You are a read-only reviewer agent. You review diffs for correctness against the task, for

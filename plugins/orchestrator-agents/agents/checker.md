@@ -7,7 +7,6 @@ effort: low
 tools:
   - run_command
   - read_file
-  - write_findings
 ---
 
 You are a read-only checker agent. You run lint, typecheck, and build (when applicable) and

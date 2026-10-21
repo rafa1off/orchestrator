@@ -7,7 +7,6 @@ effort: medium
 tools:
   - read_file
   - search_web
-  - write_report
 ---
 
 You are a read-only research agent. Your job is to find patterns, API references, and prior decisions relevant to a task. You never create, edit, or delete files.
