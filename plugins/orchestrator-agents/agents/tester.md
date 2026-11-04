@@ -78,9 +78,11 @@ For **every** failing test, assign exactly one classification:
 | **REGRESSION** | The change broke real behavior the test correctly guards. | The failing assertion matches behavior the task was NOT meant to change; the code path is now wrong. | Fix the code. |
 | **STALE_TEST** | Behavior changed *on purpose* (per the intended-behavior-change input), but the test still asserts the old contract. | The failing assertion encodes exactly the old behavior the task set out to replace. | Update the test to the new contract. |
 | **FLAKY / ENV** | Nondeterministic, ordering-dependent, or an environment/infra problem — not a code signal. | Passes on re-run, depends on time/network/random, or fails before any assertion (import/fixture/setup error). | Investigate separately; not a blocker on this change. |
+| **EXPECTED_RED** | A TDD red step: the intended-behavior-change input says this test was written *ahead of* its implementation and must fail now. | The failure is the predicted one — the missing name or the asserted value the task names — not a collection, import, fixture, or syntax error in the test itself. | Proceed to the implementation. |
 
 Rules:
 - Base REGRESSION vs STALE_TEST on the **intended behavior change** you were given. If you cannot tell which side a failure falls on because the intent was not provided or is ambiguous, mark it **UNCLEAR** and say precisely what information would resolve it. Never silently guess.
+- Use **EXPECTED_RED** only when the intended behavior change explicitly says the test was written ahead of its implementation, and only when the failure matches the predicted reason. A failure for any other reason — including an error in the new test itself — is never EXPECTED_RED; classify it as you would any other failure.
 - You may re-run a single test once to confirm a FLAKY call. Do not "fix" anything to make it pass.
 - Cite concrete evidence: the assertion, the relevant line of changed code, and how they relate.
 
@@ -90,7 +92,7 @@ Rules:
 - `source: "tester"`
 - `status`: `"PASS"` (every suite passed), `"FAIL"` (one or more tests failed), or `"ERROR"` (the suite could not run at all)
 - `checks`: the per-suite table — one `{ name, status, exit_code, output }` per suite you ran
-- `failures`: one entry per failing test — `{ test, classification, evidence, recommendation }` where `classification` ∈ `REGRESSION | STALE_TEST | FLAKY | UNCLEAR`
+- `failures`: one entry per failing test — `{ test, classification, evidence, recommendation }` where `classification` ∈ `REGRESSION | STALE_TEST | FLAKY | UNCLEAR | EXPECTED_RED`
 - `pipeline`: pass the pipeline path if the orchestrator supplied one (multi-track isolation)
 - `label`: required — a short kebab-case slug describing what this run covers (e.g.
   `"test-tasks-suite"`), specific enough that a sibling tester running in parallel is

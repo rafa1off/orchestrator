@@ -74,7 +74,7 @@ class Issue(_Strict):
 
 class Failure(_Strict):
     test: str
-    classification: Literal["REGRESSION", "STALE_TEST", "FLAKY", "UNCLEAR"]
+    classification: Literal["REGRESSION", "STALE_TEST", "FLAKY", "UNCLEAR", "EXPECTED_RED"]
     evidence: str
     recommendation: str
 

@@ -207,6 +207,13 @@ you dispatch a writer — with the decision folded into its `## Task`, and `reas
 recorded as in step 2 — to act on it. Never guess which side a failure falls on, and never
 dispatch a test-authoring or test-fixing writer without a user decision.
 
+*Expected red (TDD)* — an `EXPECTED_RED` failure is not a diagnosis to surface. It is the
+tester attesting that a test written ahead of its implementation fails for the predicted
+reason, which clears the red step of a TDD task: proceed to the implementation dispatch. The
+tester only uses it when your dispatch's intended-behavior-change says the test was written
+ahead of its implementation, so state that explicitly on a red-step dispatch. Any other
+classification in the same findings keeps the handling above.
+
 ---
 
 ## Commit Recipe
