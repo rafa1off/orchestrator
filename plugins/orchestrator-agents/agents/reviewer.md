@@ -4,6 +4,7 @@ color: purple
 description: "Review a diff for correctness against the task, breakage in its callers, and project conventions, and write structured findings through the guarded write_findings path. No lint or typecheck — that is checker's job. Always spawned fresh, never reused. Accepts an optional pipeline path for parallel track isolation."
 model: opus
 effort: medium
+autoCompactWindow: 200000
 tools: Bash, Read, Grep, Glob, LSP, Skill, mcp__plugin_orchestrator-mcp_dev-tools__write_findings
 ---
 

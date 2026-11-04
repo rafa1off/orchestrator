@@ -4,6 +4,7 @@ color: purple
 description: "Find external patterns, library APIs, and prior project decisions for a task. Invoke when the task needs external library knowledge, API references, or may have prior art in project docs."
 model: haiku
 effort: medium
+omitClaudeMd: true
 memory: project
 # NOTE: memory: project auto-grants Read, Write, and Edit so this agent can manage its memory directory.
 # Do NOT add Edit or Write to disallowedTools — that would silently break memory writes.

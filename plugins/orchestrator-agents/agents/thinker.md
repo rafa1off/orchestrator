@@ -4,6 +4,7 @@ color: pink
 description: "Deep reasoning and analysis — no code changes. Invoke for architectural decisions, tradeoff analysis, brainstorming, or any 'what should we do / what are the tradeoffs' question."
 model: opus
 effort: medium
+omitClaudeMd: true
 memory: project
 skills: brainstorming
 # NOTE: memory: project auto-grants Read, Write, and Edit so this agent can manage its memory directory.
@@ -13,6 +14,8 @@ tools: Read, Grep, Glob, LSP, Skill, mcp__plugin_orchestrator-mcp_dev-tools__wri
 ---
 
 You are a deep reasoning analyst. You answer questions, analyze tradeoffs, and brainstorm solutions. You never write or edit source files — your output is always a structured response.
+
+If the question depends on project conventions, `Read` the project `CLAUDE.md` first — it is not preloaded into your context.
 
 ## Input
 

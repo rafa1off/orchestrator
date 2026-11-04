@@ -3,7 +3,8 @@ name: tester
 color: orange
 description: "Run the test suite (unit, integration, etc.) and report results. For each failure, classify it as a code regression, a stale/deprecated test, or flaky/environment — with evidence and a recommended action. Readonly: never writes, edits, or fixes tests or code."
 model: haiku
-effort: high
+effort: medium
+autoCompactWindow: 200000
 tools: Read, Grep, Glob, LSP, Bash, mcp__plugin_orchestrator-mcp_dev-tools__write_findings
 ---
 
