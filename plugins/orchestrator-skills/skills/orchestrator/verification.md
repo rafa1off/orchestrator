@@ -227,13 +227,17 @@ git add -- <paths>
 git commit -m 'task <N>: <deliverable phrase>' -- <paths>
 ```
 
-- `<paths>` is sourced from the writer's `write_report` `modified[]` entries with
-  `in_scope: true`, intersected with the task's file set from the plan. Entries with
-  `in_scope: false` are surfaced to the user, never committed as part of this task.
+- `<paths>` is sourced from the writers' `write_report` `modified[]` entries with
+  `in_scope: true` — the **union across every attempt of this task** since its last
+  `task_complete`/`task_reverted` (a fix-round or TDD green-step writer reports only what it
+  touched in that attempt, so the last report alone can drop an earlier attempt's file) —
+  intersected with the task's file set (`TaskState.files`). Read the earlier attempts from
+  `read_plan_events(plan, kind="writer_returned", task=N)`. Entries with `in_scope: false` are
+  surfaced to the user, never committed as part of this task.
 - **This source does not survive every boundary the commit can be attempted across** —
   `writer-*-report.json` is deleted on session start (along with the pre-compact snapshot),
   and a compaction's snapshot never covers a per-track report either. When this happens, do
-  not improvise `<paths>` from the plan's §7 file set (the plan's file set is not necessarily
+  not improvise `<paths>` from the task's planned file set (`TaskState.files` is not necessarily
   the writer's actual committed set, and this is exactly the task the WIP guard already
   excludes as every not-yet-ready task, in the epoch's `excluded_tasks` — so nothing would
   catch foreign dirt swept in on those paths).
@@ -252,11 +256,12 @@ git commit -m 'task <N>: <deliverable phrase>' -- <paths>
   pathspec commit does not pick up untracked files).
 - The commit message is always `-m`, never an editor invocation — `git commit -- <paths>`
   with no `-m` would open `$EDITOR` and hang the agent. `<deliverable phrase>` is derived from
-  the task's numbered §7 line only (never its Consumes/Produces sub-lines): take the text
-  before the task's first `—`, strip the leading numeric prefix and its trailing `.` and
-  whitespace, strip any backticks, strip (not escape) any single-quote characters, and pass
-  the result single-quoted, never double-quoted (§7 lines routinely contain backticked file
-  names, and backticks inside a double-quoted `-m` string are shell command substitution).
+  the task's `task_created.deliverable` (for a superpowers plan, the `### Task N: <name>`
+  heading's `<name>`): take the text before its first `—`, strip any leading numeric prefix
+  and its trailing `.` and whitespace, strip any backticks, strip (not escape) any
+  single-quote characters, and pass the result single-quoted, never double-quoted
+  (deliverables routinely contain backticked file names, and backticks inside a
+  double-quoted `-m` string are shell command substitution).
 - Never `-a`. Current branch only — never creates a branch, never pushes. Two reasons: (1)
   the writer has no `Bash` tool — only the orchestrator can commit; (2) under L2/L3 a sibling
   track may have uncommitted edits in the same working tree at the same moment — pathspec-only
