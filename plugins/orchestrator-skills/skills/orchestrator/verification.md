@@ -310,7 +310,7 @@ the precondition in `## Final Full-Branch Review` below.
 **`plan_abandoned`:** write `write_plan_event(PlanAbandoned(kind="plan_abandoned", why=...,
 superseded_by=<new plan stem, if the user is replacing this plan with another>), plan)` when
 the user abandons a plan outright or replaces it with a new one, instead of letting it run to
-`plan_complete`. See `orchestrator-plan/SKILL.md` Step 6 for the matching
+`plan_complete`. See `superpowers-bridge/planning.md` § Archive for the matching
 `plan_archived.supersedes` write on the new plan.
 
 ---
