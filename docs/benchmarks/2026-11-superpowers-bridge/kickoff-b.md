@@ -1,15 +1,23 @@
 # Run B kickoff — superpowers + bridge
 
 **Before either run (user, once).** Both sessions already exist, so `--plugin-dir` is not
-available. Install the bridge into them:
+available, and the branch is not merged, so the GitHub marketplace (default branch) does not
+have the bridge. Point the marketplace at the local checkout instead:
 
-1. Push the plugins (orchestrator-skills ≥ 2.0.0, orchestrator-agents ≥ 1.28.0,
-   orchestrator-mcp ≥ 1.12.0).
-2. In **both** sessions, run `/plugin update` for the orchestrator plugins, then
-   `/reload-plugins`.
+1. Keep `/home/rafaelg/Projetos/orchestrator` checked out on `feat/superpowers-bridge` for the
+   whole benchmark — a local marketplace reads that working copy.
+2. In one session: `/plugin marketplace remove orchestrator-plugins`, then
+   `/plugin marketplace add /home/rafaelg/Projetos/orchestrator`, then reinstall the six
+   plugins (`/plugin install <name>@orchestrator-plugins` for orchestrator-mcp,
+   orchestrator-hooks, orchestrator-agents, orchestrator-skills, ty-lsp, tsgo-lsp).
+3. Confirm with `/plugin`: orchestrator-skills 2.0.0, orchestrator-agents 1.28.0,
+   orchestrator-mcp 1.12.0.
+4. In **both** sessions, run `/reload-plugins`.
 
-Run A keeps seeing the same installed plugins as today's setup and simply never loads the
-bridge.
+Run A sees the same plugins but never loads the orchestrator skill, its agents or the bridge;
+the hooks are unchanged on this branch and only match `orchestrator-agents:*`.
+
+**After both runs:** remove the local marketplace and re-add `rafa1off/orchestrator`.
 
 **Before pasting (user):**
 
