@@ -16,7 +16,7 @@ Paste everything below this line into the Run A session.
 Create an isolated worktree and work only inside it:
 
 ```bash
-git worktree add ../orchestrator-run-a -b bench/run-a <BASE>
+git worktree add ../orchestrator-run-a -b bench/run-a 7c01f54b4082269d7e6e74e8d13f617ab2fbba32
 cd ../orchestrator-run-a
 ```
 

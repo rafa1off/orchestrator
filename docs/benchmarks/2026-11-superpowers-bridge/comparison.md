@@ -2,7 +2,7 @@
 
 - **Spec:** `docs/superpowers/specs/2026-11-04-superpowers-bridge-design.md` (Evaluation section)
 - **Benchmark plan:** `docs/superpowers/plans/2026-11-04-hook-test-suite.md`
-- **BASE:**
+- **BASE:** `7c01f54b4082269d7e6e74e8d13f617ab2fbba32`
 - **Claude Code version:**
 - **Main-session model / effort:**
 

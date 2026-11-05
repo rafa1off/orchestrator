@@ -23,7 +23,7 @@ the hooks are unchanged on this branch and only match `orchestrator-agents:*`.
 
 - Run A must be finished.
 - Note `/usage` (5-hour and weekly) in `comparison.md` right before you paste.
-- Use the same `<BASE>` as Run A.
+- Use the same `7c01f54b4082269d7e6e74e8d13f617ab2fbba32` as Run A.
 
 ---
 
@@ -34,7 +34,7 @@ Paste everything below this line into the Run B session.
 Create an isolated worktree and work only inside it:
 
 ```bash
-git worktree add ../orchestrator-run-b -b bench/run-b <BASE>
+git worktree add ../orchestrator-run-b -b bench/run-b 7c01f54b4082269d7e6e74e8d13f617ab2fbba32
 cd ../orchestrator-run-b
 ```
 
