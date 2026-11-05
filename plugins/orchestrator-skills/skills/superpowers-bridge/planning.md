@@ -55,7 +55,8 @@ rejects every event for a plan whose archive `.md` does not exist, so the copy c
 
 1. **Copy** the approved plan to `.claude/plans/<stem>.md`, where `<stem>` is the plan file's
    basename without extension (superpowers names plans `YYYY-MM-DD-<slug>.md`, which already
-   matches the stem pattern). The superpowers plan stays where it is; the copy is what
+   matches the stem pattern; if the slug has uppercase letters or underscores, lowercase it and
+   use hyphens in the copy's name). The superpowers plan stays where it is; the copy is what
    Resuming and `get_plan_state` find.
    - **If this plan replaces a still-active plan** (one whose `get_plan_state(old).closed` is
      false and that this plan supersedes rather than continues), set `supersedes` on the new
@@ -68,6 +69,7 @@ rejects every event for a plan whose archive `.md` does not exist, so the copy c
      that task's `**Files:**` list (created + modified + test paths), or `null` (never `[]`)
      for a verification-only task.
    - One `decision{text, who: "user", seq}` per decision the user made in the spec (its
-     decisions table), `seq` numbered 1, 2, ….
+     decisions table), `seq` numbered 1, 2, …. A spec with no recorded user decisions gets
+     none.
 
 Execution state is read back with `get_plan_state(<stem>)`; nothing further is written here.

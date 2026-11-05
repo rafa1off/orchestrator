@@ -1,6 +1,6 @@
 ---
 name: superpowers-bridge
-description: "Opt-in bridge that runs the superpowers workflow (brainstorming → spec → plan → subagent-driven execution → finishing the branch) on the orchestrator's agents, hooks, findings contract and Plan Event Log. Superpowers decides what happens and when; the orchestrator decides who does it and how it is proven."
+description: "Opt-in overrides that make superpowers skills dispatch the orchestrator's agents and record their work in the orchestrator's findings contract and Plan Event Log."
 when_to_use: "Load only when explicitly asked to (a Skill(...) line in CLAUDE.md / CLAUDE.local.md, or the user naming it), and always together with orchestrator-skills:orchestrator, which it builds on. Never load it on your own initiative: it is opt-in while its cost is being evaluated."
 ---
 
@@ -8,8 +8,8 @@ when_to_use: "Load only when explicitly asked to (a Skill(...) line in CLAUDE.md
 
 **Announce at start:** "Using superpowers-bridge: superpowers process, orchestrator agents."
 
-Load `orchestrator-skills:orchestrator` first if it is not already loaded — this skill only
-adds overrides on top of it; dispatch rules, Run Start, verification, the Commit Recipe, and
+**REQUIRED BACKGROUND:** `orchestrator-skills:orchestrator` — load it first if it is not
+already loaded. This skill only adds overrides on top of it; dispatch rules, Run Start, verification, the Commit Recipe, and
 the Final Full-Branch Review all stay exactly as that skill and its `verification.md` define
 them.
 
@@ -60,11 +60,22 @@ does not describe.
 **Per task**, using the orchestrator's `verification.md` Steps (a TDD task follows §4):
 
 1. `writer_dispatched{attempt: last_attempt + 1, reason: "initial"}` → a **fresh**
-   `orchestrator-agents:writer` with `## Context` (the task text from the plan, the spec path,
-   the task's Interfaces block, and every `ruling` that touches it) / `## Task` /
-   `## Files to modify` (the task's `**Files:**`), plus `plan: <stem>, task: N, attempt: <n>`.
+   `orchestrator-agents:writer` whose prompt is exactly these parts, in order:
+
+   ```
+   ## Context
+   Spec: <spec path>. Plan: <plan path>, Task N.
+   <the task's text from the plan, verbatim, including its Interfaces block>
+   Rulings on this task: <each ruling's text, or "none">
+   ## Task
+   <one sentence: the task's deliverable>
+   ## Files to modify
+   <the task's **Files:** list>
+   plan: <stem>, task: N, attempt: <n>
+   ```
 2. `orchestrator-agents:checker` + `orchestrator-agents:tester` + `orchestrator-agents:reviewer`
-   in one turn, each carrying `plan`, `task`, the attempt under review and its own `seq`. The
+   in one turn, each carrying `plan`, `task`, the attempt under review and
+   `seq: next_seq["verify_round"]`. The
    reviewer is superpowers' task review — give it the spec path and the task text so it can
    judge spec compliance as well as quality. Always fresh.
 3. Clean → the Commit Recipe (paths: the union of `in_scope` across the task's attempts) →
@@ -84,7 +95,8 @@ as step 2, at the new attempt — this **replaces** SDD's `re-review-prompt.md`.
 - **Model escalation.** Before dispatching a fix, read `round_count`: the fix about to go out
   is number `F = round_count` (TDD task: `round_count − 1`). For `F ≥ 4` — superpowers'
   "rounds 4–5" — set `model` one tier above the writer's frontmatter model (sonnet → opus);
-  otherwise omit `model`.
+  otherwise omit `model`. Example: the initial round failed → `round_count` is 1 → this fix
+  is F = 1, no escalation.
 
 **SDD steps you skip or replace:**
 
@@ -103,18 +115,30 @@ as step 2, at the new attempt — this **replaces** SDD's `re-review-prompt.md`.
 
 The writer has no Bash, so the tester attests both halves. A TDD task's sequence:
 
-1. **Red — attempt n, `reason: "initial"`.** A fresh writer writes only the test. Then dispatch
+1. **Red — `reason: "initial"`.** A fresh writer writes only the test. Then dispatch
    only the tester, with `Intended behavior change: <test> is written ahead of <feature> and
    must fail now because <predicted reason>. A failure for any other reason — including an
-   error in the new test itself — is not EXPECTED_RED: classify it UNCLEAR.` Required result:
-   every new test's failure classified `EXPECTED_RED`.
-2. **Green — attempt n + 1, `reason: "fix"`.** A fresh writer implements (its `## Context`
-   names the test written at attempt n). Then the full checker + tester + reviewer turn of §3
-   step 2; the tester must PASS.
-3. Commit (the union of `in_scope` across both attempts includes the test file) →
-   `task_complete`.
+   error in the new test itself — is not EXPECTED_RED: classify it UNCLEAR.` The red step
+   clears when every new test's failure is classified `EXPECTED_RED`.
+2. **Green — the next attempt, `reason: "fix"`.** A fresh writer implements (its `## Context`
+   names the test and the attempt that wrote it). Then the full checker + tester + reviewer
+   turn of §3 step 2; the tester must PASS.
+3. Commit (the union of `in_scope` across the task's attempts includes the test file) →
+   `task_complete` at the green attempt.
 
-An unexpected red — any classification other than `EXPECTED_RED` — is handled by §5.
+What the red step's tester result decides:
+
+| Tester result at the red step | Next action |
+|---|---|
+| Every new test `EXPECTED_RED`, nothing else failing | Green (step 2). |
+| A new test **passed** (status PASS, or the test is absent from `failures`) | The red step did not clear; never dispatch green. Next attempt, `reason: "fix"`: a fresh writer rewrites only the test (`## Files to modify`: the test file alone), its `## Context` carrying the tester output and the line "First confirm `<feature>` does not exist yet; if it does, change nothing and return a `context_request` saying so." Then the tester alone again. A writer `context_request` that the feature already exists is a plan defect → a `ruling` (§5 last bullet). Not a tester diagnosis, so no escalation. |
+| A new test failed with another classification | §5. |
+| A test that is not new failed | §5, as for any other failure. |
+
+Example event sequence for a TDD task whose red clears first time: `writer_dispatched{1,
+initial}` → tester-only `verify_round{attempt 1}` (EXPECTED_RED) → `writer_dispatched{2, fix}`
+→ checker + tester + reviewer `verify_round{attempt 2}` → Commit Recipe → `task_complete{attempt
+2}`.
 
 ## 5. Rulings and tester diagnoses (the hybrid rule)
 
