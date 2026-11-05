@@ -6,7 +6,7 @@ A private Claude Code plugin marketplace for the orchestrator multi-agent develo
 
 | Plugin | Description | Requires |
 |---|---|---|
-| [`orchestrator-skills`](#orchestrator-skills) | 2 workflow skills — auto-installs `orchestrator-agents` + `orchestrator-hooks` | — |
+| [`orchestrator-skills`](#orchestrator-skills) | 2 workflow skills (`orchestrator`, opt-in `superpowers-bridge`) — auto-installs `orchestrator-agents` + `orchestrator-hooks` | — |
 | [`orchestrator-agents`](#orchestrator-agents) | 7-agent catalog — auto-installs `orchestrator-mcp` | `uv` |
 | [`orchestrator-hooks`](#orchestrator-hooks) | Full hook suite (SessionStart/End, SubagentStart/Stop findings guards, PreToolUse guardrails, PostToolUse findings + writer-overlap, PreCompact) | `jq` |
 | [`orchestrator-mcp`](#orchestrator-mcp) | Dev-tools MCP server (`write_findings`/`write_report` pipeline contract, plus the Plan Event Log tools) | `uv` |
@@ -25,6 +25,11 @@ orchestrator-skills
 ---
 
 ## Requirements
+
+### Claude Code ≥ 2.1.317
+
+The agents use `omitClaudeMd` (2.1.271), `autoCompactWindow` (2.1.296), and rely on subagents
+no longer inheriting the session's effort level (2.1.317). Check with `claude --version`.
 
 ### `jq` (required by `orchestrator-hooks`)
 
@@ -173,16 +178,20 @@ To avoid cold-starting the prompt cache mid-session:
 }
 ```
 
+- Safety net for subagents that carry no effort of their own (e.g. a `general-purpose`
+  dispatch): set `CLAUDE_CODE_SUBAGENT_EFFORT` (e.g. `"low"` or `"medium"`) in `env` so they
+  do not run at the session's effort. The orchestrator agents set their own in frontmatter.
+
 ---
 
 ## orchestrator-skills
 
-Two workflow skills for the orchestrator session:
+Two workflow skills for the orchestrator session. (`orchestrator-plan` was retired in 2.0.0 — planning now belongs to superpowers `brainstorming` + `writing-plans`, with the bridge.)
 
 | Skill | When to use |
 |---|---|
 | `/orchestrator-skills:orchestrator` | Load at every session start — the agent routing guide: 7-agent catalog, 3 core invariants, L1/L2/L3 dispatch levels (L3 via `Workflow`), dispatch mode rules, routing special cases, plus resuming an open plan from its event log, the per-epoch run start (auto-commit decision, base SHA, WIP snapshot), and the final full-branch review. Lazy-loads `dispatch-levels.md`, `verification.md`, and `agent-contracts.md` on demand. |
-| `/orchestrator-skills:orchestrator-plan` | Before any multi-step task — enters plan mode, dispatches readonly agents (Explore/reader/researcher/thinker) in parallel, traces the blast radius, and writes a plan that pins interface contracts against project conventions. After approval it archives the plan to `.claude/plans/` and starts its `.claude/plans/<plan>.jsonl` event log (`plan_archived`, `task_created`, `decision`); execution stays with the orchestrator skill. |
+| `/orchestrator-skills:superpowers-bridge` | **Opt-in** (under evaluation). Runs the [superpowers](https://github.com/obra/superpowers) workflow — brainstorming → spec → `writing-plans` → subagent-driven execution → finishing the branch — on the orchestrator agents, hooks, findings contract, and Plan Event Log. Superpowers decides what happens and when; the orchestrator decides who does it and how it is proven. Load it together with `orchestrator`, e.g. `Skill("/orchestrator-skills:superpowers-bridge")` in `CLAUDE.local.md`. Planning research and the plan archive step live in its lazy-loaded `planning.md`. |
 
 **Dependencies:** `orchestrator-agents`, `orchestrator-hooks`
 
@@ -200,7 +209,7 @@ Two workflow skills for the orchestrator session:
 | `orchestrator-agents:writer` | sonnet | low | read+write | Produces minimal, focused code changes from a context block; writes `writer-<label>-report.json` listing modified files |
 | `orchestrator-agents:checker` | haiku | low | readonly | Lint + typecheck + build only — no diff review; call any time, writes `checker-<label>-findings.json` |
 | `orchestrator-agents:reviewer` | opus | medium | readonly | Diff review — correctness against the task, caller breakage, conventions; no lint/typecheck; always spawned fresh, writes `reviewer-<label>-findings.json` |
-| `orchestrator-agents:tester` | haiku | high | readonly | Runs the suite and classifies each failure (REGRESSION / STALE TEST / FLAKY / UNCLEAR) with evidence — never writes or fixes tests |
+| `orchestrator-agents:tester` | haiku | medium | readonly | Runs the suite and classifies each failure (REGRESSION / STALE TEST / FLAKY / UNCLEAR, or EXPECTED_RED for a TDD red step) with evidence — never writes or fixes tests |
 
 **Dispatch mode:** agents always run as background subagents — fork mode is on by default in
 interactive sessions and Claude cannot request the foreground (`CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1`

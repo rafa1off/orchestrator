@@ -2072,3 +2072,30 @@ def test_launcher_exports_dev_tools_mcp():
     launcher: Any = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(launcher)
     assert launcher.mcp.name == "dev-tools"
+
+
+# --- EXPECTED_RED (TDD red step) ------------------------------------------------
+
+
+def test_failure_accepts_expected_red():
+    f = server.Failure(
+        test="t", classification="EXPECTED_RED", evidence="e", recommendation="r"
+    )
+    assert f.classification == "EXPECTED_RED"
+
+
+def test_write_findings_tester_expected_red_round_trips(tmp_path, monkeypatch):
+    monkeypatch.setattr(server, "PROJECT_DIR", tmp_path)
+    findings = server.TesterFindings(
+        source="tester",
+        status="FAIL",
+        checks=[server.Check(name="pytest", status="FAIL", exit_code=1, output="1 failed")],
+        failures=[
+            server.Failure(
+                test="t", classification="EXPECTED_RED", evidence="e", recommendation="r"
+            )
+        ],
+    )
+    result = write_findings(findings, "red-step", pipeline=None)
+    written = json.loads((tmp_path / _event_path(result)).read_text())
+    assert written["failures"][0]["classification"] == "EXPECTED_RED"
